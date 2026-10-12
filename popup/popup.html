@@ -28,35 +28,21 @@
       <div class="arena-header">
         <span class="badge">Live Test Arena</span>
       </div>
-      <p class="arena-desc">Test your hold gesture below before browsing:</p>
+      <p class="arena-desc">Test your hold or flick gesture below:</p>
       <div class="test-button-wrap">
         <a href="https://example.com" id="testLink" class="test-link" draggable="false">
           <svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
             <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
           </svg>
-          <span id="testLinkText">Hold Left-Click on Me</span>
+          <span id="testLinkText">Hold or Flick Me (Test Link)</span>
         </a>
-        <div id="testStatus" class="test-status">Press & hold to feel duration</div>
+        <div id="testStatus" class="test-status">Press & hold or flick 35px to test</div>
       </div>
     </section>
 
     <!-- Main Settings -->
     <section class="card settings-card">
-      <!-- Duration Slider -->
-      <div class="setting-group">
-        <div class="setting-label-row">
-          <label for="holdDuration" class="setting-label">Hold Duration</label>
-          <span id="durationValue" class="value-chip">450 ms</span>
-        </div>
-        <input type="range" id="holdDuration" min="200" max="1200" step="25" value="450" class="range-slider">
-        <div class="range-marks">
-          <span>Fast (200ms)</span>
-          <span>Normal (450ms)</span>
-          <span>Slow (1.2s)</span>
-        </div>
-      </div>
-
       <!-- Gesture Mode -->
       <div class="setting-group">
         <label class="setting-label">Gesture Trigger</label>
@@ -73,6 +59,34 @@
             <input type="radio" name="gestureMode" value="both">
             <span>Both</span>
           </label>
+        </div>
+      </div>
+
+      <!-- Duration Slider -->
+      <div class="setting-group" id="holdDurationGroup">
+        <div class="setting-label-row">
+          <label for="holdDuration" class="setting-label">Hold Duration</label>
+          <span id="durationValue" class="value-chip">450 ms</span>
+        </div>
+        <input type="range" id="holdDuration" min="200" max="1200" step="25" value="450" class="range-slider">
+        <div class="range-marks">
+          <span>Fast (200ms)</span>
+          <span>Normal (450ms)</span>
+          <span>Slow (1.2s)</span>
+        </div>
+      </div>
+
+      <!-- Flick Distance Slider -->
+      <div class="setting-group" id="dragDistanceGroup">
+        <div class="setting-label-row">
+          <label for="dragDistance" class="setting-label">Flick Distance</label>
+          <span id="dragDistanceValue" class="value-chip">35 px</span>
+        </div>
+        <input type="range" id="dragDistance" min="15" max="100" step="5" value="35" class="range-slider">
+        <div class="range-marks">
+          <span>Short (15px)</span>
+          <span>Normal (35px)</span>
+          <span>Long (100px)</span>
         </div>
       </div>
 

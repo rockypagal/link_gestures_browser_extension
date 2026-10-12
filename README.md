@@ -52,14 +52,50 @@ HoldTab supports Firefox Manifest V3 and uses dual background script and service
 
 ---
 
+## How to Use HoldTab
+
+### 1. Long-Press Hold Gesture (Default)
+1. **Hover** over any clickable link on any webpage.
+2. **Press & hold** down the left mouse button.
+3. A circular progress ring will animate around your cursor.
+4. When the countdown completes (~450ms default):
+   - The ring pulses green with a centered **✓ checkmark**.
+   - The link opens instantly in a **new background tab**.
+   - The standard click is suppressed so your current page never navigates away.
+5. **Release** your mouse button.
+
+> **To Cancel**: Lift your finger before the ring completes, or move the mouse away. Normal clicking and text selection are preserved!
+
+### 2. Quick Flick / Drag Gesture
+1. In the extension popup, set **Gesture Trigger** to **"Flick/Drag"** or **"Both"**.
+2. **Click and flick/drag** any link in any direction (up, right, down, or left).
+3. A dynamic directional blue arrow tracks your cursor and rotates in your drag direction, while a distance ring fills toward 100%.
+4. The moment you pass your configured distance (default: 35px), it pops green and opens the tab in the background!
+
+> **To Cancel**: Release your mouse before reaching the pixel threshold to cancel the drag without opening.
+
+### 3. Customizing Your Preferences (Popup Menu)
+Click the **HoldTab icon** in your browser toolbar to open settings:
+- **Gesture Trigger**: Switch between **Hold**, **Flick/Drag**, or **Both**.
+- **Dynamic Sliders**:
+  - **Hold Duration Slider** (200ms to 1200ms): Fine-tune how quickly links open.
+  - **Flick Distance Slider** (15px to 100px): Adjust how far you need to drag/flick.
+- **Tab Position**: Choose whether background tabs open **Next to current tab** or **At the end** of your tab bar.
+- **Tab Focus**: Keep in **Background** (default) or switch to **Foreground** immediately.
+- **Website Exclusions**: Click **+ Exclude This Site** to disable gestures on specific web apps, or manage custom blacklisted domains.
+- **Live Test Arena**: An interactive sandbox inside the popup where you can test-drive your exact hold time and flick distance before browsing!
+
+---
+
 ## How to Test
 
 1. Open `test.html` in your browser by double-clicking it or opening `file:///c:/Users/ratho_t8utq3d/Documents/broswer%20extention%20for%20new%20tabs/test.html`.
 2. Press and hold the left mouse button on any test link:
    - Watch the radial timer fill up around your cursor.
    - Upon completion, the link opens in a new background tab, and your current page stays right where it is.
-3. Try a quick click: it navigates normally.
-4. Open the extension popup to try out the **Live Test Arena** and adjust the hold duration slider to your liking.
+3. Try flicking/dragging a link: watch the directional arrow follow your mouse and trigger the background tab!
+4. Try a quick click: it navigates normally without opening background tabs.
+5. Open the extension popup to try out the **Live Test Arena** and adjust your sliders to your liking.
 
 ---
 

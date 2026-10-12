@@ -65,9 +65,19 @@ function renderUI() {
   durationSlider.value = currentSettings.holdDuration;
   document.getElementById('durationValue').textContent = `${currentSettings.holdDuration} ms`;
 
+  // Flick distance
+  const dragSlider = document.getElementById('dragDistance');
+  if (dragSlider) {
+    dragSlider.value = currentSettings.dragDistance || 35;
+    document.getElementById('dragDistanceValue').textContent = `${currentSettings.dragDistance || 35} px`;
+  }
+
   // Gesture mode
   const gestureRadio = document.querySelector(`input[name="gestureMode"][value="${currentSettings.gestureMode}"]`);
   if (gestureRadio) gestureRadio.checked = true;
+
+  // Dynamic visibility based on selected gesture
+  updateGestureVisibility(currentSettings.gestureMode);
 
   // Tab position
   const posRadio = document.querySelector(`input[name="tabPosition"][value="${currentSettings.tabPosition}"]`);
@@ -82,6 +92,28 @@ function renderUI() {
 
   // Excluded domains
   renderExcludedTags();
+}
+
+// Show/hide sliders according to active gesture mode
+function updateGestureVisibility(mode) {
+  const holdGroup = document.getElementById('holdDurationGroup');
+  const dragGroup = document.getElementById('dragDistanceGroup');
+  const testDesc = document.querySelector('.arena-desc');
+
+  if (mode === 'hold') {
+    if (holdGroup) holdGroup.style.display = 'flex';
+    if (dragGroup) dragGroup.style.display = 'none';
+    if (testDesc) testDesc.textContent = 'Test your hold gesture below:';
+  } else if (mode === 'drag') {
+    if (holdGroup) holdGroup.style.display = 'none';
+    if (dragGroup) dragGroup.style.display = 'flex';
+    if (testDesc) testDesc.textContent = 'Test your flick/drag gesture below:';
+  } else {
+    // 'both'
+    if (holdGroup) holdGroup.style.display = 'flex';
+    if (dragGroup) dragGroup.style.display = 'flex';
+    if (testDesc) testDesc.textContent = 'Test either hold or flick gesture below:';
+  }
 }
 
 // Render domain tag pills
@@ -144,10 +176,25 @@ function setupEventListeners() {
     saveSettings({ holdDuration: parseInt(e.target.value, 10) });
   });
 
+  // Flick Distance slider
+  const dragSlider = document.getElementById('dragDistance');
+  const dragValue = document.getElementById('dragDistanceValue');
+  if (dragSlider && dragValue) {
+    dragSlider.addEventListener('input', (e) => {
+      const val = parseInt(e.target.value, 10);
+      dragValue.textContent = `${val} px`;
+    });
+    dragSlider.addEventListener('change', (e) => {
+      saveSettings({ dragDistance: parseInt(e.target.value, 10) });
+    });
+  }
+
   // Gesture mode radio
   document.querySelectorAll('input[name="gestureMode"]').forEach((el) => {
     el.addEventListener('change', (e) => {
-      saveSettings({ gestureMode: e.target.value });
+      const mode = e.target.value;
+      updateGestureVisibility(mode);
+      saveSettings({ gestureMode: mode });
     });
   });
 
@@ -223,43 +270,92 @@ function setupTestArena() {
   const testStatus = document.getElementById('testStatus');
   let testTimer = null;
   let testTriggered = false;
+  let startX = 0;
+  let startY = 0;
+  let isDown = false;
 
   testLink.addEventListener('mousedown', (e) => {
     if (e.button !== 0) return;
     e.preventDefault();
 
     testTriggered = false;
-    const duration = parseInt(document.getElementById('holdDuration').value, 10) || 450;
+    isDown = true;
+    startX = e.clientX;
+    startY = e.clientY;
+
+    const mode = currentSettings.gestureMode || 'hold';
+    const duration = parseInt(document.getElementById('holdDuration')?.value, 10) || 450;
+    const threshold = parseInt(document.getElementById('dragDistance')?.value, 10) || 35;
 
     testLink.classList.remove('test-success');
     testLink.classList.add('test-holding');
     testStatus.classList.remove('success');
-    testStatus.textContent = `Holding... (${duration}ms)`;
 
-    testTimer = setTimeout(() => {
+    if (mode === 'hold') {
+      testStatus.textContent = `Holding... (${duration}ms)`;
+    } else if (mode === 'drag') {
+      testStatus.textContent = `Drag/Flick ${threshold}px ➔`;
+    } else {
+      testStatus.textContent = `Holding (${duration}ms) or Flick (${threshold}px) ➔`;
+    }
+
+    if (mode === 'hold' || mode === 'both') {
+      testTimer = setTimeout(() => {
+        if (isDown && !testTriggered) {
+          testTriggered = true;
+          testLink.classList.remove('test-holding');
+          testLink.classList.add('test-success');
+          testStatus.classList.add('success');
+          testStatus.textContent = '🎉 Hold complete! Background tab opened (simulated)';
+        }
+      }, duration);
+    }
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!isDown || testTriggered) return;
+    const mode = currentSettings.gestureMode || 'hold';
+    if (mode === 'hold') return; // In hold-only mode, dragging does not trigger flick
+
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    const dist = Math.hypot(dx, dy);
+    const threshold = parseInt(document.getElementById('dragDistance')?.value, 10) || 35;
+
+    if (dist >= threshold) {
       testTriggered = true;
+      if (testTimer) clearTimeout(testTimer);
       testLink.classList.remove('test-holding');
       testLink.classList.add('test-success');
       testStatus.classList.add('success');
-      testStatus.textContent = '🎉 Triggered! Background tab opened (simulated)';
-    }, duration);
+      testStatus.textContent = `⚡ Flick detected (${Math.round(dist)}px)! Background tab opened (simulated)`;
+    } else if (dist >= 6) {
+      testStatus.textContent = `Dragging... (${Math.round(dist)}/${threshold}px)`;
+    }
   });
 
   function cancelTest() {
+    isDown = false;
     if (testTimer) {
       clearTimeout(testTimer);
       testTimer = null;
     }
     testLink.classList.remove('test-holding');
     if (!testTriggered) {
+      const mode = currentSettings.gestureMode || 'hold';
+      const threshold = parseInt(document.getElementById('dragDistance')?.value, 10) || 35;
       testStatus.classList.remove('success');
-      testStatus.textContent = 'Released early! Hold until it completes.';
+      if (mode === 'drag') {
+        testStatus.textContent = `Released early! Flick at least ${threshold}px to trigger.`;
+      } else {
+        testStatus.textContent = 'Released early! Try holding or flicking to completion.';
+      }
     }
   }
 
   testLink.addEventListener('mouseup', cancelTest);
   testLink.addEventListener('mouseleave', cancelTest);
   testLink.addEventListener('click', (e) => {
-    e.preventDefault(); // Don't actually navigate to example.com inside popup
+    e.preventDefault(); // Don't actually navigate inside popup
   });
 }

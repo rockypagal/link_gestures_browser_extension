@@ -229,6 +229,25 @@
         opacity: 0.95;
         transition: opacity 0.15s;
       }
+      .ht-icon-arrow {
+        display: none;
+        opacity: 0;
+        transform-origin: 18px 18px;
+        transition: opacity 0.1s ease;
+      }
+      .ht-dragging .ht-icon-tab {
+        display: none !important;
+      }
+      .ht-dragging .ht-icon-arrow {
+        display: block !important;
+        opacity: 1 !important;
+      }
+      .ht-dragging .ht-badge {
+        opacity: 1 !important;
+      }
+      .ht-success .ht-icon-arrow {
+        display: none !important;
+      }
       .ht-icon-check {
         fill: none;
         stroke: #FFFFFF;
@@ -308,6 +327,10 @@
           <line x1="18" y1="18" x2="18" y2="22" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" />
           <line x1="16" y1="20" x2="20" y2="20" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" />
         </g>
+        <!-- Directional Drag Arrow centered at (18, 18) -->
+        <g class="ht-icon-arrow">
+          <path d="M18 9 L23.5 15.5 L19.5 15.5 L19.5 25 L16.5 25 L16.5 15.5 L12.5 15.5 Z" fill="#38BDF8" />
+        </g>
         <!-- Success checkmark centered in 36x36 (center is 18, 18) -->
         <path class="ht-icon-check" d="M12 18.5 L16 22.5 L24 14.5" />
       </svg>
@@ -336,6 +359,10 @@
     indicatorEl.style.left = `${x}px`;
     indicatorEl.style.top = `${y}px`;
     indicatorEl.classList.remove('ht-success');
+    indicatorEl.classList.remove('ht-dragging');
+
+    const badge = indicatorEl.querySelector('.ht-badge');
+    if (badge) badge.textContent = 'New Tab';
 
     const progressRing = indicatorEl.querySelector('.ht-progress');
     const circumference = 87.96; // 2 * PI * 14
@@ -354,11 +381,53 @@
     indicatorEl.classList.add('ht-active');
   }
 
+  // Update dynamic flick/drag indicator tracking the cursor and angle
+  function updateDragIndicator(clientX, clientY, dx, dy, distance) {
+    initShadowUi();
+    if (!indicatorEl) return;
+
+    indicatorEl.style.display = 'flex';
+    indicatorEl.style.left = `${clientX}px`;
+    indicatorEl.style.top = `${clientY}px`;
+    indicatorEl.classList.remove('ht-success');
+    indicatorEl.classList.add('ht-active');
+    indicatorEl.classList.add('ht-dragging');
+
+    const arrowEl = indicatorEl.querySelector('.ht-icon-arrow');
+    const angleDeg = Math.atan2(dy, dx) * (180 / Math.PI) + 90;
+    if (arrowEl) {
+      arrowEl.style.transform = `rotate(${angleDeg}deg)`;
+    }
+
+    const threshold = config.dragDistance || 35;
+    const pct = Math.min(1, Math.max(0, distance / threshold));
+    const circumference = 87.96;
+
+    const progressRing = indicatorEl.querySelector('.ht-progress');
+    if (progressRing) {
+      progressRing.style.transition = 'none';
+      progressRing.style.strokeDashoffset = `${circumference * (1 - pct)}`;
+    }
+
+    const badge = indicatorEl.querySelector('.ht-badge');
+    if (badge) {
+      badge.textContent = `Flick: ${Math.round(pct * 100)}%`;
+      badge.style.opacity = '1';
+    }
+  }
+
   // Trigger success state and fade out
   function triggerSuccess(callback) {
     if (!indicatorEl) return;
 
+    indicatorEl.classList.remove('ht-dragging');
     indicatorEl.classList.add('ht-success');
+
+    const badge = indicatorEl.querySelector('.ht-badge');
+    if (badge) {
+      badge.textContent = 'New Tab Opened';
+      badge.style.opacity = '1';
+    }
 
     // Keep visible briefly for visual satisfaction, then clean up
     setTimeout(() => {
@@ -371,12 +440,18 @@
   function hideIndicator() {
     if (!indicatorEl) return;
     indicatorEl.classList.remove('ht-active');
+    indicatorEl.classList.remove('ht-dragging');
     setTimeout(() => {
-      if (!isHolding && indicatorEl) {
+      if (!isHolding && !isDraggingLink && indicatorEl) {
         indicatorEl.classList.remove('ht-success');
         indicatorEl.style.display = 'none';
         indicatorEl.style.left = '-9999px';
         indicatorEl.style.top = '-9999px';
+        const badge = indicatorEl.querySelector('.ht-badge');
+        if (badge) {
+          badge.textContent = 'New Tab';
+          badge.style.opacity = '';
+        }
         const progressRing = indicatorEl.querySelector('.ht-progress');
         if (progressRing) {
           progressRing.style.transition = 'none';
@@ -424,6 +499,9 @@
     isHolding = false;
     isDraggingLink = false;
     dragTriggered = false;
+    if (indicatorEl) {
+      indicatorEl.classList.remove('ht-dragging');
+    }
     if (!hasTriggered) {
       hideIndicator();
     }
@@ -451,12 +529,26 @@
     startX = e.clientX;
     startY = e.clientY;
     hasTriggered = false;
-    isHolding = true;
-    isDraggingLink = false;
     dragTriggered = false;
 
-    // Check gesture mode
-    if (config.gestureMode === 'hold' || config.gestureMode === 'both') {
+    if (config.gestureMode === 'drag') {
+      isHolding = false;
+      isDraggingLink = true;
+    } else if (config.gestureMode === 'both') {
+      isHolding = true;
+      isDraggingLink = false;
+      const duration = Math.max(150, config.holdDuration || 450);
+      showIndicator(startX, startY, duration);
+
+      holdTimer = setTimeout(() => {
+        if (isHolding && !hasTriggered) {
+          triggerOpenLink(targetLinkUrl);
+        }
+      }, duration);
+    } else {
+      // Hold mode (default)
+      isHolding = true;
+      isDraggingLink = false;
       const duration = Math.max(150, config.holdDuration || 450);
       showIndicator(startX, startY, duration);
 
@@ -468,7 +560,7 @@
     }
   }, true);
 
-  // Mouse Move Event Listener (cancellation and drag detection)
+  // Mouse Move Event Listener (live drag tracking and hold cancellation)
   window.addEventListener('mousemove', (e) => {
     if (!isHolding && !isDraggingLink) return;
 
@@ -476,26 +568,36 @@
     const dy = e.clientY - startY;
     const distance = Math.hypot(dx, dy);
 
-    // If hold gesture is active, cancel it if moved beyond tolerance (8px)
-    if (isHolding && distance > 8) {
-      // Hold is broken by movement
+    // If in hold mode (or both), switch or cancel if moved beyond threshold
+    if (isHolding && distance > 6) {
       if (holdTimer) {
         clearTimeout(holdTimer);
         holdTimer = null;
       }
       isHolding = false;
-      hideIndicator();
 
-      // Check if drag/flick gesture is enabled
-      if ((config.gestureMode === 'drag' || config.gestureMode === 'both') && !hasTriggered) {
+      // In 'both' mode, seamlessly transition to flick/drag mode
+      if (config.gestureMode === 'both' && !hasTriggered) {
         isDraggingLink = true;
+      } else {
+        hideIndicator();
       }
     }
 
-    // Check if dragging exceeds flick distance threshold
-    if (isDraggingLink && !dragTriggered && distance >= (config.dragDistance || 35)) {
-      dragTriggered = true;
-      triggerOpenLink(targetLinkUrl);
+    // Live Drag / Flick tracking with directional arrow & progress
+    if (isDraggingLink && !dragTriggered && !hasTriggered) {
+      const threshold = config.dragDistance || 35;
+
+      // Only show after small movement to avoid flickering on static click
+      if (distance >= 5) {
+        updateDragIndicator(e.clientX, e.clientY, dx, dy, distance);
+      }
+
+      if (distance >= threshold) {
+        dragTriggered = true;
+        isDraggingLink = false;
+        triggerOpenLink(targetLinkUrl);
+      }
     }
   }, true);
 
