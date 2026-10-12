@@ -134,6 +134,115 @@
       </div>
     </section>
 
+    <!-- Tab Cycling Gestures -->
+    <section class="card tab-cycle-card">
+      <div class="setting-label-row" style="margin-bottom: 8px;">
+        <span class="setting-label">Tab Cycling Gestures</span>
+        <span class="badge" style="font-size: 9.5px; padding: 1px 6px;">New</span>
+      </div>
+
+      <!-- Right-Click + Wheel -->
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <div class="toggle-title">Right-Click + Wheel Scroll</div>
+          <div class="toggle-desc">Scroll up/down while holding right-click to switch tabs</div>
+        </div>
+        <label class="switch switch-sm" title="Toggle Wheel Tab Cycling">
+          <input type="checkbox" id="tabCycleWheelToggle" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <!-- Right-Click + Swipe -->
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <div class="toggle-title">Right-Click + Swipe</div>
+          <div class="toggle-desc">Swipe left/right while holding right-click to switch tabs</div>
+        </div>
+        <label class="switch switch-sm" title="Toggle Swipe Tab Cycling">
+          <input type="checkbox" id="tabCycleSwipeToggle" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <!-- Swipe Device Mode -->
+      <div class="setting-group" id="swipeDeviceModeGroup" style="margin: 4px 0 6px 0;">
+        <div class="setting-label-row">
+          <label class="setting-label" style="font-size: 11px; color: var(--text-secondary);">Swipe Direction Mode</label>
+        </div>
+        <div class="segmented-control" style="margin-top: 2px;">
+          <label class="segment">
+            <input type="radio" name="swipeDeviceMode" value="mouse" checked>
+            <span>🖱️ Mouse (Right ➔ Next)</span>
+          </label>
+          <label class="segment">
+            <input type="radio" name="swipeDeviceMode" value="mousepad">
+            <span>💻 Mousepad (Left ➔ Next)</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Rocker Gestures -->
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <div class="toggle-title">Rocker Gestures (Mousepad)</div>
+          <div class="toggle-desc">Hold Left + Click Right (Next), Hold Right + Click Left (Prev)</div>
+        </div>
+        <label class="switch switch-sm" title="Toggle Rocker Gestures">
+          <input type="checkbox" id="tabCycleRockerToggle" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <!-- Alt + Two-Finger Scroll -->
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <div class="toggle-title">Alt + Two-Finger Scroll (Smooth)</div>
+          <div class="toggle-desc">Hold Alt + scroll two fingers on trackpad to cycle tabs</div>
+        </div>
+        <label class="switch switch-sm" title="Toggle Alt + Two-Finger Scroll">
+          <input type="checkbox" id="tabCycleAltScrollToggle" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <!-- Tab HUD Pill -->
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <div class="toggle-title">Visual Tab HUD Pill</div>
+          <div class="toggle-desc">Show on-screen pill with tab title and position</div>
+        </div>
+        <label class="switch switch-sm" title="Toggle Visual Tab HUD">
+          <input type="checkbox" id="tabCycleHudToggle" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <!-- Double Right-Click to Close Tab -->
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <div class="toggle-title">Double Right-Click to Close</div>
+          <div class="toggle-desc">Quickly double right-click anywhere to close active tab</div>
+        </div>
+        <label class="switch switch-sm" title="Toggle Double Right-Click to Close Tab">
+          <input type="checkbox" id="closeTabOnDoubleRightClickToggle" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <!-- Hold Selected Text to Search -->
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <div class="toggle-title">Hold Selected Text to Search</div>
+          <div class="toggle-desc">Left-hold: search in active tab • Right-hold: search in background</div>
+        </div>
+        <label class="switch switch-sm" title="Toggle Hold Selected Text to Search">
+          <input type="checkbox" id="textSearchHoldToggle" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+    </section>
+
     <!-- Exclusions Section -->
     <section class="card exclusions-card">
       <div class="exclusion-header">

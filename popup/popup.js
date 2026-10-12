@@ -9,6 +9,14 @@ const DEFAULT_SETTINGS = {
   tabFocus: 'background',
   indicatorStyle: 'ring',
   requireModifier: 'none',
+  tabCycleWheel: true,
+  tabCycleSwipe: true,
+  tabCycleRocker: true,
+  tabCycleAltScroll: true,
+  tabCycleHud: true,
+  swipeDeviceMode: 'mouse',
+  closeTabOnDoubleRightClick: true,
+  textSearchHold: true,
   excludedDomains: []
 };
 
@@ -89,6 +97,36 @@ function renderUI() {
 
   // Modifier key
   document.getElementById('requireModifier').value = currentSettings.requireModifier || 'none';
+
+  // Tab cycling toggles
+  const wheelToggle = document.getElementById('tabCycleWheelToggle');
+  if (wheelToggle) wheelToggle.checked = currentSettings.tabCycleWheel !== false;
+
+  const swipeToggle = document.getElementById('tabCycleSwipeToggle');
+  if (swipeToggle) swipeToggle.checked = currentSettings.tabCycleSwipe !== false;
+
+  const hudToggle = document.getElementById('tabCycleHudToggle');
+  if (hudToggle) hudToggle.checked = currentSettings.tabCycleHud !== false;
+
+  // Rocker gestures toggle
+  const rockerToggle = document.getElementById('tabCycleRockerToggle');
+  if (rockerToggle) rockerToggle.checked = currentSettings.tabCycleRocker !== false;
+
+  // Alt + Two-finger scroll toggle
+  const altScrollToggle = document.getElementById('tabCycleAltScrollToggle');
+  if (altScrollToggle) altScrollToggle.checked = currentSettings.tabCycleAltScroll !== false;
+
+  // Swipe device mode
+  const swipeDeviceRadio = document.querySelector(`input[name="swipeDeviceMode"][value="${currentSettings.swipeDeviceMode || 'mouse'}"]`);
+  if (swipeDeviceRadio) swipeDeviceRadio.checked = true;
+
+  // Double right-click close toggle
+  const closeTabToggle = document.getElementById('closeTabOnDoubleRightClickToggle');
+  if (closeTabToggle) closeTabToggle.checked = currentSettings.closeTabOnDoubleRightClick !== false;
+
+  // Hold selected text to search toggle
+  const textSearchToggle = document.getElementById('textSearchHoldToggle');
+  if (textSearchToggle) textSearchToggle.checked = currentSettings.textSearchHold !== false;
 
   // Excluded domains
   renderExcludedTags();
@@ -217,6 +255,67 @@ function setupEventListeners() {
     saveSettings({ requireModifier: e.target.value });
   });
 
+  // Tab cycling toggles
+  const wheelToggle = document.getElementById('tabCycleWheelToggle');
+  if (wheelToggle) {
+    wheelToggle.addEventListener('change', (e) => {
+      saveSettings({ tabCycleWheel: e.target.checked });
+    });
+  }
+
+  const swipeToggle = document.getElementById('tabCycleSwipeToggle');
+  if (swipeToggle) {
+    swipeToggle.addEventListener('change', (e) => {
+      saveSettings({ tabCycleSwipe: e.target.checked });
+    });
+  }
+
+  const hudToggle = document.getElementById('tabCycleHudToggle');
+  if (hudToggle) {
+    hudToggle.addEventListener('change', (e) => {
+      saveSettings({ tabCycleHud: e.target.checked });
+    });
+  }
+
+  // Rocker gestures toggle
+  const rockerToggle = document.getElementById('tabCycleRockerToggle');
+  if (rockerToggle) {
+    rockerToggle.addEventListener('change', (e) => {
+      saveSettings({ tabCycleRocker: e.target.checked });
+    });
+  }
+
+  // Alt + Two-finger scroll toggle
+  const altScrollToggle = document.getElementById('tabCycleAltScrollToggle');
+  if (altScrollToggle) {
+    altScrollToggle.addEventListener('change', (e) => {
+      saveSettings({ tabCycleAltScroll: e.target.checked });
+    });
+  }
+
+  // Swipe device mode radio
+  document.querySelectorAll('input[name="swipeDeviceMode"]').forEach((el) => {
+    el.addEventListener('change', (e) => {
+      saveSettings({ swipeDeviceMode: e.target.value });
+    });
+  });
+
+  // Double right-click close toggle
+  const closeTabToggle = document.getElementById('closeTabOnDoubleRightClickToggle');
+  if (closeTabToggle) {
+    closeTabToggle.addEventListener('change', (e) => {
+      saveSettings({ closeTabOnDoubleRightClick: e.target.checked });
+    });
+  }
+
+  // Hold selected text to search toggle
+  const textSearchToggle = document.getElementById('textSearchHoldToggle');
+  if (textSearchToggle) {
+    textSearchToggle.addEventListener('change', (e) => {
+      saveSettings({ textSearchHold: e.target.checked });
+    });
+  }
+
   // Add domain
   const addBtn = document.getElementById('addDomainBtn');
   const input = document.getElementById('newDomainInput');
@@ -273,13 +372,15 @@ function setupTestArena() {
   let startX = 0;
   let startY = 0;
   let isDown = false;
+  let activeButton = 0;
 
   testLink.addEventListener('mousedown', (e) => {
-    if (e.button !== 0) return;
+    if (e.button !== 0 && e.button !== 2) return;
     e.preventDefault();
 
     testTriggered = false;
     isDown = true;
+    activeButton = e.button;
     startX = e.clientX;
     startY = e.clientY;
 
@@ -287,9 +388,25 @@ function setupTestArena() {
     const duration = parseInt(document.getElementById('holdDuration')?.value, 10) || 450;
     const threshold = parseInt(document.getElementById('dragDistance')?.value, 10) || 35;
 
-    testLink.classList.remove('test-success');
+    testLink.classList.remove('test-success', 'test-success-right', 'test-holding', 'test-holding-right');
+    testStatus.classList.remove('success', 'success-right');
+
+    if (e.button === 2) {
+      testLink.classList.add('test-holding-right');
+      testStatus.textContent = `🔴 Right-Holding... (${duration}ms ➔ Open & Go)`;
+      testTimer = setTimeout(() => {
+        if (isDown && !testTriggered) {
+          testTriggered = true;
+          testLink.classList.remove('test-holding-right');
+          testLink.classList.add('test-success-right');
+          testStatus.classList.add('success-right');
+          testStatus.textContent = '🔴 Right-Hold complete! Opened & moved to new tab (simulated)';
+        }
+      }, duration);
+      return;
+    }
+
     testLink.classList.add('test-holding');
-    testStatus.classList.remove('success');
 
     if (mode === 'hold') {
       testStatus.textContent = `Holding... (${duration}ms)`;
@@ -313,7 +430,7 @@ function setupTestArena() {
   });
 
   window.addEventListener('mousemove', (e) => {
-    if (!isDown || testTriggered) return;
+    if (!isDown || testTriggered || activeButton !== 0) return;
     const mode = currentSettings.gestureMode || 'hold';
     if (mode === 'hold') return; // In hold-only mode, dragging does not trigger flick
 
@@ -340,12 +457,12 @@ function setupTestArena() {
       clearTimeout(testTimer);
       testTimer = null;
     }
-    testLink.classList.remove('test-holding');
+    testLink.classList.remove('test-holding', 'test-holding-right');
     if (!testTriggered) {
       const mode = currentSettings.gestureMode || 'hold';
       const threshold = parseInt(document.getElementById('dragDistance')?.value, 10) || 35;
-      testStatus.classList.remove('success');
-      if (mode === 'drag') {
+      testStatus.classList.remove('success', 'success-right');
+      if (mode === 'drag' && activeButton === 0) {
         testStatus.textContent = `Released early! Flick at least ${threshold}px to trigger.`;
       } else {
         testStatus.textContent = 'Released early! Try holding or flicking to completion.';
@@ -355,6 +472,9 @@ function setupTestArena() {
 
   testLink.addEventListener('mouseup', cancelTest);
   testLink.addEventListener('mouseleave', cancelTest);
+  testLink.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+  });
   testLink.addEventListener('click', (e) => {
     e.preventDefault(); // Don't actually navigate inside popup
   });

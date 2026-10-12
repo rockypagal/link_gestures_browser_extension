@@ -22,6 +22,16 @@ When reading articles, browsing forums (Reddit, Hacker News), or researching, op
 - ⚡ **Adjustable Hold Duration**: Customizable from 200ms (fast) to 1200ms (deliberate).
 - 🧭 **Tab Placement Control**: Choose whether new tabs open directly adjacent to your current tab (`index + 1`) or at the end of the tab bar.
 - 🔀 **Optional Flick/Drag Mode**: Quick drag or flick of a link can also trigger background open.
+- 🔄 **Mouse & Trackpad Gesture Tab Cycling & Quick Actions**:
+  - **Alt + Two-Finger Scroll (Both Left & Right Alt Supported)**: Hold *either* <kbd>Left Alt</kbd> or <kbd>Right Alt</kbd> (<kbd>AltGr</kbd>) and scroll two fingers up/down or swipe left/right on your mousepad to smoothly cycle tabs without runaway skips or Windows menu bar focus!
+  - **Selected Text Hold to Search**: Select any text on a webpage, then **Hold Left Button** to open a new foreground tab and search it, or **Hold Right Button** to open a new background tab and search while staying on your current page!
+  - **Right-Click + Wheel Scroll**: Hold right-click and scroll wheel up/down to switch tabs back and forth.
+  - **Right-Click Swipe**: Hold right-click and swipe left/right to move between tabs (supports Mouse & Mousepad modes).
+  - **Rocker Gestures (Mousepad & Mouse)**: Hold Left + Click Right for Next Tab (`▶`), Hold Right + Click Left for Previous Tab (`◀`).
+  - **Double Right-Click to Close**: Rapidly double right-click anywhere on the page to close the active tab.
+  - **Intelligent Context Menu Suppression**: Native context menus are automatically suppressed whenever a gesture is executed.
+  - **Visual Tab HUD Pill**: Floating on-screen badge showing destination tab title and position index `[2/5]`.
+  - **Independent Toggles**: Dedicated switches in popup settings for Alt scroll, text search hold, wheel scrolling, swipe gestures, rocker gestures, double right-click close, and HUD.
 - 🚫 **Domain Blacklist**: Exclude specific websites with one click.
 - 🔒 **100% Private**: Runs entirely locally on your device with no tracking, analytics, or external calls.
 
@@ -74,12 +84,45 @@ HoldTab supports Firefox Manifest V3 and uses dual background script and service
 
 > **To Cancel**: Release your mouse before reaching the pixel threshold to cancel the drag without opening.
 
-### 3. Customizing Your Preferences (Popup Menu)
+### 3. Mouse & Trackpad Gestures to Cycle / Move Between Tabs & Search Text
+Move through your open browser tabs and search selected text effortlessly:
+1. **Alt + Two-Finger Scroll (Both Left & Right Alt Supported)**:
+   - Hold down *either* <kbd>Left Alt</kbd> or <kbd>Right Alt</kbd> (<kbd>AltGr</kbd>) and **scroll two fingers up/down** or **swipe two fingers left/right** on your laptop trackpad.
+   - Tabs cycle buttery-smooth at calibrated intervals with built-in anti-chatter smoothing so you never skip multiple tabs accidentally.
+   - Built-in Windows Alt menu bar suppression ensures releasing Alt never opens browser menus.
+2. **Hold Selected Text to Search**:
+   - Highlight/select any text on a webpage.
+   - **Hold Left Mouse Button**: Opens a **new foreground tab**, moves to it immediately, and searches your selected text!
+   - **Hold Right Mouse Button**: Opens a **new background tab** and searches your selected text while keeping you on your current tab (context menu is automatically suppressed)!
+3. **Right-Click + Wheel Scroll**:
+   - Hold down the **Right Mouse Button** anywhere on any webpage.
+   - **Scroll the wheel DOWN**: Switch to the **Next Tab** (`▶`).
+   - **Scroll the wheel UP**: Switch to the **Previous Tab** (`◀`).
+   - Release the right mouse button. The context menu is automatically suppressed!
+4. **Right-Click + Swipe Gesture**:
+   - **🖱️ Mouse Mode (Default)**: Swipe **Right** (➔) to jump to the **Next Tab** (`▶`), swipe **Left** (⬅) to jump to the **Previous Tab** (`◀`).
+   - **💻 Mousepad / Trackpad Mode**: Swipe **Left** (⬅) to jump to the **Next Tab** (`▶`), swipe **Right** (➔) to jump to the **Previous Tab** (`◀`) (natural trackpad flow).
+   - Release the right mouse button without showing any context menu.
+   - Switch between **Mouse** and **Mousepad** mode in the extension popup with one click!
+5. **Rocker Gestures (Fast & Effortless for Mousepads)**:
+   - **Next Tab (`▶`)**: Hold down the **Left Mouse Button** and tap/click the **Right Mouse Button**.
+   - **Previous Tab (`◀`)**: Hold down the **Right Mouse Button** and tap/click the **Left Mouse Button**.
+   - Zero cursor movement required! Context menus and link clicks are fully suppressed.
+6. **Double Right-Click to Close Tab**:
+   - Rapidly double-click your **Right Mouse Button** anywhere on a webpage to instantly close the active tab.
+   - The browser's context menu is automatically suppressed so no popup menu is left behind.
+7. **Visual Tab HUD Pill**:
+   - A sleek floating HUD pill appears on-screen indicating the switched tab title, navigation direction arrow, or close status (e.g. `✕ Closing Tab...`).
+8. **Individual Toggle Controls**:
+   - In the popup, easily toggle Alt scroll, Text search hold, Wheel cycling, Swipe cycling, Rocker gestures, Double right-click close, and HUD on or off independently.
+
+### 4. Customizing Your Preferences (Popup Menu)
 Click the **HoldTab icon** in your browser toolbar to open settings:
 - **Gesture Trigger**: Switch between **Hold**, **Flick/Drag**, or **Both**.
 - **Dynamic Sliders**:
   - **Hold Duration Slider** (200ms to 1200ms): Fine-tune how quickly links open.
   - **Flick Distance Slider** (15px to 100px): Adjust how far you need to drag/flick.
+- **Tab Cycling Gestures**: Toggle Right-Click Wheel, Right-Click Swipe, and Visual HUD pill independently.
 - **Tab Position**: Choose whether background tabs open **Next to current tab** or **At the end** of your tab bar.
 - **Tab Focus**: Keep in **Background** (default) or switch to **Foreground** immediately.
 - **Website Exclusions**: Click **+ Exclude This Site** to disable gestures on specific web apps, or manage custom blacklisted domains.

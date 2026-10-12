@@ -120,8 +120,35 @@
     </div>
 
     <div class="card">
+      <h2>🔄 Tab Cycling Gestures Test</h2>
+      <p>Open multiple tabs in your browser, then try these gestures directly on this page:</p>
+      <ul style="color: var(--muted); line-height: 1.8; margin-left: 20px;">
+        <li><strong>Alt + Two-Finger Scroll (Both Left & Right Alt Supported):</strong> Hold down <em>either</em> <kbd>Left Alt</kbd> or <kbd>Right Alt</kbd> (<kbd>AltGr</kbd>) and scroll two fingers up/down or swipe left/right on your mousepad to smoothly cycle tabs without lag, runaway skips, or Windows menu focus!</li>
+        <li><strong>Right-Click + Wheel Scroll Down:</strong> Switches to the next tab (▶).</li>
+        <li><strong>Right-Click + Wheel Scroll Up:</strong> Switches to the previous tab (◀).</li>
+        <li><strong>Mouse Swipe Mode:</strong> Swipe Right = Next Tab (▶), Swipe Left = Previous Tab (◀).</li>
+        <li><strong>Mousepad / Trackpad Mode:</strong> Swipe Left = Next Tab (▶), Swipe Right = Previous Tab (◀).</li>
+        <li><strong>Rocker Gestures (Mousepad):</strong> Hold Left-Click + Click Right-Click (Next Tab ▶). Hold Right-Click + Click Left-Click (Prev Tab ◀).</li>
+        <li><strong>Double Right-Click:</strong> Double click right mouse button quickly anywhere on the page to close the active tab!</li>
+      </ul>
+      <p style="margin-top: 10px; font-size: 13px; color: #38BDF8;">Tip: Toggle gestures and customize device modes in the extension popup!</p>
+    </div>
+
+    <div class="card">
+      <h2>🔍 Selected Text Hold to Search</h2>
+      <p>Select any portion of the sample text below, then test the hold gestures:</p>
+      <div style="background: rgba(15, 23, 42, 0.6); padding: 16px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.08); margin: 14px 0; font-size: 15px; line-height: 1.7; color: #E2E8F0;">
+        "Google Antigravity and Manifest V3 browser extensions enable fast, private tab navigation with mouse gestures."
+      </div>
+      <ul style="color: var(--muted); line-height: 1.8; margin-left: 20px;">
+        <li><strong>Hold Left Mouse Button:</strong> Select text above, then hold the <kbd>Left Mouse Button</kbd> for ~450ms. The ring animates and opens a <strong>new active tab in the foreground</strong> searching your selected query in Google!</li>
+        <li><strong>Hold Right Mouse Button:</strong> Select text above, then hold the <kbd>Right Mouse Button</kbd> for ~450ms. The ring animates and opens a <strong>new tab in the background</strong> searching your query while you <strong>stay on this page</strong> (context menu is automatically suppressed)!</li>
+      </ul>
+    </div>
+
+    <div class="card">
       <h2>Non-Link Elements (Should NOT trigger HoldTab)</h2>
-      <p>Clicking and holding regular buttons or selecting text should behave completely normally:</p>
+      <p>Clicking and holding regular buttons without text selected should behave completely normally:</p>
       <button class="regular-btn" onclick="alert('Regular button clicked normally!')">Regular Button (Test Click)</button>
     </div>
   </div>
