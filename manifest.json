@@ -22,7 +22,8 @@
     "default_title": "HoldTab Settings"
   },
   "background": {
-    "service_worker": "background/service-worker.js"
+    "service_worker": "background/service-worker.js",
+    "scripts": ["background/service-worker.js"]
   },
   "content_scripts": [
     {
@@ -31,5 +32,11 @@
       "css": ["content/content.css"],
       "run_at": "document_idle"
     }
-  ]
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "holdtab@local.addon",
+      "strict_min_version": "109.0"
+    }
+  }
 }

@@ -95,5 +95,12 @@ async function handleOpenLink(message, sender) {
 
   const newTab = await chrome.tabs.create(createProperties);
 
+  // When opening in background, ensure the originating window retains active focus
+  if (!shouldBeActive && targetWindowId) {
+    try {
+      await chrome.windows.update(targetWindowId, { focused: true });
+    } catch (_) {}
+  }
+
   return { success: true, tabId: newTab.id };
 }

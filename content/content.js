@@ -174,9 +174,8 @@
 
     const style = document.createElement('style');
     style.textContent = `
-      :host {
-        all: initial;
-        pointer-events: none;
+      :host, :host * {
+        pointer-events: none !important;
       }
       .ht-indicator {
         position: fixed;
@@ -184,18 +183,20 @@
         height: 38px;
         transform: translate(-50%, -50%) scale(0.85);
         opacity: 0;
-        pointer-events: none;
+        display: none;
+        pointer-events: none !important;
         z-index: 2147483647;
         transition: opacity 0.15s ease-out, transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
-        display: flex;
         align-items: center;
         justify-content: center;
       }
       .ht-indicator.ht-active {
+        display: flex;
         opacity: 1;
         transform: translate(-50%, -50%) scale(1);
       }
       .ht-indicator.ht-success {
+        display: flex;
         opacity: 1;
         transform: translate(-50%, -50%) scale(1.18);
         transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease-out;
@@ -225,20 +226,19 @@
         stroke-dashoffset: 87.96;
       }
       .ht-icon-tab {
-        fill: #FFFFFF;
-        opacity: 0.9;
-        transition: fill 0.15s, opacity 0.15s;
+        opacity: 0.95;
+        transition: opacity 0.15s;
       }
       .ht-icon-check {
         fill: none;
         stroke: #FFFFFF;
-        stroke-width: 2.2;
+        stroke-width: 2.8;
         stroke-linecap: round;
         stroke-linejoin: round;
         opacity: 0;
-        transform: scale(0.6);
-        transform-origin: center;
-        transition: opacity 0.15s, transform 0.15s;
+        transform-origin: 18px 18px;
+        transform: scale(0.5);
+        transition: opacity 0.15s ease, transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
       }
       .ht-success .ht-progress {
         stroke: #10B981 !important;
@@ -301,15 +301,15 @@
         <circle class="ht-bg-circle" cx="18" cy="18" r="16" />
         <circle class="ht-track" cx="18" cy="18" r="14" />
         <circle class="ht-progress" cx="18" cy="18" r="14" />
-        <!-- Tab icon in center -->
-        <g class="ht-icon-tab" transform="translate(11, 11) scale(0.58)">
-          <path d="M4 2a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H4zm2 4h12v2H6V6zm0 5h12v7H6v-7z" />
-          <path d="M16 11l4-4m0 0h-3.5m3.5 0v3.5" stroke="#FFFFFF" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+        <!-- Tab icon centered at (18, 18) -->
+        <g class="ht-icon-tab">
+          <rect x="11.5" y="11.5" width="13" height="13" rx="2" stroke="#FFFFFF" stroke-width="1.8" fill="none" />
+          <line x1="11.5" y1="15.5" x2="24.5" y2="15.5" stroke="#FFFFFF" stroke-width="1.5" />
+          <line x1="18" y1="18" x2="18" y2="22" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" />
+          <line x1="16" y1="20" x2="20" y2="20" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" />
         </g>
-        <!-- Success checkmark -->
-        <g class="ht-icon-check" transform="translate(10, 10)">
-          <path d="M4 8.5l3 3 6-6" />
-        </g>
+        <!-- Success checkmark centered in 36x36 (center is 18, 18) -->
+        <path class="ht-icon-check" d="M12 18.5 L16 22.5 L24 14.5" />
       </svg>
       <div class="ht-badge">New Tab</div>
     `;
@@ -332,6 +332,7 @@
     initShadowUi();
     if (!indicatorEl) return;
 
+    indicatorEl.style.display = 'flex';
     indicatorEl.style.left = `${x}px`;
     indicatorEl.style.top = `${y}px`;
     indicatorEl.classList.remove('ht-success');
@@ -373,6 +374,9 @@
     setTimeout(() => {
       if (!isHolding && indicatorEl) {
         indicatorEl.classList.remove('ht-success');
+        indicatorEl.style.display = 'none';
+        indicatorEl.style.left = '-9999px';
+        indicatorEl.style.top = '-9999px';
         const progressRing = indicatorEl.querySelector('.ht-progress');
         if (progressRing) {
           progressRing.style.transition = 'none';
@@ -436,6 +440,12 @@
     const linkInfo = findLink(e);
     if (!linkInfo) return;
 
+    // Force clear any pending timers or prior states
+    if (holdTimer) {
+      clearTimeout(holdTimer);
+      holdTimer = null;
+    }
+
     targetLinkUrl = linkInfo.url;
     targetElement = linkInfo.element;
     startX = e.clientX;
@@ -494,8 +504,12 @@
     if (e.button !== 0) return;
 
     if (hasTriggered) {
-      // Tab already scheduled/opened, just ensure click suppression flag is fresh
-      suppressClickUntil = performance.now() + 500;
+      suppressClickUntil = performance.now() + 450;
+      // Auto-clear hasTriggered in case the browser never fires a native click event
+      setTimeout(() => {
+        hasTriggered = false;
+        suppressClickUntil = 0;
+      }, 500);
     }
 
     cancelHold();
@@ -503,7 +517,7 @@
 
   // Capture and prevent native click navigation if gesture was completed
   window.addEventListener('click', (e) => {
-    if (performance.now() < suppressClickUntil || hasTriggered) {
+    if (hasTriggered || performance.now() < suppressClickUntil) {
       e.preventDefault();
       e.stopPropagation();
       e.stopImmediatePropagation();
@@ -515,10 +529,12 @@
 
   // Also catch auxclick in capture phase
   window.addEventListener('auxclick', (e) => {
-    if (performance.now() < suppressClickUntil || hasTriggered) {
+    if (hasTriggered || performance.now() < suppressClickUntil) {
       e.preventDefault();
       e.stopPropagation();
       e.stopImmediatePropagation();
+      hasTriggered = false;
+      suppressClickUntil = 0;
       return false;
     }
   }, true);
@@ -526,14 +542,19 @@
   // Prevent default HTML5 drag-and-drop from interfering when gesture triggered
   window.addEventListener('dragstart', (e) => {
     if (isHolding || hasTriggered || isDraggingLink) {
-      if (hasTriggered || (config.gestureMode === 'drag' || config.gestureMode === 'both')) {
-        e.preventDefault();
-      }
+      e.preventDefault();
     }
   }, true);
 
   // Cancellation on window blur, context menu, or Escape key
-  window.addEventListener('blur', cancelHold, true);
+  // IMPORTANT: Do NOT use capture phase for blur, and verify e.target is window/document.
+  // Using capture phase causes page elements losing focus (e.g. previous link blurring) to cancel the hold!
+  window.addEventListener('blur', (e) => {
+    if (e.target === window || e.target === document) {
+      cancelHold();
+    }
+  }, false);
+
   window.addEventListener('contextmenu', cancelHold, true);
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {

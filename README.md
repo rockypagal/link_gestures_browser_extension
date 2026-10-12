@@ -27,19 +27,28 @@ When reading articles, browsing forums (Reddit, Hacker News), or researching, op
 
 ---
 
-## Installation Guide (Chrome / Edge / Brave / Chromium)
+## Installation Guide
 
-1. Open your browser's extension management page:
-   - **Google Chrome**: Go to `chrome://extensions`
-   - **Microsoft Edge**: Go to `edge://extensions`
-   - **Brave Browser**: Go to `brave://extensions`
-2. Enable **Developer mode** using the toggle switch in the top-right corner.
+### For Brave (and Chrome / Edge / Chromium)
+Brave is built on Chromium and is 100% natively compatible with HoldTab:
+1. Open Brave and navigate to `brave://extensions`.
+2. Toggle **Developer mode** in the top-right corner.
 3. Click the **Load unpacked** button.
 4. Select the project folder:
    ```
    c:\Users\ratho_t8utq3d\Documents\broswer extention for new tabs
    ```
-5. **Done!** The HoldTab extension icon will appear in your browser's extensions menu. Pin it to your toolbar for quick access to settings.
+5. Pin **HoldTab** to your browser toolbar.
+
+### For Mozilla Firefox
+HoldTab supports Firefox Manifest V3 and uses dual background script and service worker definitions:
+1. Open Firefox and navigate to `about:debugging#/runtime/this-firefox`.
+2. Click **Load Temporary Add-on...**.
+3. Select the `manifest.json` file inside the project folder:
+   ```
+   c:\Users\ratho_t8utq3d\Documents\broswer extention for new tabs\manifest.json
+   ```
+4. HoldTab is immediately loaded and active in Firefox!
 
 ---
 
