@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HoldTab Settings</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    <!-- Header -->
+    <header class="header">
+      <div class="brand">
+        <img src="../icons/icon-48.png" alt="HoldTab Logo" class="brand-icon">
+        <div>
+          <h1 class="brand-title">HoldTab</h1>
+          <span class="brand-subtitle">Background Link Opener</span>
+        </div>
+      </div>
+      <label class="switch" title="Toggle Extension">
+        <input type="checkbox" id="masterToggle" checked>
+        <span class="slider"></span>
+      </label>
+    </header>
+
+    <!-- Interactive Test Arena -->
+    <section class="card test-arena">
+      <div class="arena-header">
+        <span class="badge">Live Test Arena</span>
+      </div>
+      <p class="arena-desc">Test your hold gesture below before browsing:</p>
+      <div class="test-button-wrap">
+        <a href="https://example.com" id="testLink" class="test-link" draggable="false">
+          <svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+          </svg>
+          <span id="testLinkText">Hold Left-Click on Me</span>
+        </a>
+        <div id="testStatus" class="test-status">Press & hold to feel duration</div>
+      </div>
+    </section>
+
+    <!-- Main Settings -->
+    <section class="card settings-card">
+      <!-- Duration Slider -->
+      <div class="setting-group">
+        <div class="setting-label-row">
+          <label for="holdDuration" class="setting-label">Hold Duration</label>
+          <span id="durationValue" class="value-chip">450 ms</span>
+        </div>
+        <input type="range" id="holdDuration" min="200" max="1200" step="25" value="450" class="range-slider">
+        <div class="range-marks">
+          <span>Fast (200ms)</span>
+          <span>Normal (450ms)</span>
+          <span>Slow (1.2s)</span>
+        </div>
+      </div>
+
+      <!-- Gesture Mode -->
+      <div class="setting-group">
+        <label class="setting-label">Gesture Trigger</label>
+        <div class="segmented-control">
+          <label class="segment">
+            <input type="radio" name="gestureMode" value="hold" checked>
+            <span>Hold</span>
+          </label>
+          <label class="segment">
+            <input type="radio" name="gestureMode" value="drag">
+            <span>Flick/Drag</span>
+          </label>
+          <label class="segment">
+            <input type="radio" name="gestureMode" value="both">
+            <span>Both</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Tab Placement -->
+      <div class="setting-group">
+        <label class="setting-label">New Tab Position</label>
+        <div class="segmented-control">
+          <label class="segment">
+            <input type="radio" name="tabPosition" value="next" checked>
+            <span>Next to current tab</span>
+          </label>
+          <label class="segment">
+            <input type="radio" name="tabPosition" value="end">
+            <span>At the end</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Tab Focus -->
+      <div class="setting-group">
+        <label class="setting-label">Tab Focus</label>
+        <div class="segmented-control">
+          <label class="segment">
+            <input type="radio" name="tabFocus" value="background" checked>
+            <span>Background (Stay)</span>
+          </label>
+          <label class="segment">
+            <input type="radio" name="tabFocus" value="foreground">
+            <span>Foreground</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Modifier key (optional) -->
+      <div class="setting-group">
+        <div class="setting-label-row">
+          <label for="requireModifier" class="setting-label">Required Key</label>
+          <select id="requireModifier" class="select-dropdown">
+            <option value="none">None (Left-Click Hold)</option>
+            <option value="alt">Alt + Hold</option>
+            <option value="ctrl">Ctrl / Cmd + Hold</option>
+            <option value="shift">Shift + Hold</option>
+          </select>
+        </div>
+      </div>
+    </section>
+
+    <!-- Exclusions Section -->
+    <section class="card exclusions-card">
+      <div class="exclusion-header">
+        <span class="setting-label">Domain Exclusions</span>
+        <button id="toggleCurrentDomainBtn" class="btn-subtle" title="Toggle current website">
+          + Exclude This Site
+        </button>
+      </div>
+      <div id="excludedList" class="excluded-tags">
+        <!-- Tag pills inserted dynamically -->
+      </div>
+      <div class="add-domain-row">
+        <input type="text" id="newDomainInput" placeholder="e.g. reddit.com" class="text-input">
+        <button id="addDomainBtn" class="btn-secondary">Add</button>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <span>Auto-saved &bull; Manifest V3</span>
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

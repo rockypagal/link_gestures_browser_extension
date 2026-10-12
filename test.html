@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HoldTab - Gesture Test Sandbox</title>
+  <style>
+    :root {
+      --bg: #0F172A;
+      --card: #1E293B;
+      --text: #F8FAFC;
+      --muted: #94A3B8;
+      --accent: #38BDF8;
+    }
+    body {
+      margin: 0;
+      padding: 40px 20px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      justify-content: center;
+    }
+    .container {
+      max-width: 640px;
+      width: 100%;
+    }
+    h1 {
+      font-size: 26px;
+      margin-bottom: 6px;
+      background: linear-gradient(135deg, #38BDF8, #818CF8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    p {
+      color: var(--muted);
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .card h2 {
+      font-size: 18px;
+      margin-top: 0;
+      margin-bottom: 12px;
+      color: var(--text);
+    }
+    .links-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    a.demo-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 18px;
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: var(--accent);
+      text-decoration: none;
+      border-radius: 8px;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      width: fit-content;
+    }
+    a.demo-link:hover {
+      background: rgba(56, 189, 248, 0.2);
+      border-color: var(--accent);
+    }
+    .instructions {
+      background: rgba(16, 185, 129, 0.1);
+      border-left: 4px solid #10B981;
+      padding: 14px 18px;
+      border-radius: 4px;
+      margin-bottom: 24px;
+      font-size: 14px;
+      color: #D1FAE5;
+    }
+    .instructions strong {
+      color: #10B981;
+    }
+    button.regular-btn {
+      padding: 10px 16px;
+      background: #334155;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>HoldTab Test Playground</h1>
+    <p>Use this page to verify and test your mouse hold gesture in Chrome with the extension loaded.</p>
+
+    <div class="instructions">
+      <strong>How to test:</strong> Click and hold down the left mouse button on any link below for ~450ms. A circular countdown ring will animate around your cursor. When it completes, the link opens in a new background tab while this page stays active!
+    </div>
+
+    <div class="card">
+      <h2>Test Links</h2>
+      <div class="links-grid">
+        <a href="https://en.wikipedia.org/wiki/Main_Page" class="demo-link" target="_self">
+          <span>📚 Open Wikipedia (Background Tab Hold Test)</span>
+        </a>
+        <a href="https://news.ycombinator.com" class="demo-link" target="_self">
+          <span>📰 Open Hacker News (Background Tab Hold Test)</span>
+        </a>
+        <a href="https://github.com" class="demo-link" target="_self">
+          <span>🐙 Open GitHub (Background Tab Hold Test)</span>
+        </a>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Non-Link Elements (Should NOT trigger HoldTab)</h2>
+      <p>Clicking and holding regular buttons or selecting text should behave completely normally:</p>
+      <button class="regular-btn" onclick="alert('Regular button clicked normally!')">Regular Button (Test Click)</button>
+    </div>
+  </div>
+</body>
+</html>

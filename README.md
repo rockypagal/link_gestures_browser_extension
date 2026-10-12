@@ -1,0 +1,85 @@
+# HoldTab - Background Link Opener (Browser Extension)
+
+> Open links in new background tabs without leaving your current tab using mouse gestures like long-press hold.
+
+![HoldTab Preview](icons/icon-128.png)
+
+## Why HoldTab?
+
+When reading articles, browsing forums (Reddit, Hacker News), or researching, opening links in the background is the fastest way to browse. However:
+- **Middle-clicking** is often awkward on trackpads or mice with stiff scroll wheels.
+- **Ctrl + Click** requires taking a hand off your mouse to press the keyboard.
+- **HoldTab** lets you simply **press and hold down the left mouse button on any link for a brief moment** (default: 450ms). An animated ring fills around your cursor, the link opens in the background, and your reading flow is never interrupted!
+
+---
+
+## Features
+
+- ⏱️ **Long-Press Hold Gesture**: Click & hold on any link to open it in a background tab without navigating away.
+- 🎯 **Smooth Radial Feedback**: A circular countdown ring smoothly animates around the cursor with a green success pulse when the tab opens.
+- 🛡️ **Zero Interference & Click Suppression**: Releasing before completion or moving your mouse > 8px cancels the gesture immediately, preserving normal clicks and text selection. When hold completes, the subsequent click is suppressed so the current page doesn't navigate.
+- 🎛️ **Live Test Arena**: Test and feel your configured hold duration right inside the extension popup before browsing.
+- ⚡ **Adjustable Hold Duration**: Customizable from 200ms (fast) to 1200ms (deliberate).
+- 🧭 **Tab Placement Control**: Choose whether new tabs open directly adjacent to your current tab (`index + 1`) or at the end of the tab bar.
+- 🔀 **Optional Flick/Drag Mode**: Quick drag or flick of a link can also trigger background open.
+- 🚫 **Domain Blacklist**: Exclude specific websites with one click.
+- 🔒 **100% Private**: Runs entirely locally on your device with no tracking, analytics, or external calls.
+
+---
+
+## Installation Guide (Chrome / Edge / Brave / Chromium)
+
+1. Open your browser's extension management page:
+   - **Google Chrome**: Go to `chrome://extensions`
+   - **Microsoft Edge**: Go to `edge://extensions`
+   - **Brave Browser**: Go to `brave://extensions`
+2. Enable **Developer mode** using the toggle switch in the top-right corner.
+3. Click the **Load unpacked** button.
+4. Select the project folder:
+   ```
+   c:\Users\ratho_t8utq3d\Documents\broswer extention for new tabs
+   ```
+5. **Done!** The HoldTab extension icon will appear in your browser's extensions menu. Pin it to your toolbar for quick access to settings.
+
+---
+
+## How to Test
+
+1. Open `test.html` in your browser by double-clicking it or opening `file:///c:/Users/ratho_t8utq3d/Documents/broswer%20extention%20for%20new%20tabs/test.html`.
+2. Press and hold the left mouse button on any test link:
+   - Watch the radial timer fill up around your cursor.
+   - Upon completion, the link opens in a new background tab, and your current page stays right where it is.
+3. Try a quick click: it navigates normally.
+4. Open the extension popup to try out the **Live Test Arena** and adjust the hold duration slider to your liking.
+
+---
+
+## File Structure
+
+```
+├── manifest.json              # Manifest V3 extension configuration
+├── background/
+│   └── service-worker.js     # Background tab creation & event handling
+├── content/
+│   ├── content.js            # Gesture detection, SVG progress ring, click blocker
+│   └── content.css           # Overlay styling
+├── popup/
+│   ├── popup.html            # Settings UI & interactive live-test arena
+│   ├── popup.js              # Real-time settings sync & test arena logic
+│   └── popup.css             # Polished modern theme
+├── icons/
+│   ├── icon-16.png           # 16x16 icon
+│   ├── icon-48.png           # 48x48 icon
+│   └── icon-128.png          # 128x128 icon
+├── scripts/
+│   └── generate-icons.js     # Zero-dependency PNG generator script
+├── test.html                 # Interactive test playground
+├── CHROMEWEBSTORE.md         # Store listing metadata and review checklist
+└── README.md                 # Project documentation
+```
+
+---
+
+## License
+
+MIT
