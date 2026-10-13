@@ -17,6 +17,8 @@ const DEFAULT_SETTINGS = {
   swipeDeviceMode: 'mouse',
   closeTabOnDoubleRightClick: true,
   textSearchHold: true,
+  textDoubleClickCopyCut: true,
+  inputDoubleClickPaste: true,
   excludedDomains: []
 };
 
@@ -24,11 +26,52 @@ let currentSettings = { ...DEFAULT_SETTINGS };
 let currentTabHostname = '';
 
 document.addEventListener('DOMContentLoaded', async () => {
+  setupTabNavigation();
   await loadCurrentTabInfo();
   await loadAndRenderSettings();
   setupEventListeners();
   setupTestArena();
 });
+
+// Setup organized tab switching
+function setupTabNavigation() {
+  const tabs = document.querySelectorAll('.nav-tab');
+  const panels = document.querySelectorAll('.tab-panel');
+
+  const savedTab = localStorage.getItem('holdtab_active_tab');
+  if (savedTab && document.getElementById(savedTab)) {
+    tabs.forEach((t) => t.classList.remove('active'));
+    panels.forEach((p) => p.classList.remove('active'));
+
+    const targetTabBtn = document.querySelector(`.nav-tab[data-tab="${savedTab}"]`);
+    const targetPanel = document.getElementById(savedTab);
+    if (targetTabBtn && targetPanel) {
+      targetTabBtn.classList.add('active');
+      targetPanel.classList.add('active');
+    }
+  }
+
+  tabs.forEach((tab) => {
+    tab.addEventListener('click', () => {
+      const targetId = tab.getAttribute('data-tab');
+      tabs.forEach((t) => {
+        t.classList.remove('active');
+        t.setAttribute('aria-selected', 'false');
+      });
+      panels.forEach((p) => p.classList.remove('active'));
+
+      tab.classList.add('active');
+      tab.setAttribute('aria-selected', 'true');
+      const targetPanel = document.getElementById(targetId);
+      if (targetPanel) {
+        targetPanel.classList.add('active');
+      }
+      try {
+        localStorage.setItem('holdtab_active_tab', targetId);
+      } catch (_) {}
+    });
+  });
+}
 
 // Detect current active tab hostname
 async function loadCurrentTabInfo() {
@@ -45,10 +88,12 @@ async function loadCurrentTabInfo() {
   }
 
   const toggleBtn = document.getElementById('toggleCurrentDomainBtn');
-  if (currentTabHostname) {
-    toggleBtn.textContent = `+ Exclude ${currentTabHostname}`;
-  } else {
-    toggleBtn.style.display = 'none';
+  if (toggleBtn) {
+    if (currentTabHostname) {
+      toggleBtn.textContent = `+ Exclude ${currentTabHostname}`;
+    } else {
+      toggleBtn.style.display = 'none';
+    }
   }
 }
 
@@ -66,12 +111,15 @@ async function loadAndRenderSettings() {
 // Render settings state in DOM elements
 function renderUI() {
   // Master toggle
-  document.getElementById('masterToggle').checked = currentSettings.enabled;
+  const masterToggle = document.getElementById('masterToggle');
+  if (masterToggle) masterToggle.checked = currentSettings.enabled;
 
   // Duration
   const durationSlider = document.getElementById('holdDuration');
-  durationSlider.value = currentSettings.holdDuration;
-  document.getElementById('durationValue').textContent = `${currentSettings.holdDuration} ms`;
+  if (durationSlider) {
+    durationSlider.value = currentSettings.holdDuration;
+    document.getElementById('durationValue').textContent = `${currentSettings.holdDuration} ms`;
+  }
 
   // Flick distance
   const dragSlider = document.getElementById('dragDistance');
@@ -96,7 +144,8 @@ function renderUI() {
   if (focusRadio) focusRadio.checked = true;
 
   // Modifier key
-  document.getElementById('requireModifier').value = currentSettings.requireModifier || 'none';
+  const modifierSelect = document.getElementById('requireModifier');
+  if (modifierSelect) modifierSelect.value = currentSettings.requireModifier || 'none';
 
   // Tab cycling toggles
   const wheelToggle = document.getElementById('tabCycleWheelToggle');
@@ -128,6 +177,14 @@ function renderUI() {
   const textSearchToggle = document.getElementById('textSearchHoldToggle');
   if (textSearchToggle) textSearchToggle.checked = currentSettings.textSearchHold !== false;
 
+  // Double-click copy & cut toggle (NEW)
+  const doubleClickCopyCutToggle = document.getElementById('textDoubleClickCopyCutToggle');
+  if (doubleClickCopyCutToggle) doubleClickCopyCutToggle.checked = currentSettings.textDoubleClickCopyCut !== false;
+
+  // Double-click in input to paste toggle (NEW)
+  const inputDoubleClickPasteToggle = document.getElementById('inputDoubleClickPasteToggle');
+  if (inputDoubleClickPasteToggle) inputDoubleClickPasteToggle.checked = currentSettings.inputDoubleClickPaste !== false;
+
   // Excluded domains
   renderExcludedTags();
 }
@@ -157,6 +214,7 @@ function updateGestureVisibility(mode) {
 // Render domain tag pills
 function renderExcludedTags() {
   const container = document.getElementById('excludedList');
+  if (!container) return;
   container.innerHTML = '';
 
   const list = currentSettings.excludedDomains || [];
@@ -199,20 +257,25 @@ async function saveSettings(partial) {
 // Setup input listeners
 function setupEventListeners() {
   // Master switch
-  document.getElementById('masterToggle').addEventListener('change', (e) => {
-    saveSettings({ enabled: e.target.checked });
-  });
+  const masterToggle = document.getElementById('masterToggle');
+  if (masterToggle) {
+    masterToggle.addEventListener('change', (e) => {
+      saveSettings({ enabled: e.target.checked });
+    });
+  }
 
   // Hold Duration slider
   const durationSlider = document.getElementById('holdDuration');
   const durationValue = document.getElementById('durationValue');
-  durationSlider.addEventListener('input', (e) => {
-    const val = parseInt(e.target.value, 10);
-    durationValue.textContent = `${val} ms`;
-  });
-  durationSlider.addEventListener('change', (e) => {
-    saveSettings({ holdDuration: parseInt(e.target.value, 10) });
-  });
+  if (durationSlider && durationValue) {
+    durationSlider.addEventListener('input', (e) => {
+      const val = parseInt(e.target.value, 10);
+      durationValue.textContent = `${val} ms`;
+    });
+    durationSlider.addEventListener('change', (e) => {
+      saveSettings({ holdDuration: parseInt(e.target.value, 10) });
+    });
+  }
 
   // Flick Distance slider
   const dragSlider = document.getElementById('dragDistance');
@@ -251,9 +314,12 @@ function setupEventListeners() {
   });
 
   // Modifier select
-  document.getElementById('requireModifier').addEventListener('change', (e) => {
-    saveSettings({ requireModifier: e.target.value });
-  });
+  const modifierSelect = document.getElementById('requireModifier');
+  if (modifierSelect) {
+    modifierSelect.addEventListener('change', (e) => {
+      saveSettings({ requireModifier: e.target.value });
+    });
+  }
 
   // Tab cycling toggles
   const wheelToggle = document.getElementById('tabCycleWheelToggle');
@@ -316,11 +382,28 @@ function setupEventListeners() {
     });
   }
 
+  // Double-click copy & cut toggle (NEW)
+  const doubleClickCopyCutToggle = document.getElementById('textDoubleClickCopyCutToggle');
+  if (doubleClickCopyCutToggle) {
+    doubleClickCopyCutToggle.addEventListener('change', (e) => {
+      saveSettings({ textDoubleClickCopyCut: e.target.checked });
+    });
+  }
+
+  // Double-click in input to paste toggle (NEW)
+  const inputDoubleClickPasteToggle = document.getElementById('inputDoubleClickPasteToggle');
+  if (inputDoubleClickPasteToggle) {
+    inputDoubleClickPasteToggle.addEventListener('change', (e) => {
+      saveSettings({ inputDoubleClickPaste: e.target.checked });
+    });
+  }
+
   // Add domain
   const addBtn = document.getElementById('addDomainBtn');
   const input = document.getElementById('newDomainInput');
 
   function handleAddDomain() {
+    if (!input) return;
     const raw = input.value.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
     if (!raw) return;
 
@@ -333,40 +416,50 @@ function setupEventListeners() {
     input.value = '';
   }
 
-  addBtn.addEventListener('click', handleAddDomain);
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') handleAddDomain();
-  });
+  if (addBtn) addBtn.addEventListener('click', handleAddDomain);
+  if (input) {
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') handleAddDomain();
+    });
+  }
 
   // Remove domain tag
-  document.getElementById('excludedList').addEventListener('click', (e) => {
-    if (e.target.classList.contains('tag-remove')) {
-      const domainToRemove = e.target.getAttribute('data-domain');
-      const list = (currentSettings.excludedDomains || []).filter((d) => d !== domainToRemove);
-      saveSettings({ excludedDomains: list });
-      renderExcludedTags();
-    }
-  });
+  const excludedList = document.getElementById('excludedList');
+  if (excludedList) {
+    excludedList.addEventListener('click', (e) => {
+      if (e.target.classList.contains('tag-remove')) {
+        const domainToRemove = e.target.getAttribute('data-domain');
+        const list = (currentSettings.excludedDomains || []).filter((d) => d !== domainToRemove);
+        saveSettings({ excludedDomains: list });
+        renderExcludedTags();
+      }
+    });
+  }
 
   // Quick toggle current domain
-  document.getElementById('toggleCurrentDomainBtn').addEventListener('click', () => {
-    if (!currentTabHostname) return;
-    const list = currentSettings.excludedDomains || [];
-    const index = list.indexOf(currentTabHostname);
-    if (index === -1) {
-      list.push(currentTabHostname);
-    } else {
-      list.splice(index, 1);
-    }
-    saveSettings({ excludedDomains: list });
-    renderExcludedTags();
-  });
+  const toggleDomainBtn = document.getElementById('toggleCurrentDomainBtn');
+  if (toggleDomainBtn) {
+    toggleDomainBtn.addEventListener('click', () => {
+      if (!currentTabHostname) return;
+      const list = currentSettings.excludedDomains || [];
+      const index = list.indexOf(currentTabHostname);
+      if (index === -1) {
+        list.push(currentTabHostname);
+      } else {
+        list.splice(index, 1);
+      }
+      saveSettings({ excludedDomains: list });
+      renderExcludedTags();
+    });
+  }
 }
 
 // Interactive Live Test Arena
 function setupTestArena() {
   const testLink = document.getElementById('testLink');
   const testStatus = document.getElementById('testStatus');
+  if (!testLink || !testStatus) return;
+
   let testTimer = null;
   let testTriggered = false;
   let startX = 0;

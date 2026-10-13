@@ -135,14 +135,25 @@
     </div>
 
     <div class="card">
-      <h2>🔍 Selected Text Hold to Search</h2>
-      <p>Select any portion of the sample text below, then test the hold gestures:</p>
+      <h2>🔍 Selected Text Gestures (Search, Copy & Cut)</h2>
+      <p>Select any portion of the sample text below or in the input box, then test the gestures:</p>
       <div style="background: rgba(15, 23, 42, 0.6); padding: 16px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.08); margin: 14px 0; font-size: 15px; line-height: 1.7; color: #E2E8F0;">
-        "Google Antigravity and Manifest V3 browser extensions enable fast, private tab navigation with mouse gestures."
+        "HoldTab empowers ultra-fast tab navigation with mouse gestures, text search hold, and instant copy/cut."
+      </div>
+      <div style="margin-bottom: 14px;">
+        <label style="display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px;">Editable Input Test Box (select text here to test Cut & Copy):</label>
+        <input type="text" value="Quickly cut and copy this text using double-clicks!" style="width: 100%; box-sizing: border-box; padding: 10px 14px; background: #0F172A; border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 6px; color: #F8FAFC; font-size: 13.5px;">
+      </div>
+      <div style="margin-bottom: 14px;">
+        <label style="display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px;">Empty Paste Target (place cursor here & double left-click to Paste):</label>
+        <input type="text" placeholder="Place cursor here and double left-click to paste..." style="width: 100%; box-sizing: border-box; padding: 10px 14px; background: #0F172A; border: 1px dashed rgba(52, 211, 153, 0.5); border-radius: 6px; color: #F8FAFC; font-size: 13.5px;">
       </div>
       <ul style="color: var(--muted); line-height: 1.8; margin-left: 20px;">
-        <li><strong>Hold Left Mouse Button:</strong> Select text above, then hold the <kbd>Left Mouse Button</kbd> for ~450ms. The ring animates and opens a <strong>new active tab in the foreground</strong> searching your selected query in Google!</li>
-        <li><strong>Hold Right Mouse Button:</strong> Select text above, then hold the <kbd>Right Mouse Button</kbd> for ~450ms. The ring animates and opens a <strong>new tab in the background</strong> searching your query while you <strong>stay on this page</strong> (context menu is automatically suppressed)!</li>
+        <li><strong style="color: #38BDF8;">📋 Double Left-Click on Selected Text:</strong> Copies the selected text to your clipboard with an on-screen HUD confirmation!</li>
+        <li><strong style="color: #34D399;">📋 Double Left-Click in Input Field:</strong> Place cursor in any input box or textarea (with no text selected) and double left-click to paste clipboard text!</li>
+        <li><strong style="color: #F87171;">✂️ Double Right-Click on Selected Text:</strong> Cuts the selected text (copies to clipboard and deletes it from inputs/textareas) with an on-screen HUD confirmation!</li>
+        <li><strong>Hold Left Mouse Button:</strong> Select text, then hold left mouse button for ~450ms $\rightarrow$ opens new foreground tab searching Google.</li>
+        <li><strong>Hold Right Mouse Button:</strong> Select text, then hold right mouse button for ~450ms $\rightarrow$ opens new background tab searching Google (red circle UI).</li>
       </ul>
     </div>
 

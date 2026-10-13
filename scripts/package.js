@@ -3,11 +3,19 @@ const path = require('path');
 const fs = require('fs');
 
 const rootDir = path.resolve(__dirname, '..');
-const zipFile = path.join(rootDir, 'holdtab-addon.zip');
+const manifest = JSON.parse(fs.readFileSync(path.join(rootDir, 'manifest.json'), 'utf8'));
+const version = manifest.version || '1.1.0';
 
-if (fs.existsSync(zipFile)) {
-  fs.unlinkSync(zipFile);
-}
+const zipFiles = [
+  path.join(rootDir, 'holdtab-addon.zip'),
+  path.join(rootDir, 'holdtab-firefox.zip')
+];
+
+zipFiles.forEach((file) => {
+  if (fs.existsSync(file)) {
+    fs.unlinkSync(file);
+  }
+});
 
 // Files to package with forward slashes for cross-platform compatibility (Firefox AMO & Chrome Web Store)
 const files = [
@@ -29,7 +37,12 @@ try {
     cwd: rootDir,
     stdio: 'inherit'
   });
-  console.log(`Successfully created: ${zipFile}`);
+  // Also create a copy specifically named holdtab-firefox.zip
+  fs.copyFileSync(path.join(rootDir, 'holdtab-addon.zip'), path.join(rootDir, 'holdtab-firefox.zip'));
+
+  console.log(`\nSuccessfully created extension packages (v${version}):`);
+  console.log(`  📦 ${path.join(rootDir, 'holdtab-firefox.zip')}  <-- (Upload to Firefox AMO)`);
+  console.log(`  📦 ${path.join(rootDir, 'holdtab-addon.zip')}    <-- (Universal package)`);
 } catch (err) {
   console.error('Packaging failed:', err);
 }

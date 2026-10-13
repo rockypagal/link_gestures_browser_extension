@@ -26,6 +26,8 @@
     swipeDeviceMode: 'mouse', // 'mouse' | 'mousepad'
     closeTabOnDoubleRightClick: true, // Close tab on double right-click
     textSearchHold: true,    // Hold on selected text (Left: foreground search, Right: background search)
+    textDoubleClickCopyCut: true, // Double left-click to copy, double right-click to cut on selected text
+    inputDoubleClickPaste: true, // Double left-click in input field to paste clipboard text
     excludedDomains: []
   };
 
@@ -41,6 +43,18 @@
   let isDraggingLink = false;
   let dragTriggered = false;
   let isRightLinkHold = false;
+
+  // Text selection double-click actions (Double Left-Click: Copy/Paste, Double Right-Click: Cut)
+  let lastLeftClickTime = 0;
+  let lastLeftClickX = 0;
+  let lastLeftClickY = 0;
+  let lastLeftClickSelectedText = '';
+  let lastLeftClickIsInput = false;
+  let lastLeftClickTargetInput = null;
+  let lastRightClickSelectedText = '';
+  let lastCopiedText = '';
+  const DOUBLE_CLICK_INTERVAL = 380; // ms
+  const DOUBLE_CLICK_MAX_DISTANCE = 35; // px
 
   // Text search hold state
   let isHoldingText = false;
@@ -192,6 +206,15 @@
   function isSelectionTarget(e, selectedText) {
     if (!selectedText) return false;
     try {
+      const active = document.activeElement;
+      if (active && (active.tagName === 'TEXTAREA' || (active.tagName === 'INPUT' && /^(text|search|url|tel|email)$/i.test(active.type)))) {
+        if (typeof active.selectionStart === 'number' && typeof active.selectionEnd === 'number' && active.selectionStart !== active.selectionEnd) {
+          if (e.target === active || (active.contains && active.contains(e.target))) {
+            return true;
+          }
+        }
+      }
+
       const sel = window.getSelection ? window.getSelection() : null;
       if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
         const range = sel.getRangeAt(0);
@@ -606,6 +629,162 @@
     hudEl.classList.add('ht-hud-visible');
   }
 
+  // Show visual HUD for clipboard operations (Copy / Cut)
+  function showClipboardHud(actionText, previewText = '') {
+    initShadowUi();
+    if (!hudEl) return;
+
+    const arrowEl = hudEl.querySelector('.ht-hud-arrow');
+    const titleEl = hudEl.querySelector('.ht-hud-title');
+    const indexEl = hudEl.querySelector('.ht-hud-index');
+
+    if (arrowEl) arrowEl.textContent = actionText.includes('Cut') ? '✂️' : '📋';
+    if (titleEl) {
+      const clean = (previewText || '').replace(/\s+/g, ' ').trim();
+      const trimmed = clean.length > 22 ? clean.slice(0, 22) + '…' : clean;
+      titleEl.textContent = trimmed ? `${actionText}: "${trimmed}"` : actionText;
+    }
+    if (indexEl) indexEl.style.display = 'none';
+
+    hudEl.classList.add('ht-hud-visible');
+
+    if (hudTimeout) clearTimeout(hudTimeout);
+    hudTimeout = setTimeout(() => {
+      if (hudEl) hudEl.classList.remove('ht-hud-visible');
+    }, 1200);
+  }
+
+  // Copy selected text to clipboard with multi-tier fallback
+  async function performCopy(text) {
+    if (!text) return false;
+    lastCopiedText = text;
+    let copied = false;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+        copied = true;
+      }
+    } catch (_) {}
+
+    if (!copied) {
+      try {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.left = '-9999px';
+        textarea.style.top = '-9999px';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        copied = document.execCommand('copy');
+        document.body.removeChild(textarea);
+      } catch (_) {}
+    }
+    return copied;
+  }
+
+  // Cut selected text: copy to clipboard and remove text from input or document
+  async function performCut(text) {
+    if (!text) return false;
+    await performCopy(text);
+
+    try {
+      const active = document.activeElement;
+      if (active && (active.tagName === 'TEXTAREA' || (active.tagName === 'INPUT' && /^(text|search|url|tel|email)$/i.test(active.type)))) {
+        if (typeof active.selectionStart === 'number' && typeof active.selectionEnd === 'number') {
+          const start = active.selectionStart;
+          const end = active.selectionEnd;
+          if (start !== end) {
+            active.setRangeText('', start, end, 'end');
+            active.dispatchEvent(new Event('input', { bubbles: true }));
+            active.dispatchEvent(new Event('change', { bubbles: true }));
+            return true;
+          }
+        }
+      }
+
+      // Check contenteditable
+      if (active && (active.isContentEditable || active.getAttribute('contenteditable') === 'true')) {
+        document.execCommand('delete');
+        return true;
+      }
+
+      // Static DOM selection
+      const sel = window.getSelection ? window.getSelection() : null;
+      if (sel) {
+        sel.removeAllRanges();
+      }
+    } catch (_) {}
+
+    return true;
+  }
+
+  // Check if an element is an editable input, textarea, or contenteditable
+  function isInputField(el) {
+    if (!el) return false;
+    const tag = el.tagName ? el.tagName.toUpperCase() : '';
+    if (tag === 'TEXTAREA') return true;
+    if (tag === 'INPUT') {
+      const type = (el.type || 'text').toLowerCase();
+      return /^(text|search|url|tel|email|password|number)$/.test(type);
+    }
+    if (el.isContentEditable || (el.getAttribute && el.getAttribute('contenteditable') === 'true')) {
+      return true;
+    }
+    if (el.closest && el.closest('[contenteditable="true"], [contenteditable=""]')) {
+      return true;
+    }
+    return false;
+  }
+
+  // Paste text from clipboard into target input or contenteditable element
+  async function performPaste(targetElement) {
+    let textToPaste = '';
+    try {
+      if (navigator.clipboard && navigator.clipboard.readText) {
+        textToPaste = await navigator.clipboard.readText();
+      }
+    } catch (_) {}
+
+    if (!textToPaste && lastCopiedText) {
+      textToPaste = lastCopiedText;
+    }
+
+    const target = targetElement || document.activeElement;
+
+    if (!textToPaste) {
+      try {
+        if (target && target.focus) target.focus();
+        document.execCommand('paste');
+        showClipboardHud('📋 Pasted');
+        return true;
+      } catch (_) {}
+      return false;
+    }
+
+    if (!target) return false;
+    if (target.focus) target.focus();
+
+    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+      const start = typeof target.selectionStart === 'number' ? target.selectionStart : target.value.length;
+      const end = typeof target.selectionEnd === 'number' ? target.selectionEnd : target.value.length;
+      target.setRangeText(textToPaste, start, end, 'end');
+      target.dispatchEvent(new Event('input', { bubbles: true }));
+      target.dispatchEvent(new Event('change', { bubbles: true }));
+      showClipboardHud('📋 Pasted', textToPaste);
+      return true;
+    }
+
+    const editableEl = target.isContentEditable ? target : (target.closest && target.closest('[contenteditable="true"], [contenteditable=""]'));
+    if (editableEl) {
+      document.execCommand('insertText', false, textToPaste);
+      showClipboardHud('📋 Pasted', textToPaste);
+      return true;
+    }
+
+    return false;
+  }
+
   // Dispatch tab cycle message to background service worker
   function sendCycleTabMessage(direction, options = {}) {
     const {
@@ -874,12 +1053,35 @@
       const now = performance.now();
       const timeDiff = now - lastRightClickTime;
       const dist = Math.hypot(e.clientX - lastRightClickX, e.clientY - lastRightClickY);
+      const selectedText = getSelectedText();
+      const linkInfo = findLink(e);
+      const isTargetingText = Boolean(selectedText && isSelectionTarget(e, selectedText));
 
+      // 1. Double Right-Click on Selected Text -> CUT text
+      if (config.enabled && config.textDoubleClickCopyCut !== false && timeDiff > 40 && timeDiff < DOUBLE_CLICK_INTERVAL && dist < DOUBLE_CLICK_MAX_DISTANCE && (isTargetingText || lastRightClickSelectedText)) {
+        const textToCut = selectedText || lastRightClickSelectedText;
+        cancelHold();
+        lastRightClickTime = 0;
+        lastContextMenuTime = 0;
+        lastRightClickSelectedText = '';
+        tabCycleDidExecute = true;
+        suppressContextMenuUntil = now + 1500;
+
+        performCut(textToCut);
+        showClipboardHud('✂️ Cut', textToCut);
+
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+
+      // 2. Double Right-Click anywhere else -> Close Active Tab
       if (config.enabled && config.closeTabOnDoubleRightClick && timeDiff > 40 && timeDiff < DOUBLE_RIGHT_CLICK_INTERVAL && dist < DOUBLE_RIGHT_CLICK_MAX_DISTANCE) {
         // Double right-click detected!
         cancelHold();
         lastRightClickTime = 0;
         lastContextMenuTime = 0;
+        lastRightClickSelectedText = '';
         tabCycleDidExecute = true;
         suppressContextMenuUntil = now + 1500;
 
@@ -898,6 +1100,7 @@
       lastRightClickTime = now;
       lastRightClickX = e.clientX;
       lastRightClickY = e.clientY;
+      lastRightClickSelectedText = isTargetingText ? selectedText : '';
 
       isRightMouseDown = true;
       rightStartX = e.clientX;
@@ -906,9 +1109,6 @@
       startY = e.clientY;
       rightSwipeTriggered = false;
       tabCycleDidExecute = false;
-
-      const selectedText = getSelectedText();
-      const linkInfo = findLink(e);
 
       // 1. Text Search Hold (Right Click): Open new background tab and search selected text (Red circle UI)
       if (config.enabled && config.textSearchHold !== false && selectedText && (!linkInfo || isSelectionTarget(e, selectedText))) {
@@ -970,13 +1170,73 @@
         return;
       }
 
+      const now = performance.now();
+      const selectedText = getSelectedText();
+      const linkInfo = findLink(e);
+      const isTargetingText = Boolean(selectedText && isSelectionTarget(e, selectedText));
+      const targetIsInput = isInputField(e.target) || isInputField(document.activeElement);
+      const targetInputElement = isInputField(e.target) ? e.target : (isInputField(document.activeElement) ? document.activeElement : null);
+
+      const leftTimeDiff = now - lastLeftClickTime;
+      const leftDist = Math.hypot(e.clientX - lastLeftClickX, e.clientY - lastLeftClickY);
+
+      // Double Left-Click:
+      if (leftTimeDiff > 40 && leftTimeDiff < DOUBLE_CLICK_INTERVAL && leftDist < DOUBLE_CLICK_MAX_DISTANCE) {
+        // 1. Double Left-Click on Selected Text -> COPY text
+        if (config.enabled && config.textDoubleClickCopyCut !== false && (isTargetingText || lastLeftClickSelectedText)) {
+          const textToCopy = selectedText || lastLeftClickSelectedText;
+          cancelHold();
+          lastLeftClickTime = 0;
+          lastLeftClickSelectedText = '';
+          lastLeftClickIsInput = false;
+          lastLeftClickTargetInput = null;
+          suppressClickUntil = now + 600;
+
+          performCopy(textToCopy);
+          showClipboardHud('📋 Copied', textToCopy);
+
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+
+        // 2. Double Left-Click with cursor in Input Field -> PASTE text
+        if (config.enabled && config.inputDoubleClickPaste !== false && (targetIsInput || lastLeftClickIsInput)) {
+          const inputToPaste = targetInputElement || lastLeftClickTargetInput;
+          cancelHold();
+          lastLeftClickTime = 0;
+          lastLeftClickSelectedText = '';
+          lastLeftClickIsInput = false;
+          lastLeftClickTargetInput = null;
+          suppressClickUntil = now + 600;
+
+          performPaste(inputToPaste);
+
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+      }
+
+      lastLeftClickTime = now;
+      lastLeftClickX = e.clientX;
+      lastLeftClickY = e.clientY;
+
+      if (isTargetingText) {
+        lastLeftClickSelectedText = selectedText;
+        lastLeftClickIsInput = false;
+        lastLeftClickTargetInput = null;
+      } else {
+        lastLeftClickSelectedText = '';
+        lastLeftClickIsInput = Boolean(targetIsInput);
+        lastLeftClickTargetInput = targetInputElement;
+      }
+
       isLeftMouseDown = true;
       isRightMouseDown = (e.buttons & 2) !== 0;
 
       // Text Search Hold (Left Click): Open new tab, move to it (active/foreground) and search selected text
-      const selectedText = getSelectedText();
-      const linkInfo = findLink(e);
-      if (config.enabled && config.textSearchHold !== false && selectedText && (!linkInfo || isSelectionTarget(e, selectedText))) {
+      if (config.enabled && config.textSearchHold !== false && selectedText && (!linkInfo || isTargetingText)) {
         cancelHold();
         startX = e.clientX;
         startY = e.clientY;
@@ -1385,10 +1645,13 @@
       return false;
     }
 
-    // Secondary check for double right-click close tab
+    // Secondary check for double right-click close tab (only when not targeting selected text)
     const timeDiff = now - lastContextMenuTime;
     const dist = Math.hypot(e.clientX - lastContextMenuX, e.clientY - lastContextMenuY);
-    if (config.enabled && config.closeTabOnDoubleRightClick && !isCurrentSiteExcluded() &&
+    const selectedText = getSelectedText();
+    const isTextTarget = Boolean(selectedText && isSelectionTarget(e, selectedText));
+
+    if (config.enabled && !isTextTarget && config.closeTabOnDoubleRightClick && !isCurrentSiteExcluded() &&
         timeDiff > 40 && timeDiff < DOUBLE_RIGHT_CLICK_INTERVAL && dist < DOUBLE_RIGHT_CLICK_MAX_DISTANCE) {
       e.preventDefault();
       e.stopPropagation();

@@ -17,6 +17,8 @@ const DEFAULT_SETTINGS = {
   swipeDeviceMode: 'mouse', // 'mouse' (Right->Next, Left->Prev) | 'mousepad' (Left->Next, Right->Prev)
   closeTabOnDoubleRightClick: true, // Close tab on double right-click
   textSearchHold: true,    // Hold on selected text (Left: foreground search, Right: background search)
+  textDoubleClickCopyCut: true, // Double left-click to copy, double right-click to cut on selected text
+  inputDoubleClickPaste: true, // Double left-click in input field to paste clipboard text
   excludedDomains: []
 };
 
