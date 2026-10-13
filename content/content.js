@@ -95,8 +95,9 @@
   let lastContextMenuTime = 0;
   let lastContextMenuX = 0;
   let lastContextMenuY = 0;
-  const DOUBLE_RIGHT_CLICK_INTERVAL = 380; // ms
-  const DOUBLE_RIGHT_CLICK_MAX_DISTANCE = 35; // px
+  let isClosingTab = false;
+  const DOUBLE_RIGHT_CLICK_INTERVAL = 420; // ms
+  const DOUBLE_RIGHT_CLICK_MAX_DISTANCE = 40; // px
 
   // Shadow DOM host for visual feedback
   let hostElement = null;
@@ -157,6 +158,12 @@
           if (config.tabCycleHud) {
             showTabCycleHud(message.direction, message.targetTitle, message.targetIndex, message.totalTabs);
           }
+        }
+
+        if (message && message.action === 'suppressContextMenu') {
+          suppressContextMenuUntil = performance.now() + (message.duration || 2500);
+          tabCycleDidExecute = true;
+          isRightMouseDown = false;
         }
       });
     }
@@ -1083,18 +1090,23 @@
         lastContextMenuTime = 0;
         lastRightClickSelectedText = '';
         tabCycleDidExecute = true;
-        suppressContextMenuUntil = now + 1500;
+        isClosingTab = true;
+        suppressContextMenuUntil = now + 3000;
 
         if (config.tabCycleHud) {
           showCloseTabHud();
         }
+
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
 
         try {
           if (chrome.runtime && chrome.runtime.id) {
             chrome.runtime.sendMessage({ action: 'closeTab' });
           }
         } catch (_) {}
-        return;
+        return false;
       }
 
       lastRightClickTime = now;
@@ -1401,6 +1413,15 @@
   window.addEventListener('mouseup', (e) => {
     if (e.button === 2) {
       isRightMouseDown = false;
+      const now = performance.now();
+      const shouldSuppress = isClosingTab || now < suppressContextMenuUntil || tabCycleDidExecute || rockerTriggered || rightSwipeTriggered;
+
+      if (shouldSuppress) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+      }
+
       if (rockerTriggered) {
         suppressContextMenuUntil = performance.now() + 1500;
         suppressClickUntil = performance.now() + 1500;
@@ -1418,8 +1439,8 @@
           rightHoldSearchTriggered = false;
         }, 500);
       }
-      if (tabCycleDidExecute || rightSwipeTriggered) {
-        suppressContextMenuUntil = performance.now() + 1000;
+      if (tabCycleDidExecute || rightSwipeTriggered || isClosingTab) {
+        suppressContextMenuUntil = performance.now() + 2000;
       }
       cancelHold();
       setTimeout(() => {
@@ -1635,7 +1656,7 @@
 
   window.addEventListener('contextmenu', (e) => {
     const now = performance.now();
-    if (rockerTriggered || rightHoldSearchTriggered || now < suppressContextMenuUntil || tabCycleDidExecute || rightSwipeTriggered) {
+    if (isClosingTab || rockerTriggered || rightHoldSearchTriggered || now < suppressContextMenuUntil || tabCycleDidExecute || rightSwipeTriggered) {
       e.preventDefault();
       e.stopPropagation();
       e.stopImmediatePropagation();
@@ -1658,6 +1679,8 @@
       e.stopImmediatePropagation();
       lastContextMenuTime = 0;
       lastRightClickTime = 0;
+      isClosingTab = true;
+      suppressContextMenuUntil = now + 3000;
       if (config.tabCycleHud) {
         showCloseTabHud();
       }

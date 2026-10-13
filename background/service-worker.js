@@ -214,13 +214,50 @@ async function handleCycleTab(message, sender) {
  */
 async function handleCloseTab(sender) {
   const tabId = sender?.tab?.id;
+  const windowId = sender?.tab?.windowId;
+
+  // Immediately notify all tabs in the window to suppress context menu
+  try {
+    const targetWindowId = windowId || chrome.windows.WINDOW_ID_CURRENT;
+    const tabsInWindow = await chrome.tabs.query({ windowId: targetWindowId });
+    for (const t of tabsInWindow) {
+      if (t.id !== tabId) {
+        chrome.tabs.sendMessage(t.id, {
+          action: 'suppressContextMenu',
+          duration: 2500
+        }).catch(() => {});
+      }
+    }
+  } catch (_) {}
+
+  // Allow a brief 60ms pause for mouseup/contextmenu on the closing tab to complete event cancellation
+  // before the tab is removed from the window/DOM.
+  await new Promise((resolve) => setTimeout(resolve, 60));
+
   if (tabId) {
-    await chrome.tabs.remove(tabId);
+    try {
+      await chrome.tabs.remove(tabId);
+    } catch (_) {}
+
+    // Also notify whatever tab became active now
+    try {
+      const [newActive] = await chrome.tabs.query({ active: true, windowId: windowId || chrome.windows.WINDOW_ID_CURRENT });
+      if (newActive && newActive.id) {
+        chrome.tabs.sendMessage(newActive.id, {
+          action: 'suppressContextMenu',
+          duration: 2000
+        }).catch(() => {});
+      }
+    } catch (_) {}
+
     return { success: true };
   }
+
   const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (activeTab && activeTab.id) {
-    await chrome.tabs.remove(activeTab.id);
+    try {
+      await chrome.tabs.remove(activeTab.id);
+    } catch (_) {}
     return { success: true };
   }
   return { success: false, error: 'Tab not found' };
