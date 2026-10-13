@@ -4,7 +4,7 @@ const fs = require('fs');
 
 const rootDir = path.resolve(__dirname, '..');
 const manifest = JSON.parse(fs.readFileSync(path.join(rootDir, 'manifest.json'), 'utf8'));
-const version = manifest.version || '1.1.0';
+const version = manifest.version || '1.2.0';
 
 const zipFiles = [
   path.join(rootDir, 'holdtab-addon.zip'),
