@@ -369,6 +369,16 @@
       :host, :host * {
         pointer-events: none !important;
       }
+      @keyframes ht-fade-in {
+        0% {
+          opacity: 0;
+          transform: translate(-50%, -50%) scale(0.82);
+        }
+        100% {
+          opacity: 1;
+          transform: translate(-50%, -50%) scale(1);
+        }
+      }
       .ht-indicator {
         position: fixed;
         width: 38px;
@@ -386,6 +396,7 @@
         display: flex;
         opacity: 1;
         transform: translate(-50%, -50%) scale(1);
+        animation: ht-fade-in 0.14s cubic-bezier(0.16, 1, 0.3, 1) forwards;
       }
       .ht-indicator.ht-success {
         display: flex;
