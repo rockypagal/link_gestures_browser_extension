@@ -21,6 +21,8 @@ const DEFAULT_SETTINGS = {
   inputDoubleClickPaste: true, // Double left-click in input field to paste clipboard text
   altDoubleClickFillSearch: true, // Alt + double left-click on text fills current site's search bar
   altHoldSearchSite: true, // Alt + hold on text to search site (Left: Current Tab, Right: New Tab)
+  siteSearchHoldDuration: 450, // ms duration for Alt + Hold Site Search (200 - 1200)
+  textSearchHoldDuration: 450, // ms duration for Selected Text Search (200 - 1200)
   animLinkHold: true,      // Show/hide link hold animation ring
   animLinkHoldDelay: 180,  // ms grace delay for link hold ring (0 - 600)
   animSiteSearch: true,    // Show/hide site search animation ring

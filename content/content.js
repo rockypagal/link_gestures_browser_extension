@@ -30,6 +30,8 @@
     inputDoubleClickPaste: true, // Double left-click in input field to paste clipboard text
     altDoubleClickFillSearch: true, // Alt + Double Left-Click to fill current site's search bar
     altHoldSearchSite: true, // Alt + Hold on text to search site (Left: Current Tab, Right: New Tab)
+    siteSearchHoldDuration: 450, // ms duration for Alt + Hold Site Search (200 - 1200)
+    textSearchHoldDuration: 450, // ms duration for Selected Text Search (200 - 1200)
     animLinkHold: true,      // Show/hide link hold animation ring
     animLinkHoldDelay: 180,  // ms grace delay for link hold ring (0 - 600)
     animSiteSearch: true,    // Show/hide site search animation ring
@@ -2084,7 +2086,7 @@
         rightHoldSearchTriggered = true;
         altGestureTriggered = true;
         suppressContextMenuUntil = performance.now() + 1800;
-        const duration = Math.max(150, config.holdDuration || 450);
+        const duration = Math.max(150, config.siteSearchHoldDuration || config.holdDuration || 450);
         showIndicator(rightStartX, rightStartY, duration, 'Search Site (New Tab)', 'teal');
 
         textSearchTimer = setTimeout(() => {
@@ -2104,7 +2106,7 @@
         hasTriggered = false;
         rightHoldSearchTriggered = true;
         suppressContextMenuUntil = performance.now() + 1800;
-        const duration = Math.max(150, config.holdDuration || 450);
+        const duration = Math.max(150, config.textSearchHoldDuration || config.holdDuration || 450);
         showIndicator(rightStartX, rightStartY, duration, 'Active Search', 'purple');
 
         textSearchTimer = setTimeout(() => {
@@ -2264,7 +2266,7 @@
         textSearchQuery = altLeftSearchQuery;
         hasTriggered = false;
         altGestureTriggered = true;
-        const duration = Math.max(150, config.holdDuration || 450);
+        const duration = Math.max(150, config.siteSearchHoldDuration || config.holdDuration || 450);
         showIndicator(startX, startY, duration, 'Search Site', 'cyan');
 
         textSearchTimer = setTimeout(() => {
@@ -2284,7 +2286,7 @@
         textSearchType = 'background';
         textSearchQuery = selectedText;
         hasTriggered = false;
-        const duration = Math.max(150, config.holdDuration || 450);
+        const duration = Math.max(150, config.textSearchHoldDuration || config.holdDuration || 450);
         showIndicator(startX, startY, duration, 'Search in BG', 'amber');
 
         textSearchTimer = setTimeout(() => {

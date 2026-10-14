@@ -74,20 +74,6 @@
           </div>
         </div>
 
-        <!-- Duration Slider -->
-        <div class="setting-group" id="holdDurationGroup">
-          <div class="setting-label-row">
-            <label for="holdDuration" class="setting-label">Hold Duration</label>
-            <span id="durationValue" class="value-chip">450 ms</span>
-          </div>
-          <input type="range" id="holdDuration" min="200" max="1200" step="25" value="450" class="range-slider">
-          <div class="range-marks">
-            <span>Fast (200ms)</span>
-            <span>Normal (450ms)</span>
-            <span>Slow (1.2s)</span>
-          </div>
-        </div>
-
         <!-- Flick Distance Slider -->
         <div class="setting-group" id="dragDistanceGroup">
           <div class="setting-label-row">
@@ -97,7 +83,7 @@
           <input type="range" id="dragDistance" min="15" max="100" step="5" value="35" class="range-slider">
           <div class="range-marks">
             <span>Short (15px)</span>
-            <span>Normal (35px)</span>
+            <span>Recommended (35px)</span>
             <span>Long (100px)</span>
           </div>
         </div>
@@ -383,15 +369,30 @@
         </div>
         <p class="card-desc">Circular countdown ring when pressing and holding hyperlinks (Blue/Red ring).</p>
 
+        <!-- Hold Duration (Blue) -->
+        <div class="setting-group" id="holdDurationGroup">
+          <div class="setting-label-row">
+            <label for="holdDuration" class="setting-label">Hold Duration</label>
+            <span id="durationValue" class="value-chip">450 ms</span>
+          </div>
+          <input type="range" id="holdDuration" min="200" max="1200" step="25" value="450" class="range-slider">
+          <div class="range-marks">
+            <span>Fast (200ms)</span>
+            <span>Recommended (450ms)</span>
+            <span>Slow (1200ms)</span>
+          </div>
+        </div>
+
+        <!-- Grace Delay (Amber) -->
         <div class="setting-group" id="animLinkHoldDelayGroup">
           <div class="setting-label-row">
-            <label for="animLinkHoldDelay" class="setting-label">Grace Delay (Trackpad Buffer)</label>
-            <span id="animLinkHoldDelayValue" class="value-chip">180 ms</span>
+            <label for="animLinkHoldDelay" class="setting-label">Grace Delay</label>
+            <span id="animLinkHoldDelayValue" class="value-chip value-chip-delay">180 ms</span>
           </div>
-          <input type="range" id="animLinkHoldDelay" min="0" max="600" step="20" value="180" class="range-slider">
+          <input type="range" id="animLinkHoldDelay" min="0" max="600" step="20" value="180" class="range-slider range-slider-delay">
           <div class="range-marks">
             <span>Instant (0ms)</span>
-            <span>Trackpad (180ms)</span>
+            <span>Recommended (180ms)</span>
             <span>High (600ms)</span>
           </div>
         </div>
@@ -408,15 +409,30 @@
         </div>
         <p class="card-desc">Countdown ring when holding Alt + Left/Right click on selected text (Cyan/Teal ring).</p>
 
+        <!-- Hold Duration (Blue) -->
+        <div class="setting-group" id="siteSearchHoldDurationGroup">
+          <div class="setting-label-row">
+            <label for="siteSearchHoldDuration" class="setting-label">Hold Duration</label>
+            <span id="siteSearchHoldDurationValue" class="value-chip">450 ms</span>
+          </div>
+          <input type="range" id="siteSearchHoldDuration" min="200" max="1200" step="25" value="450" class="range-slider">
+          <div class="range-marks">
+            <span>Fast (200ms)</span>
+            <span>Recommended (450ms)</span>
+            <span>Slow (1200ms)</span>
+          </div>
+        </div>
+
+        <!-- Grace Delay (Amber) -->
         <div class="setting-group" id="animSiteSearchDelayGroup">
           <div class="setting-label-row">
             <label for="animSiteSearchDelay" class="setting-label">Grace Delay</label>
-            <span id="animSiteSearchDelayValue" class="value-chip">180 ms</span>
+            <span id="animSiteSearchDelayValue" class="value-chip value-chip-delay">180 ms</span>
           </div>
-          <input type="range" id="animSiteSearchDelay" min="0" max="600" step="20" value="180" class="range-slider">
+          <input type="range" id="animSiteSearchDelay" min="0" max="600" step="20" value="180" class="range-slider range-slider-delay">
           <div class="range-marks">
             <span>Instant (0ms)</span>
-            <span>Trackpad (180ms)</span>
+            <span>Recommended (180ms)</span>
             <span>High (600ms)</span>
           </div>
         </div>
@@ -433,15 +449,30 @@
         </div>
         <p class="card-desc">Countdown ring when holding click on selected text for Google Search (Amber/Purple ring).</p>
 
+        <!-- Hold Duration (Blue) -->
+        <div class="setting-group" id="textSearchHoldDurationGroup">
+          <div class="setting-label-row">
+            <label for="textSearchHoldDuration" class="setting-label">Hold Duration</label>
+            <span id="textSearchHoldDurationValue" class="value-chip">450 ms</span>
+          </div>
+          <input type="range" id="textSearchHoldDuration" min="200" max="1200" step="25" value="450" class="range-slider">
+          <div class="range-marks">
+            <span>Fast (200ms)</span>
+            <span>Recommended (450ms)</span>
+            <span>Slow (1200ms)</span>
+          </div>
+        </div>
+
+        <!-- Grace Delay (Amber) -->
         <div class="setting-group" id="animTextSearchDelayGroup">
           <div class="setting-label-row">
             <label for="animTextSearchDelay" class="setting-label">Grace Delay</label>
-            <span id="animTextSearchDelayValue" class="value-chip">180 ms</span>
+            <span id="animTextSearchDelayValue" class="value-chip value-chip-delay">180 ms</span>
           </div>
-          <input type="range" id="animTextSearchDelay" min="0" max="600" step="20" value="180" class="range-slider">
+          <input type="range" id="animTextSearchDelay" min="0" max="600" step="20" value="180" class="range-slider range-slider-delay">
           <div class="range-marks">
             <span>Instant (0ms)</span>
-            <span>Trackpad (180ms)</span>
+            <span>Recommended (180ms)</span>
             <span>High (600ms)</span>
           </div>
         </div>
@@ -502,7 +533,12 @@
 
     <!-- Footer -->
     <footer class="footer">
-      <span>v1.4.0 &bull; Auto-saved &bull; Manifest V3</span>
+      <div class="footer-meta">
+        <span>v1.4.1 &bull; Auto-saved</span>
+      </div>
+      <button id="resetDefaultsBtn" class="btn-reset" title="Reset all settings to recommended defaults">
+        ↺ Reset Defaults
+      </button>
     </footer>
   </div>
 

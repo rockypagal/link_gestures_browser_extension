@@ -21,6 +21,8 @@ const DEFAULT_SETTINGS = {
   inputDoubleClickPaste: true,
   altDoubleClickFillSearch: true,
   altHoldSearchSite: true,
+  siteSearchHoldDuration: 450,
+  textSearchHoldDuration: 450,
   animLinkHold: true,
   animLinkHoldDelay: 180,
   animSiteSearch: true,
@@ -240,6 +242,21 @@ function renderUI() {
     if (animTextSearchGroup) animTextSearchGroup.style.opacity = currentSettings.animTextSearch !== false ? '1' : '0.4';
   }
 
+  // Site search & Web search hold durations
+  const siteSearchDurationSlider = document.getElementById('siteSearchHoldDuration');
+  const siteSearchDurationVal = document.getElementById('siteSearchHoldDurationValue');
+  if (siteSearchDurationSlider && siteSearchDurationVal) {
+    siteSearchDurationSlider.value = currentSettings.siteSearchHoldDuration ?? 450;
+    siteSearchDurationVal.textContent = `${currentSettings.siteSearchHoldDuration ?? 450} ms`;
+  }
+
+  const textSearchDurationSlider = document.getElementById('textSearchHoldDuration');
+  const textSearchDurationVal = document.getElementById('textSearchHoldDurationValue');
+  if (textSearchDurationSlider && textSearchDurationVal) {
+    textSearchDurationSlider.value = currentSettings.textSearchHoldDuration ?? 450;
+    textSearchDurationVal.textContent = `${currentSettings.textSearchHoldDuration ?? 450} ms`;
+  }
+
   const animFlickDragToggle = document.getElementById('animFlickDragToggle');
   if (animFlickDragToggle) animFlickDragToggle.checked = currentSettings.animFlickDrag !== false;
 
@@ -252,21 +269,17 @@ function renderUI() {
 
 // Show/hide sliders according to active gesture mode
 function updateGestureVisibility(mode) {
-  const holdGroup = document.getElementById('holdDurationGroup');
   const dragGroup = document.getElementById('dragDistanceGroup');
   const testDesc = document.querySelector('.arena-desc');
 
   if (mode === 'hold') {
-    if (holdGroup) holdGroup.style.display = 'flex';
     if (dragGroup) dragGroup.style.display = 'none';
     if (testDesc) testDesc.textContent = 'Test your hold gesture below:';
   } else if (mode === 'drag') {
-    if (holdGroup) holdGroup.style.display = 'none';
     if (dragGroup) dragGroup.style.display = 'flex';
     if (testDesc) testDesc.textContent = 'Test your flick/drag gesture below:';
   } else {
     // 'both'
-    if (holdGroup) holdGroup.style.display = 'flex';
     if (dragGroup) dragGroup.style.display = 'flex';
     if (testDesc) testDesc.textContent = 'Test either hold or flick gesture below:';
   }
@@ -335,6 +348,32 @@ function setupEventListeners() {
     });
     durationSlider.addEventListener('change', (e) => {
       saveSettings({ holdDuration: parseInt(e.target.value, 10) });
+    });
+  }
+
+  // Site Search Hold Duration slider
+  const siteSearchDurationSlider = document.getElementById('siteSearchHoldDuration');
+  const siteSearchDurationValue = document.getElementById('siteSearchHoldDurationValue');
+  if (siteSearchDurationSlider && siteSearchDurationValue) {
+    siteSearchDurationSlider.addEventListener('input', (e) => {
+      const val = parseInt(e.target.value, 10);
+      siteSearchDurationValue.textContent = `${val} ms`;
+    });
+    siteSearchDurationSlider.addEventListener('change', (e) => {
+      saveSettings({ siteSearchHoldDuration: parseInt(e.target.value, 10) });
+    });
+  }
+
+  // Web Text Search Hold Duration slider
+  const textSearchDurationSlider = document.getElementById('textSearchHoldDuration');
+  const textSearchDurationValue = document.getElementById('textSearchHoldDurationValue');
+  if (textSearchDurationSlider && textSearchDurationValue) {
+    textSearchDurationSlider.addEventListener('input', (e) => {
+      const val = parseInt(e.target.value, 10);
+      textSearchDurationValue.textContent = `${val} ms`;
+    });
+    textSearchDurationSlider.addEventListener('change', (e) => {
+      saveSettings({ textSearchHoldDuration: parseInt(e.target.value, 10) });
     });
   }
 
@@ -546,6 +585,37 @@ function setupEventListeners() {
       }
       saveSettings({ excludedDomains: list });
       renderExcludedTags();
+    });
+  }
+
+  // Reset to Defaults Button with safe inline confirmation
+  let resetConfirmTimeout = null;
+  const resetBtn = document.getElementById('resetDefaultsBtn');
+  if (resetBtn) {
+    resetBtn.addEventListener('click', async () => {
+      if (resetBtn.dataset.confirming === 'true') {
+        clearTimeout(resetConfirmTimeout);
+        delete resetBtn.dataset.confirming;
+        currentSettings = { ...DEFAULT_SETTINGS };
+        await chrome.storage.sync.set(currentSettings);
+        renderUI();
+        resetBtn.textContent = '✓ Reset Done!';
+        resetBtn.classList.remove('btn-reset-confirm');
+        resetBtn.classList.add('btn-reset-success');
+        setTimeout(() => {
+          resetBtn.textContent = '↺ Reset Defaults';
+          resetBtn.classList.remove('btn-reset-success');
+        }, 1800);
+      } else {
+        resetBtn.dataset.confirming = 'true';
+        resetBtn.textContent = 'Click to Confirm';
+        resetBtn.classList.add('btn-reset-confirm');
+        resetConfirmTimeout = setTimeout(() => {
+          delete resetBtn.dataset.confirming;
+          resetBtn.textContent = '↺ Reset Defaults';
+          resetBtn.classList.remove('btn-reset-confirm');
+        }, 3000);
+      }
     });
   }
 }

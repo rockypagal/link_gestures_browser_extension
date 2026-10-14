@@ -414,6 +414,48 @@ input:checked + .slider:before {
   transform: scale(1.15);
 }
 
+.range-slider::-moz-range-thumb {
+  width: 15px;
+  height: 15px;
+  border: none;
+  border-radius: 50%;
+  background: #38BDF8;
+  cursor: pointer;
+  box-shadow: 0 0 6px rgba(56, 189, 248, 0.6);
+  transition: transform 0.1s;
+}
+
+.range-slider::-moz-range-thumb:hover {
+  transform: scale(1.15);
+}
+
+/* Distinct Delay Range Slider (Warm Amber Theme) */
+.range-slider-delay {
+  background: #37302A;
+}
+
+.range-slider-delay::-webkit-slider-thumb {
+  background: #F59E0B;
+  box-shadow: 0 0 7px rgba(245, 158, 11, 0.7);
+}
+
+.range-slider-delay::-moz-range-thumb {
+  width: 15px;
+  height: 15px;
+  border: none;
+  border-radius: 50%;
+  background: #F59E0B;
+  box-shadow: 0 0 7px rgba(245, 158, 11, 0.7);
+  transition: transform 0.1s;
+}
+
+/* Distinct Delay Value Chip */
+.value-chip-delay {
+  color: #FBBF24;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
 .range-marks {
   display: flex;
   justify-content: space-between;
@@ -627,8 +669,51 @@ input:checked + .slider:before {
 
 /* Footer */
 .footer {
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   font-size: 10px;
   color: var(--text-muted);
-  padding-top: 2px;
+  padding: 6px 4px 2px 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  margin-top: 5px;
+}
+
+.footer-meta {
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
+.btn-reset {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.28);
+  color: #F87171;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3.5px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.18s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  line-height: 1;
+}
+
+.btn-reset:hover {
+  background: rgba(239, 68, 68, 0.18);
+  border-color: #EF4444;
+  color: #FECACA;
+}
+
+.btn-reset.btn-reset-confirm {
+  background: rgba(245, 158, 11, 0.22);
+  border-color: #F59E0B;
+  color: #FCD34D;
+}
+
+.btn-reset.btn-reset-success {
+  background: rgba(16, 185, 129, 0.22);
+  border-color: #10B981;
+  color: #6EE7B7;
 }
