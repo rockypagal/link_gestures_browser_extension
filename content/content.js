@@ -1680,9 +1680,9 @@
       indicatorTimer = null;
     }
 
-    // Delay visual ring appearance by a brief grace period (default: 100ms)
-    // Fast single clicks release within 50-90ms and cancel hold before ring ever renders!
-    const graceDelay = Math.min(100, Math.floor(duration * 0.25));
+    // Delay visual ring appearance by a trackpad-calibrated grace period (up to 180ms)
+    // Single clicks on desktop mice (50-90ms) and laptop trackpads (120-175ms) release before the ring ever mounts!
+    const graceDelay = Math.min(180, Math.floor(duration * 0.4));
 
     indicatorTimer = setTimeout(() => {
       indicatorTimer = null;
