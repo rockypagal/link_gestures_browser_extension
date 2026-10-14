@@ -148,12 +148,24 @@
         <label style="display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px;">Empty Paste Target (place cursor here & double left-click to Paste):</label>
         <input type="text" placeholder="Place cursor here and double left-click to paste..." style="width: 100%; box-sizing: border-box; padding: 10px 14px; background: #0F172A; border: 1px dashed rgba(52, 211, 153, 0.5); border-radius: 6px; color: #F8FAFC; font-size: 13.5px;">
       </div>
+      <div style="margin-bottom: 14px;">
+        <label style="display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px;">Site Search Bar (Test Alt + Double-Click to fill, or Alt + Hold to search):</label>
+        <form id="testSearchForm" onsubmit="event.preventDefault(); const val = document.getElementById('searchInput').value; const notice = document.getElementById('searchResultNotice'); notice.style.display = 'block'; notice.textContent = '✅ Search submitted successfully: &quot;' + val + '&quot;'; return false;" style="display: flex; gap: 8px;">
+          <input type="search" id="searchInput" placeholder="Search this page or documentation..." style="flex: 1; box-sizing: border-box; padding: 10px 14px; background: #0F172A; border: 1px solid rgba(56, 189, 248, 0.5); border-radius: 6px; color: #F8FAFC; font-size: 13.5px;">
+          <button type="submit" style="padding: 10px 18px; background: #0284C7; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;">Search</button>
+        </form>
+        <div id="searchResultNotice" style="display: none; margin-top: 8px; padding: 8px 12px; background: rgba(16, 185, 129, 0.15); border: 1px solid #10B981; border-radius: 6px; color: #6EE7B7; font-size: 13px;"></div>
+      </div>
       <ul style="color: var(--muted); line-height: 1.8; margin-left: 20px;">
-        <li><strong style="color: #38BDF8;">📋 Double Left-Click on Selected Text:</strong> Copies the selected text to your clipboard with an on-screen HUD confirmation!</li>
-        <li><strong style="color: #34D399;">📋 Double Left-Click in Input Field:</strong> Place cursor in any input box or textarea (with no text selected) and double left-click to paste clipboard text!</li>
-        <li><strong style="color: #F87171;">✂️ Double Right-Click on Selected Text:</strong> Cuts the selected text (copies to clipboard and deletes it from inputs/textareas) with an on-screen HUD confirmation!</li>
-        <li><strong>Hold Left Mouse Button:</strong> Select text, then hold left mouse button for ~450ms $\rightarrow$ opens new foreground tab searching Google.</li>
-        <li><strong>Hold Right Mouse Button:</strong> Select text, then hold right mouse button for ~450ms $\rightarrow$ opens new background tab searching Google (red circle UI).</li>
+        <li><strong style="color: #38BDF8;">🌐 Alt + Hold Left Mouse Button on Text:</strong> Select text, hold <kbd>Alt</kbd> + Left-Hold for ~450ms &rarr; animates a <strong>Cyan ring</strong> ("Search Site"), fills the current site's search bar, and <strong>automatically executes the search in the current tab</strong>!</li>
+        <li><strong style="color: #2DD4BF;">↗️ Alt + Hold Right Mouse Button on Text:</strong> Select text, hold <kbd>Alt</kbd> + Right-Hold for ~450ms &rarr; animates a <strong>Teal ring</strong> ("Search Site (New Tab)") and <strong>opens a new tab with the current website searching your text</strong>!</li>
+        <li><strong style="color: #38BDF8;">🔍 Alt + Double Left-Click:</strong> Select text, hold <kbd>Alt</kbd> + double left-click &rarr; fills the current site's search bar and focuses it without auto-submitting.</li>
+        <li><strong style="color: #38BDF8;">📋 Double Left-Click on Selected Text:</strong> Copies already-selected text to your clipboard. Triple-clicking smoothly selects all text/paragraphs without accidentally triggering copy!</li>
+        <li><strong style="color: #34D399;">📋 Double Left-Click to Paste in Input:</strong> Double left-click between words (e.g. between "hello" and "world"), at the start/end, or in empty input to paste clipboard text with automatic smart word spacing! Inside a word, it preserves native double-click word selection.</li>
+        <li><strong style="color: #F87171;">✂️ Double Right-Click on Selected Text:</strong> Cuts already-selected text (copies to clipboard and deletes it from inputs/textareas) with an on-screen HUD confirmation!</li>
+        <li><strong style="color: #60A5FA;">🖱️ Drag & Drop Selected Text:</strong> Double-click or highlight any text and drag it anywhere (like into the empty input box above) — native browser drag-and-drop works seamlessly!</li>
+        <li><strong style="color: #F59E0B;">🟡 Hold Left Mouse Button on Text:</strong> Select text, then hold left mouse button for ~450ms $\rightarrow$ opens background Google search tab (Amber ring with magnifying glass icon).</li>
+        <li><strong style="color: #A855F7;">🟣 Hold Right Mouse Button on Text:</strong> Select text, then hold right mouse button for ~450ms $\rightarrow$ opens active Google search tab (Purple ring with magnifying glass icon).</li>
       </ul>
     </div>
 

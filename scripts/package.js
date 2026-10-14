@@ -3,21 +3,36 @@ const path = require('path');
 const fs = require('fs');
 
 const rootDir = path.resolve(__dirname, '..');
-const manifest = JSON.parse(fs.readFileSync(path.join(rootDir, 'manifest.json'), 'utf8'));
-const version = manifest.version || '1.2.0';
+const manifestPath = path.join(rootDir, 'manifest.json');
+const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+const version = manifest.version || '1.3.0';
 
-const zipFiles = [
+// Clean up any old zip packages so only the firefox zip file exists
+const oldZipFiles = [
   path.join(rootDir, 'holdtab-addon.zip'),
   path.join(rootDir, 'holdtab-firefox.zip')
 ];
 
-zipFiles.forEach((file) => {
+oldZipFiles.forEach((file) => {
   if (fs.existsSync(file)) {
-    fs.unlinkSync(file);
+    try {
+      fs.unlinkSync(file);
+    } catch (_) {}
   }
 });
 
-// Files to package with forward slashes for cross-platform compatibility (Firefox AMO & Chrome Web Store)
+// Auto-sync popup.html version with manifest.json
+const popupHtmlPath = path.join(rootDir, 'popup', 'popup.html');
+if (fs.existsSync(popupHtmlPath)) {
+  let popupHtml = fs.readFileSync(popupHtmlPath, 'utf8');
+  const versionRegex = /<span>v\d+\.\d+\.\d+\s*&bull;/g;
+  if (versionRegex.test(popupHtml)) {
+    popupHtml = popupHtml.replace(versionRegex, `<span>v${version} &bull;`);
+    fs.writeFileSync(popupHtmlPath, popupHtml, 'utf8');
+  }
+}
+
+// Files to package with forward slashes for Firefox AMO
 const files = [
   'manifest.json',
   'background/service-worker.js',
@@ -32,17 +47,16 @@ const files = [
 ];
 
 try {
-  // Use Windows built-in tar.exe which uses standard POSIX forward slashes in ZIP archives
-  execSync(`tar.exe -a -c -f holdtab-addon.zip ${files.join(' ')}`, {
+  // Use Windows built-in tar.exe to generate holdtab-firefox.zip
+  const zipName = 'holdtab-firefox.zip';
+  execSync(`tar.exe -a -c -f ${zipName} ${files.join(' ')}`, {
     cwd: rootDir,
     stdio: 'inherit'
   });
-  // Also create a copy specifically named holdtab-firefox.zip
-  fs.copyFileSync(path.join(rootDir, 'holdtab-addon.zip'), path.join(rootDir, 'holdtab-firefox.zip'));
 
-  console.log(`\nSuccessfully created extension packages (v${version}):`);
-  console.log(`  📦 ${path.join(rootDir, 'holdtab-firefox.zip')}  <-- (Upload to Firefox AMO)`);
-  console.log(`  📦 ${path.join(rootDir, 'holdtab-addon.zip')}    <-- (Universal package)`);
+  const zipPath = path.join(rootDir, zipName);
+  console.log(`\nSuccessfully created Firefox extension package (v${version}):`);
+  console.log(`  📦 ${zipPath}  <-- (Upload to Firefox AMO)\n`);
 } catch (err) {
   console.error('Packaging failed:', err);
 }

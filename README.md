@@ -24,14 +24,21 @@ When reading articles, browsing forums (Reddit, Hacker News), or researching, op
 - 🔀 **Optional Flick/Drag Mode**: Quick drag or flick of a link can also trigger background open.
 - 🔄 **Mouse & Trackpad Gesture Tab Cycling & Quick Actions**:
   - **Alt + Two-Finger Scroll (Both Left & Right Alt Supported)**: Hold *either* <kbd>Left Alt</kbd> or <kbd>Right Alt</kbd> (<kbd>AltGr</kbd>) and scroll two fingers up/down or swipe left/right on your mousepad to smoothly cycle tabs without runaway skips or Windows menu bar focus!
-  - **Selected Text Hold to Search**: Select any text on a webpage, then **Hold Left Button** to open a new foreground tab and search it, or **Hold Right Button** to open a new background tab and search while staying on your current page!
+  - **Alt + Left Hold to Search Site (Current Tab)**: Highlight any text, hold <kbd>Alt</kbd>, and hold left mouse button for ~450ms (Cyan ring). HoldTab fills the current site's search bar and automatically searches it in the current tab!
+  - **Alt + Right Hold to Search Site (New Tab)**: Highlight any text, hold <kbd>Alt</kbd>, and hold right mouse button for ~450ms (Teal ring). HoldTab opens a new tab with the current website and searches your text there!
+  - **Alt + Double Left-Click to Fill Search**: Select text, hold <kbd>Alt</kbd>, and double left-click to fill the current site's search bar and focus it without auto-submitting.
+  - **Double Left-Click to Copy**: Double left-click on already-selected text to copy it instantly with a HUD notification. Triple-clicking smoothly selects all without triggering copy.
+  - **Double Right-Click to Cut**: Double right-click on selected text in input fields or textareas to cut it with visual confirmation.
+  - **Double Left-Click to Paste with Smart Spacing**: Double left-click at input boundaries or between words to paste clipboard text with intelligent spacing. Native double-click word selection inside words is preserved.
+  - **Selected Text Hold to Search (Google)**: Select text on any webpage, then **Hold Left Button** (Amber ring) to search in a background tab, or **Hold Right Button** (Purple ring) to search in an active foreground tab!
   - **Right-Click + Wheel Scroll**: Hold right-click and scroll wheel up/down to switch tabs back and forth.
   - **Right-Click Swipe**: Hold right-click and swipe left/right to move between tabs (supports Mouse & Mousepad modes).
   - **Rocker Gestures (Mousepad & Mouse)**: Hold Left + Click Right for Next Tab (`▶`), Hold Right + Click Left for Previous Tab (`◀`).
   - **Double Right-Click to Close**: Rapidly double right-click anywhere on the page to close the active tab.
+  - **Native Drag & Drop Preserved**: Highlight or double-click any text and drag-and-drop anywhere with zero interference.
   - **Intelligent Context Menu Suppression**: Native context menus are automatically suppressed whenever a gesture is executed.
-  - **Visual Tab HUD Pill**: Floating on-screen badge showing destination tab title and position index `[2/5]`.
-  - **Independent Toggles**: Dedicated switches in popup settings for Alt scroll, text search hold, wheel scrolling, swipe gestures, rocker gestures, double right-click close, and HUD.
+  - **Visual Tab & Clipboard HUD**: Floating on-screen badge showing destination tab title `[2/5]`, clipboard action confirmations (`📋 Copied`, `✂️ Cut`, `📋 Pasted`), and search fills (`🔍 Filled Search`).
+  - **Independent Toggles**: Dedicated switches in popup settings for all gestures and actions.
 - 🚫 **Domain Blacklist**: Exclude specific websites with one click.
 - 🔒 **100% Private**: Runs entirely locally on your device with no tracking, analytics, or external calls.
 
@@ -92,8 +99,8 @@ Move through your open browser tabs and search selected text effortlessly:
    - Built-in Windows Alt menu bar suppression ensures releasing Alt never opens browser menus.
 2. **Hold Selected Text to Search**:
    - Highlight/select any text on a webpage.
-   - **Hold Left Mouse Button**: Opens a **new foreground tab**, moves to it immediately, and searches your selected text!
-   - **Hold Right Mouse Button**: Opens a **new background tab** and searches your selected text while keeping you on your current tab (context menu is automatically suppressed)!
+   - **Hold Left Mouse Button**: Opens a **new background tab** and searches your selected text while keeping you on your current tab!
+   - **Hold Right Mouse Button**: Opens a **new foreground tab**, moves to it immediately, and searches your selected text (context menu is automatically suppressed)!
 3. **Right-Click + Wheel Scroll**:
    - Hold down the **Right Mouse Button** anywhere on any webpage.
    - **Scroll the wheel DOWN**: Switch to the **Next Tab** (`▶`).

@@ -28,6 +28,8 @@
     textSearchHold: true,    // Hold on selected text (Left: foreground search, Right: background search)
     textDoubleClickCopyCut: true, // Double left-click to copy, double right-click to cut on selected text
     inputDoubleClickPaste: true, // Double left-click in input field to paste clipboard text
+    altDoubleClickFillSearch: true, // Alt + Double Left-Click to fill current site's search bar
+    altHoldSearchSite: true, // Alt + Hold on text to search site (Left: Current Tab, Right: New Tab)
     excludedDomains: []
   };
 
@@ -44,14 +46,16 @@
   let dragTriggered = false;
   let isRightLinkHold = false;
 
-  // Text selection double-click actions (Double Left-Click: Copy/Paste, Double Right-Click: Cut)
+  // Text selection double-click actions (Double Left-Click: Copy/Paste/Search, Double Right-Click: Cut)
   let lastLeftClickTime = 0;
   let lastLeftClickX = 0;
   let lastLeftClickY = 0;
   let lastLeftClickSelectedText = '';
+  let lastLeftClickWithAlt = false;
   let lastLeftClickIsInput = false;
   let lastLeftClickTargetInput = null;
   let lastRightClickSelectedText = '';
+  let lastKnownSelectedText = '';
   let lastCopiedText = '';
   const DOUBLE_CLICK_INTERVAL = 380; // ms
   const DOUBLE_CLICK_MAX_DISTANCE = 35; // px
@@ -84,9 +88,9 @@
   let lastAltDirection = null;
   let altLockedAxis = null; // 'x' | 'y' | null
   let altGestureTriggered = false;
-  const ALT_SCROLL_THRESHOLD = 32;  // px threshold for smooth step
-  const ALT_REVERSE_THRESHOLD = 95; // px threshold to reverse direction within bounce window
-  const ALT_SCROLL_COOLDOWN = 110;  // ms minimum cooldown between steps
+  const ALT_SCROLL_THRESHOLD = 40;  // px threshold for smooth step
+  const ALT_REVERSE_THRESHOLD = 120; // px threshold to reverse direction within bounce window
+  const ALT_SCROLL_COOLDOWN = 160;  // ms minimum cooldown between steps
 
   // Double right-click close tab state
   let lastRightClickTime = 0;
@@ -193,20 +197,46 @@
     return isAltKeyDown;
   }
 
+  // Listen for text selection changes to preserve selected text even if a site clears selection on mousedown
+  document.addEventListener('selectionchange', () => {
+    try {
+      const sel = window.getSelection ? window.getSelection().toString().trim() : '';
+      if (sel) {
+        lastKnownSelectedText = sel;
+      }
+    } catch (_) {}
+  });
+
   // Get currently selected text on page or inside input/textarea
   function getSelectedText() {
     try {
       const sel = window.getSelection ? window.getSelection().toString().trim() : '';
-      if (sel) return sel;
+      if (sel) {
+        lastKnownSelectedText = sel;
+        return sel;
+      }
 
       const active = document.activeElement;
       if (active && (active.tagName === 'TEXTAREA' || (active.tagName === 'INPUT' && /^(text|search|url|tel|email)$/i.test(active.type)))) {
         if (typeof active.selectionStart === 'number' && typeof active.selectionEnd === 'number' && active.selectionStart !== active.selectionEnd) {
-          return active.value.slice(active.selectionStart, active.selectionEnd).trim();
+          const inputSel = active.value.slice(active.selectionStart, active.selectionEnd).trim();
+          if (inputSel) {
+            lastKnownSelectedText = inputSel;
+            return inputSel;
+          }
+        }
+      }
+
+      // Check shadow root selection if active element has shadowRoot
+      if (active && active.shadowRoot && active.shadowRoot.getSelection) {
+        const shadowSel = active.shadowRoot.getSelection().toString().trim();
+        if (shadowSel) {
+          lastKnownSelectedText = shadowSel;
+          return shadowSel;
         }
       }
     } catch (_) {}
-    return '';
+    return lastKnownSelectedText || '';
   }
 
   // Check if mouse event is on or near the current text selection
@@ -390,13 +420,25 @@
         opacity: 0.95;
         transition: opacity 0.15s;
       }
+      .ht-icon-search {
+        display: none;
+        opacity: 0.95;
+        transition: opacity 0.15s;
+      }
+      .ht-indicator.ht-searching .ht-icon-tab {
+        display: none !important;
+      }
+      .ht-indicator.ht-searching .ht-icon-search {
+        display: block !important;
+      }
       .ht-icon-arrow {
         display: none;
         opacity: 0;
         transform-origin: 18px 18px;
         transition: opacity 0.1s ease;
       }
-      .ht-dragging .ht-icon-tab {
+      .ht-dragging .ht-icon-tab,
+      .ht-dragging .ht-icon-search {
         display: none !important;
       }
       .ht-dragging .ht-icon-arrow {
@@ -406,8 +448,11 @@
       .ht-dragging .ht-badge {
         opacity: 1 !important;
       }
+      .ht-success .ht-icon-tab,
+      .ht-success .ht-icon-search,
       .ht-success .ht-icon-arrow {
         display: none !important;
+        opacity: 0 !important;
       }
       .ht-icon-check {
         fill: none;
@@ -422,10 +467,6 @@
       }
       .ht-success .ht-progress {
         stroke: #10B981 !important;
-      }
-      .ht-success .ht-icon-tab {
-        opacity: 0;
-        display: none;
       }
       .ht-success .ht-icon-check {
         opacity: 1;
@@ -471,7 +512,32 @@
       .ht-success .ht-badge {
         opacity: 1;
       }
-      /* Red shade theme for Right-Click visual indicator circle UI */
+      /* Blue theme (Link Background Tab) */
+      .ht-indicator.ht-blue .ht-svg-wrap {
+        filter: drop-shadow(0 2px 10px rgba(56, 189, 248, 0.4));
+      }
+      .ht-indicator.ht-blue .ht-bg-circle {
+        fill: rgba(15, 23, 42, 0.9);
+      }
+      .ht-indicator.ht-blue .ht-track {
+        stroke: rgba(56, 189, 248, 0.22);
+      }
+      .ht-indicator.ht-blue .ht-progress {
+        stroke: #38BDF8;
+      }
+      .ht-indicator.ht-blue .ht-icon-arrow path {
+        fill: #38BDF8;
+      }
+      .ht-indicator.ht-blue .ht-ripple {
+        border-color: #38BDF8;
+      }
+      .ht-indicator.ht-blue .ht-badge {
+        background: rgba(15, 23, 42, 0.95);
+        border: 1px solid rgba(56, 189, 248, 0.45);
+        color: #E0F2FE;
+      }
+
+      /* Red shade theme (Right-Click Foreground Link / Open & Go) */
       .ht-indicator.ht-red .ht-svg-wrap {
         filter: drop-shadow(0 2px 10px rgba(239, 68, 68, 0.45));
       }
@@ -497,6 +563,118 @@
         background: rgba(45, 10, 16, 0.95);
         border: 1px solid rgba(239, 68, 68, 0.45);
         color: #FFE4E6;
+      }
+
+      /* Purple theme (Active Search Bar / Foreground Search) */
+      .ht-indicator.ht-purple .ht-svg-wrap {
+        filter: drop-shadow(0 2px 10px rgba(168, 85, 247, 0.48));
+      }
+      .ht-indicator.ht-purple .ht-bg-circle {
+        fill: rgba(30, 10, 48, 0.92);
+      }
+      .ht-indicator.ht-purple .ht-track {
+        stroke: rgba(216, 180, 254, 0.28);
+      }
+      .ht-indicator.ht-purple .ht-progress {
+        stroke: #A855F7;
+      }
+      .ht-indicator.ht-purple .ht-icon-arrow path {
+        fill: #A855F7;
+      }
+      .ht-indicator.ht-purple.ht-success .ht-progress {
+        stroke: #C084FC !important;
+      }
+      .ht-indicator.ht-purple .ht-ripple {
+        border-color: #A855F7;
+      }
+      .ht-indicator.ht-purple .ht-badge {
+        background: rgba(30, 10, 48, 0.95);
+        border: 1px solid rgba(168, 85, 247, 0.45);
+        color: #F3E8FF;
+      }
+
+      /* Amber theme (Background Search / BG Search) */
+      .ht-indicator.ht-amber .ht-svg-wrap {
+        filter: drop-shadow(0 2px 10px rgba(245, 158, 11, 0.48));
+      }
+      .ht-indicator.ht-amber .ht-bg-circle {
+        fill: rgba(42, 22, 6, 0.92);
+      }
+      .ht-indicator.ht-amber .ht-track {
+        stroke: rgba(253, 230, 138, 0.28);
+      }
+      .ht-indicator.ht-amber .ht-progress {
+        stroke: #F59E0B;
+      }
+      .ht-indicator.ht-amber .ht-icon-arrow path {
+        fill: #F59E0B;
+      }
+      .ht-indicator.ht-amber.ht-success .ht-progress {
+        stroke: #FBBF24 !important;
+      }
+      .ht-indicator.ht-amber .ht-ripple {
+        border-color: #F59E0B;
+      }
+      .ht-indicator.ht-amber .ht-badge {
+        background: rgba(42, 22, 6, 0.95);
+        border: 1px solid rgba(245, 158, 11, 0.45);
+        color: #FEF3C7;
+      }
+
+      /* Cyan theme (Current Tab Site Search) */
+      .ht-indicator.ht-cyan .ht-svg-wrap {
+        filter: drop-shadow(0 2px 10px rgba(14, 165, 233, 0.5));
+      }
+      .ht-indicator.ht-cyan .ht-bg-circle {
+        fill: rgba(8, 47, 73, 0.92);
+      }
+      .ht-indicator.ht-cyan .ht-track {
+        stroke: rgba(186, 230, 253, 0.28);
+      }
+      .ht-indicator.ht-cyan .ht-progress {
+        stroke: #38BDF8;
+      }
+      .ht-indicator.ht-cyan .ht-icon-arrow path {
+        fill: #38BDF8;
+      }
+      .ht-indicator.ht-cyan.ht-success .ht-progress {
+        stroke: #0EA5E9 !important;
+      }
+      .ht-indicator.ht-cyan .ht-ripple {
+        border-color: #38BDF8;
+      }
+      .ht-indicator.ht-cyan .ht-badge {
+        background: rgba(8, 47, 73, 0.95);
+        border: 1px solid rgba(56, 189, 248, 0.45);
+        color: #E0F2FE;
+      }
+
+      /* Teal theme (New Tab Site Search) */
+      .ht-indicator.ht-teal .ht-svg-wrap {
+        filter: drop-shadow(0 2px 10px rgba(20, 184, 166, 0.5));
+      }
+      .ht-indicator.ht-teal .ht-bg-circle {
+        fill: rgba(4, 47, 46, 0.92);
+      }
+      .ht-indicator.ht-teal .ht-track {
+        stroke: rgba(153, 246, 228, 0.28);
+      }
+      .ht-indicator.ht-teal .ht-progress {
+        stroke: #14B8A6;
+      }
+      .ht-indicator.ht-teal .ht-icon-arrow path {
+        fill: #14B8A6;
+      }
+      .ht-indicator.ht-teal.ht-success .ht-progress {
+        stroke: #2DD4BF !important;
+      }
+      .ht-indicator.ht-teal .ht-ripple {
+        border-color: #14B8A6;
+      }
+      .ht-indicator.ht-teal .ht-badge {
+        background: rgba(4, 47, 46, 0.95);
+        border: 1px solid rgba(20, 184, 166, 0.45);
+        color: #CCFBF1;
       }
       .ht-hud-pill {
         position: fixed;
@@ -559,6 +737,11 @@
           <line x1="11.5" y1="15.5" x2="24.5" y2="15.5" stroke="#FFFFFF" stroke-width="1.5" />
           <line x1="18" y1="18" x2="18" y2="22" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" />
           <line x1="16" y1="20" x2="20" y2="20" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" />
+        </g>
+        <!-- Search icon centered at (18, 18) -->
+        <g class="ht-icon-search">
+          <circle cx="16.5" cy="16.5" r="4.5" stroke="#FFFFFF" stroke-width="1.8" fill="none" />
+          <line x1="20" y1="20" x2="24" y2="24" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" />
         </g>
         <!-- Directional Drag Arrow centered at (18, 18) -->
         <g class="ht-icon-arrow">
@@ -636,7 +819,7 @@
     hudEl.classList.add('ht-hud-visible');
   }
 
-  // Show visual HUD for clipboard operations (Copy / Cut)
+  // Show visual HUD for clipboard operations and search actions (Copy / Cut / Fill Search)
   function showClipboardHud(actionText, previewText = '') {
     initShadowUi();
     if (!hudEl) return;
@@ -645,7 +828,17 @@
     const titleEl = hudEl.querySelector('.ht-hud-title');
     const indexEl = hudEl.querySelector('.ht-hud-index');
 
-    if (arrowEl) arrowEl.textContent = actionText.includes('Cut') ? '✂️' : '📋';
+    if (arrowEl) {
+      if (actionText.includes('Cut') || actionText.includes('✂️')) {
+        arrowEl.textContent = '✂️';
+      } else if (actionText.includes('Search') || actionText.includes('🔍')) {
+        arrowEl.textContent = '🔍';
+      } else if (actionText.includes('⚠️')) {
+        arrowEl.textContent = '⚠️';
+      } else {
+        arrowEl.textContent = '📋';
+      }
+    }
     if (titleEl) {
       const clean = (previewText || '').replace(/\s+/g, ' ').trim();
       const trimmed = clean.length > 22 ? clean.slice(0, 22) + '…' : clean;
@@ -744,8 +937,142 @@
     return false;
   }
 
+  // Check if cursor/caret is inside a word (has letters/characters on BOTH sides)
+  function isCursorInOrBetweenText(target) {
+    if (!target) return false;
+
+    // Standard HTML Input & Textarea
+    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+      const val = target.value;
+      if (!val || val.length === 0) {
+        return false; // Field is empty -> allow double-click paste
+      }
+
+      // If only whitespace in field, allow paste
+      if (!/\S/.test(val)) {
+        return false;
+      }
+
+      let start = -1;
+      let end = -1;
+      try {
+        if (typeof target.selectionStart === 'number') {
+          start = target.selectionStart;
+          end = target.selectionEnd;
+        }
+      } catch (_) {}
+
+      // If user already has a selection range (highlighted text), don't paste (allows copy/cut/selection)
+      if (start >= 0 && end >= 0 && start !== end) {
+        return true;
+      }
+
+      // If cursor position is known
+      if (start >= 0) {
+        const charBefore = start > 0 ? val[start - 1] : '';
+        const charAfter = end < val.length ? val[end] : '';
+
+        const hasLetterBefore = Boolean(charBefore && /\S/.test(charBefore));
+        const hasLetterAfter = Boolean(charAfter && /\S/.test(charAfter));
+
+        // Only block paste if cursor has letters directly on BOTH sides (e.g. "hel|lo" or "abc|123")
+        // If either side is blank, space, or an edge boundary (e.g. "hello |world" or "|world" or "hello|"), allow paste!
+        if (hasLetterBefore && hasLetterAfter) {
+          return true; // Inside a word -> do NOT paste (allow native word selection)
+        }
+
+        return false; // Adjacent to space, blank, or edge -> allow paste
+      }
+
+      return false;
+    }
+
+    // Contenteditable elements
+    const editable = target.isContentEditable ? target : (target.closest && target.closest('[contenteditable="true"], [contenteditable=""]'));
+    if (editable) {
+      const text = editable.textContent || '';
+      if (!text || !/\S/.test(text)) return false; // Empty -> allow paste
+
+      try {
+        const sel = window.getSelection ? window.getSelection() : null;
+        if (sel && sel.rangeCount > 0) {
+          const range = sel.getRangeAt(0);
+          if (!range.collapsed) {
+            return true; // Has selection -> do not paste
+          }
+          const preRange = range.cloneRange();
+          preRange.selectNodeContents(editable);
+          preRange.setEnd(range.startContainer, range.startOffset);
+          const textBefore = preRange.toString();
+
+          const postRange = range.cloneRange();
+          postRange.selectNodeContents(editable);
+          postRange.setStart(range.endContainer, range.endOffset);
+          const textAfter = postRange.toString();
+
+          const charBefore = textBefore.length > 0 ? textBefore[textBefore.length - 1] : '';
+          const charAfter = textAfter.length > 0 ? textAfter[0] : '';
+
+          const hasLetterBefore = Boolean(charBefore && /\S/.test(charBefore));
+          const hasLetterAfter = Boolean(charAfter && /\S/.test(charAfter));
+
+          if (hasLetterBefore && hasLetterAfter) {
+            return true;
+          }
+          return false;
+        }
+      } catch (_) {}
+
+      return false;
+    }
+
+    return false;
+  }
+
   // Paste text from clipboard into target input or contenteditable element
   async function performPaste(targetElement) {
+    const target = targetElement || document.activeElement;
+    if (!target) return false;
+
+    // Synchronously preserve cursor positions and adjacent characters before any async clipboard reads
+    let savedStart = null;
+    let savedEnd = null;
+    let savedCharBefore = '';
+    let savedCharAfter = '';
+
+    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+      try {
+        if (typeof target.selectionStart === 'number') {
+          savedStart = target.selectionStart;
+          savedEnd = target.selectionEnd;
+          const val = target.value || '';
+          savedCharBefore = savedStart > 0 ? val[savedStart - 1] : '';
+          savedCharAfter = savedEnd < val.length ? val[savedEnd] : '';
+        }
+      } catch (_) {}
+    } else {
+      try {
+        const sel = window.getSelection ? window.getSelection() : null;
+        if (sel && sel.rangeCount > 0) {
+          const range = sel.getRangeAt(0);
+          const editable = target.isContentEditable ? target : (target.closest && target.closest('[contenteditable="true"], [contenteditable=""]'));
+          if (editable) {
+            const preRange = range.cloneRange();
+            preRange.selectNodeContents(editable);
+            preRange.setEnd(range.startContainer, range.startOffset);
+            const preText = preRange.toString();
+            savedCharBefore = preText.length > 0 ? preText[preText.length - 1] : '';
+
+            const postRange = range.cloneRange();
+            postRange.selectNodeContents(editable);
+            postRange.setStart(range.endContainer, range.endOffset);
+            const postText = postRange.toString();
+            savedCharAfter = postText.length > 0 ? postText[0] : '';
+          }
+        }
+      } catch (_) {}
+    }
+
     let textToPaste = '';
     try {
       if (navigator.clipboard && navigator.clipboard.readText) {
@@ -757,8 +1084,6 @@
       textToPaste = lastCopiedText;
     }
 
-    const target = targetElement || document.activeElement;
-
     if (!textToPaste) {
       try {
         if (target && target.focus) target.focus();
@@ -769,28 +1094,553 @@
       return false;
     }
 
-    if (!target) return false;
-    if (target.focus) target.focus();
+    if (target.focus && document.activeElement !== target) {
+      target.focus();
+    }
 
     if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
-      const start = typeof target.selectionStart === 'number' ? target.selectionStart : target.value.length;
-      const end = typeof target.selectionEnd === 'number' ? target.selectionEnd : target.value.length;
-      target.setRangeText(textToPaste, start, end, 'end');
+      const start = typeof savedStart === 'number' ? savedStart : (typeof target.selectionStart === 'number' ? target.selectionStart : target.value.length);
+      const end = typeof savedEnd === 'number' ? savedEnd : (typeof target.selectionEnd === 'number' ? target.selectionEnd : target.value.length);
+
+      let textToInsert = textToPaste;
+      const isPasswordOrUrl = target.tagName === 'INPUT' && (target.type === 'password' || target.type === 'url');
+
+      // Smart Spacing: If adjacent to letters, automatically add space so words don't collide
+      // (e.g. pasting "goodmorning" in "hello |world" -> "hello goodmorning world")
+      if (!isPasswordOrUrl) {
+        if (savedCharBefore && /\S/.test(savedCharBefore) && !/^\s/.test(textToInsert)) {
+          textToInsert = ' ' + textToInsert;
+        }
+        if (savedCharAfter && /\S/.test(savedCharAfter) && !/\s$/.test(textToInsert)) {
+          textToInsert = textToInsert + ' ';
+        }
+      }
+
+      target.setRangeText(textToInsert, start, end, 'end');
       target.dispatchEvent(new Event('input', { bubbles: true }));
       target.dispatchEvent(new Event('change', { bubbles: true }));
-      showClipboardHud('📋 Pasted', textToPaste);
+      showClipboardHud('📋 Pasted', textToInsert.trim() || textToInsert);
       return true;
     }
 
     const editableEl = target.isContentEditable ? target : (target.closest && target.closest('[contenteditable="true"], [contenteditable=""]'));
     if (editableEl) {
-      document.execCommand('insertText', false, textToPaste);
-      showClipboardHud('📋 Pasted', textToPaste);
+      let textToInsert = textToPaste;
+      if (savedCharBefore && /\S/.test(savedCharBefore) && !/^\s/.test(textToInsert)) {
+        textToInsert = ' ' + textToInsert;
+      }
+      if (savedCharAfter && /\S/.test(savedCharAfter) && !/\s$/.test(textToInsert)) {
+        textToInsert = textToInsert + ' ';
+      }
+      document.execCommand('insertText', false, textToInsert);
+      showClipboardHud('📋 Pasted', textToInsert.trim() || textToInsert);
       return true;
     }
 
     return false;
   }
+
+  // Check if an element is currently visible on the page (not hidden via display, visibility, opacity, or collapsed dimensions)
+  function isElementVisible(el) {
+    if (!el || !el.ownerDocument) return false;
+    if (el.type === 'hidden' || el.disabled || el.readOnly) return false;
+
+    try {
+      const style = window.getComputedStyle(el);
+      if (style.display === 'none' || style.visibility === 'hidden' || parseFloat(style.opacity) === 0) {
+        return false;
+      }
+
+      // Filter out off-screen accessible hiding (-9999px)
+      if ((style.position === 'absolute' || style.position === 'fixed') &&
+          (parseFloat(style.left) < -500 || parseFloat(style.top) < -500)) {
+        return false;
+      }
+
+      const rect = el.getBoundingClientRect();
+      if (rect.width < 15 || rect.height < 10) {
+        return false;
+      }
+
+      // Elements inside ShadowRoot (e.g. YouTube, Reddit web components) have offsetParent === null even when visible
+      const rootNode = el.getRootNode ? el.getRootNode() : null;
+      const isShadowChild = Boolean(rootNode && (rootNode.nodeType === 11 || (typeof ShadowRoot !== 'undefined' && rootNode instanceof ShadowRoot)));
+      if (style.position !== 'fixed' && !isShadowChild && el.offsetParent === null) {
+        return false;
+      }
+
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // Deep query selector traversing open shadow roots (crucial for YouTube, Reddit, custom web components)
+  function queryAllDeep(selector, root = document) {
+    const results = [];
+    try {
+      const direct = root.querySelectorAll(selector);
+      for (let i = 0; i < direct.length; i++) {
+        results.push(direct[i]);
+      }
+    } catch (_) {}
+
+    try {
+      const all = root.querySelectorAll('*');
+      for (let i = 0; i < all.length; i++) {
+        const el = all[i];
+        if (el && el.shadowRoot) {
+          const shadowMatches = queryAllDeep(selector, el.shadowRoot);
+          for (let j = 0; j < shadowMatches.length; j++) {
+            results.push(shadowMatches[j]);
+          }
+        }
+      }
+    } catch (_) {}
+
+    return results;
+  }
+
+  // Helper to extract word under cursor position if no text was explicitly selected
+  function getWordAtPoint(x, y) {
+    try {
+      let range = null;
+      if (document.caretPositionFromPoint) {
+        const pos = document.caretPositionFromPoint(x, y);
+        if (pos && pos.offsetNode && pos.offsetNode.nodeType === Node.TEXT_NODE) {
+          range = document.createRange();
+          range.setStart(pos.offsetNode, pos.offset);
+          range.setEnd(pos.offsetNode, pos.offset);
+        }
+      } else if (document.caretRangeFromPoint) {
+        range = document.caretRangeFromPoint(x, y);
+      }
+      if (range && range.startContainer && range.startContainer.nodeType === Node.TEXT_NODE) {
+        const text = range.startContainer.textContent;
+        const offset = range.startOffset;
+        let start = offset;
+        while (start > 0 && /\S/.test(text[start - 1])) start--;
+        let end = offset;
+        while (end < text.length && /\S/.test(text[end])) end++;
+        const word = text.slice(start, end).trim();
+        return word;
+      }
+    } catch (_) {}
+    return '';
+  }
+
+  // Find a visible search trigger button that opens an expandable search bar or modal (e.g. Algolia, Docusaurus)
+  function findSearchTriggerButton() {
+    const triggerSelectors = [
+      'button.DocSearch-Button',
+      'button.DocSearch',
+      'button[aria-label*="search" i]',
+      'button[title*="search" i]',
+      'button[data-target*="search" i]',
+      'button[data-testid*="search" i]',
+      'button.search-button',
+      'button.search-toggle',
+      'button.search-btn',
+      'a[aria-label*="search" i]',
+      'a[title*="search" i]',
+      'a.search-toggle',
+      'a.search-button',
+      '#search-button'
+    ];
+
+    for (const sel of triggerSelectors) {
+      try {
+        const btns = queryAllDeep(sel);
+        const visible = btns.filter(isElementVisible);
+        if (visible.length > 0) return visible[0];
+      } catch (_) {}
+    }
+    return null;
+  }
+
+  // Find the primary search input on the current page using ranked heuristics
+  function findSiteSearchInput() {
+    const selectorGroups = [
+      // 1. Explicit search input types and roles
+      'input[type="search"]',
+      'input[role="searchbox"]',
+      '[role="searchbox"] input',
+      '[role="searchbox"] textarea',
+      'form[role="search"] input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="checkbox"]):not([type="radio"])',
+      'form[role="search"] textarea',
+
+      // 2. High-profile site IDs & specific search names
+      'input#searchInput, textarea#searchInput', // Wikipedia, MediaWiki
+      'input#search, textarea#search',           // YouTube, GitHub, etc.
+      'input#search-input, input#search_input',
+      'input#twotabsearchtextbox',              // Amazon
+      'input#gh-ac',                            // eBay
+      'input#searchbox_input',                  // DuckDuckGo
+      'input#sb_form_q',                        // Bing
+      'input[name="search_query"]',             // YouTube
+      'input[name="q"], textarea[name="q"]',    // Google, Reddit, SO
+      'input[name="query"], textarea[name="query"]',
+      'input[name="search"], textarea[name="search"]',
+      'input[name="s"], textarea[name="s"]',    // WordPress
+      'input[name="keyword"], input[name="keywords"], input[name="field-keywords"]',
+      'input[name="search_term"], input[name="term"], input[name="k"]',
+
+      // 3. Elements with search in id, name, placeholder, or aria-label
+      'input[id*="search" i]:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="checkbox"]):not([type="radio"])',
+      'input[name*="search" i]:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="checkbox"]):not([type="radio"])',
+      'input[placeholder*="search" i], textarea[placeholder*="search" i]',
+      'input[placeholder*="find" i], textarea[placeholder*="find" i]',
+      'input[aria-label*="search" i], textarea[aria-label*="search" i]',
+      'input[data-testid*="search" i], textarea[data-testid*="search" i]',
+      'input[data-qa*="search" i]',
+      'input[class*="search" i]:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="checkbox"]):not([type="radio"])',
+
+      // 4. Containers/forms dedicated to search
+      'form[action*="search" i] input:not([type="hidden"]):not([type="submit"]):not([type="button"])',
+      'form[id*="search" i] input:not([type="hidden"]):not([type="submit"]):not([type="button"])',
+      'form[class*="search" i] input:not([type="hidden"]):not([type="submit"]):not([type="button"])',
+      'header input[type="text"], nav input[type="text"]'
+    ];
+
+    for (const selector of selectorGroups) {
+      try {
+        const matches = queryAllDeep(selector);
+        const visibleMatches = matches.filter(isElementVisible);
+        if (visibleMatches.length > 0) {
+          if (visibleMatches.length === 1) {
+            return visibleMatches[0];
+          }
+          // If multiple visible search inputs match, prioritize the one closest to the top of the document
+          visibleMatches.sort((a, b) => {
+            const rectA = a.getBoundingClientRect();
+            const rectB = b.getBoundingClientRect();
+            const topA = rectA.top + window.scrollY;
+            const topB = rectB.top + window.scrollY;
+            return topA - topB;
+          });
+          return visibleMatches[0];
+        }
+      } catch (_) {}
+    }
+
+    return null;
+  }
+
+  // Set value on HTMLInputElement / HTMLTextAreaElement respecting React / Vue reactive wrappers
+  function setNativeInputValue(element, value) {
+    try {
+      const prototype = Object.getPrototypeOf(element);
+      const descriptor = Object.getOwnPropertyDescriptor(prototype, 'value') ||
+                         Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value') ||
+                         Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value');
+      if (descriptor && descriptor.set) {
+        descriptor.set.call(element, value);
+      } else {
+        element.value = value;
+      }
+    } catch (_) {
+      element.value = value;
+    }
+  }
+
+  // Submit the search query on the search input element via Enter events and form/button submission
+  function submitSearch(searchInput) {
+    if (!searchInput) return;
+
+    try {
+      // 1. Dispatch keyboard Enter events with explicit keyCode and which for React/Vue compatibility
+      ['keydown', 'keypress', 'keyup'].forEach((type) => {
+        const event = new KeyboardEvent(type, {
+          key: 'Enter',
+          code: 'Enter',
+          keyCode: 13,
+          which: 13,
+          bubbles: true,
+          cancelable: true,
+          composed: true
+        });
+        try {
+          Object.defineProperty(event, 'keyCode', { get: () => 13 });
+          Object.defineProperty(event, 'which', { get: () => 13 });
+        } catch (_) {}
+        searchInput.dispatchEvent(event);
+      });
+
+      // 2. Look for associated submit button or form
+      const form = searchInput.form || searchInput.closest('form');
+      const submitSelectors = [
+        'button[type="submit"]',
+        'input[type="submit"]',
+        'button#search-icon-legacy',
+        'button[aria-label*="search" i]',
+        'button[title*="search" i]',
+        'button[data-testid*="search" i]',
+        'button.search-button',
+        'button.search-submit',
+        'button.search-btn'
+      ];
+
+      let submitBtn = null;
+      if (form) {
+        for (const sel of submitSelectors) {
+          const btn = form.querySelector(sel);
+          if (btn && isElementVisible(btn)) {
+            submitBtn = btn;
+            break;
+          }
+        }
+      }
+
+      if (!submitBtn) {
+        const container = searchInput.closest('header, nav, [role="search"], .search-container, .search-box') || searchInput.parentElement;
+        if (container) {
+          for (const sel of submitSelectors) {
+            const btn = container.querySelector(sel);
+            if (btn && isElementVisible(btn)) {
+              submitBtn = btn;
+              break;
+            }
+          }
+        }
+      }
+
+      if (submitBtn) {
+        submitBtn.click();
+      } else if (form) {
+        if (typeof form.requestSubmit === 'function') {
+          try {
+            form.requestSubmit();
+          } catch (_) {
+            form.submit();
+          }
+        } else if (typeof form.submit === 'function') {
+          form.submit();
+        }
+      }
+    } catch (err) {
+      console.warn('HoldTab submitSearch error:', err);
+    }
+  }
+
+  // Fill the current website's search bar with selected text, focus it, and optionally submit
+  function fillSiteSearchBar(text, andSubmit = false, allowTriggerModal = true) {
+    if (!text) return false;
+    const cleanText = text.trim();
+    if (!cleanText) return false;
+
+    let searchInput = findSiteSearchInput();
+
+    // If no visible input found and allowTriggerModal is true, try opening a search modal/drawer if button exists
+    if (!searchInput && allowTriggerModal) {
+      const triggerBtn = findSearchTriggerButton();
+      if (triggerBtn) {
+        try {
+          triggerBtn.click();
+          // Wait 140ms for modal/drawer to expand and retry
+          setTimeout(() => {
+            fillSiteSearchBar(cleanText, andSubmit, false);
+          }, 140);
+          return true;
+        } catch (_) {}
+      }
+    }
+
+    if (!searchInput) {
+      // Fallback: If user wanted to search (andSubmit is true) but the page has no search bar at all,
+      // search the current website on Google right here in the current tab!
+      if (andSubmit) {
+        showClipboardHud('🔍 Searching Site on Google', cleanText);
+        const siteSearchUrl = `https://www.google.com/search?q=site%3A${encodeURIComponent(window.location.hostname)}+${encodeURIComponent(cleanText)}`;
+        setTimeout(() => {
+          window.location.href = siteSearchUrl;
+        }, 300);
+        return true;
+      }
+
+      showClipboardHud('⚠️ No search bar found', cleanText);
+      return false;
+    }
+
+    try {
+      searchInput.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      searchInput.focus();
+
+      if (searchInput.tagName === 'INPUT' || searchInput.tagName === 'TEXTAREA') {
+        setNativeInputValue(searchInput, cleanText);
+        try {
+          searchInput.setSelectionRange(cleanText.length, cleanText.length);
+        } catch (_) {}
+        searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+        searchInput.dispatchEvent(new Event('change', { bubbles: true }));
+      } else if (searchInput.isContentEditable) {
+        searchInput.textContent = cleanText;
+        searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+
+      // Temporary glowing accent ring
+      const prevOutline = searchInput.style.outline;
+      const prevBoxShadow = searchInput.style.boxShadow;
+      searchInput.style.outline = '2px solid #38BDF8';
+      searchInput.style.boxShadow = '0 0 12px rgba(56, 189, 248, 0.45)';
+      setTimeout(() => {
+        searchInput.style.outline = prevOutline;
+        searchInput.style.boxShadow = prevBoxShadow;
+      }, 900);
+
+      if (andSubmit) {
+        submitSearch(searchInput);
+        // Deferred submit for reactive frameworks (React/Vue/Angular) after internal state update
+        setTimeout(() => {
+          submitSearch(searchInput);
+        }, 60);
+        showClipboardHud('🔍 Searched Site', cleanText);
+      } else {
+        showClipboardHud('🔍 Filled Search', cleanText);
+      }
+      return true;
+    } catch (err) {
+      console.warn('HoldTab fill search error:', err);
+      return false;
+    }
+  }
+
+  // Construct destination URL to search current website in a new tab
+  function getSiteSearchUrl(query) {
+    const cleanQuery = query.trim();
+    if (!cleanQuery) return null;
+
+    const hostname = window.location.hostname.toLowerCase();
+
+    // 1. Known popular site templates
+    if (hostname.includes('youtube.com')) {
+      return `https://www.youtube.com/results?search_query=${encodeURIComponent(cleanQuery)}`;
+    }
+    if (hostname.includes('wikipedia.org')) {
+      return `https://${hostname}/w/index.php?search=${encodeURIComponent(cleanQuery)}`;
+    }
+    if (hostname.includes('github.com')) {
+      return `https://github.com/search?q=${encodeURIComponent(cleanQuery)}`;
+    }
+    if (hostname.includes('amazon.')) {
+      return `https://${hostname}/s?k=${encodeURIComponent(cleanQuery)}`;
+    }
+    if (hostname.includes('reddit.com')) {
+      return `https://www.reddit.com/search/?q=${encodeURIComponent(cleanQuery)}`;
+    }
+    if (hostname.includes('google.')) {
+      return `https://${hostname}/search?q=${encodeURIComponent(cleanQuery)}`;
+    }
+    if (hostname.includes('stackoverflow.com')) {
+      return `https://stackoverflow.com/search?q=${encodeURIComponent(cleanQuery)}`;
+    }
+    if (hostname.includes('twitter.com') || hostname.includes('x.com')) {
+      return `https://x.com/search?q=${encodeURIComponent(cleanQuery)}`;
+    }
+    if (hostname.includes('duckduckgo.com')) {
+      return `https://duckduckgo.com/?q=${encodeURIComponent(cleanQuery)}`;
+    }
+
+    // 2. Check if a visible search input on the page belongs to a GET form with an action
+    const searchInput = findSiteSearchInput();
+    if (searchInput) {
+      const form = searchInput.form || searchInput.closest('form');
+      if (form && form.action) {
+        const method = (form.method || 'get').toLowerCase();
+        if (method === 'get') {
+          try {
+            const url = new URL(form.action, window.location.href);
+            const paramName = searchInput.name || 'q';
+            url.searchParams.set(paramName, cleanQuery);
+            return url.href;
+          } catch (_) {}
+        }
+      }
+    }
+
+    // 3. Open current page URL with #ht-site-search hash so new tab auto-fills and searches
+    try {
+      const pageUrl = new URL(window.location.href);
+      pageUrl.hash = `ht-site-search=${encodeURIComponent(cleanQuery)}`;
+      return pageUrl.href;
+    } catch (_) {}
+
+    return `https://www.google.com/search?q=site%3A${encodeURIComponent(hostname)}+${encodeURIComponent(cleanQuery)}`;
+  }
+
+  // Open a new tab with current website and search the selected text there
+  function openSiteSearchInNewTab(query) {
+    const targetUrl = getSiteSearchUrl(query);
+    if (!targetUrl) return;
+
+    showClipboardHud('🔍 Search in New Tab', query);
+
+    try {
+      if (chrome.runtime && chrome.runtime.id) {
+        chrome.runtime.sendMessage({
+          action: 'openLink',
+          url: targetUrl,
+          tabPosition: config.tabPosition,
+          tabFocus: 'foreground'
+        });
+      }
+    } catch (err) {
+      console.warn('HoldTab openSiteSearchInNewTab notice:', err);
+    }
+  }
+
+  // Trigger site search in Current Tab or New Tab
+  function triggerSiteSearch(mode, query) {
+    if (!query) return;
+    hasTriggered = true;
+    altGestureTriggered = true;
+
+    if (mode === 'current-tab') {
+      suppressClickUntil = performance.now() + 800;
+      const filled = fillSiteSearchBar(query, true);
+      if (filled) {
+        triggerSuccess(() => {}, 'Site Searched');
+      } else {
+        hideIndicator();
+      }
+    } else if (mode === 'new-tab') {
+      rightHoldSearchTriggered = true;
+      suppressContextMenuUntil = performance.now() + 1800;
+      triggerSuccess(() => {}, 'Opening Search Tab...');
+      openSiteSearchInNewTab(query);
+    }
+  }
+
+  // Handle auto-running pending site search if opened via #ht-site-search= in a new tab
+  function handlePendingSiteSearch() {
+    try {
+      if (window.location.hash && window.location.hash.includes('ht-site-search=')) {
+        const match = window.location.hash.match(/ht-site-search=([^&]+)/);
+        if (match && match[1]) {
+          const query = decodeURIComponent(match[1]);
+          try {
+            history.replaceState(null, '', window.location.pathname + window.location.search);
+          } catch (_) {}
+
+          let attempts = 0;
+          const tryFillAndSubmit = () => {
+            attempts++;
+            const filled = fillSiteSearchBar(query, true);
+            if (!filled && attempts < 10) {
+              setTimeout(tryFillAndSubmit, 250);
+            }
+          };
+
+          if (document.readyState === 'complete' || document.readyState === 'interactive') {
+            setTimeout(tryFillAndSubmit, 200);
+          } else {
+            document.addEventListener('DOMContentLoaded', () => setTimeout(tryFillAndSubmit, 200));
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  handlePendingSiteSearch();
 
   // Dispatch tab cycle message to background service worker
   function sendCycleTabMessage(direction, options = {}) {
@@ -836,9 +1686,21 @@
     indicatorEl.style.display = 'flex';
     indicatorEl.style.left = `${x}px`;
     indicatorEl.style.top = `${y}px`;
-    indicatorEl.classList.remove('ht-success');
-    indicatorEl.classList.remove('ht-dragging');
-    indicatorEl.classList.toggle('ht-red', variant === 'red');
+    indicatorEl.classList.remove('ht-success', 'ht-dragging', 'ht-red', 'ht-purple', 'ht-amber', 'ht-cyan', 'ht-teal', 'ht-blue', 'ht-searching');
+
+    if (variant === 'red') {
+      indicatorEl.classList.add('ht-red');
+    } else if (variant === 'purple') {
+      indicatorEl.classList.add('ht-purple', 'ht-searching');
+    } else if (variant === 'amber') {
+      indicatorEl.classList.add('ht-amber', 'ht-searching');
+    } else if (variant === 'cyan') {
+      indicatorEl.classList.add('ht-cyan', 'ht-searching');
+    } else if (variant === 'teal') {
+      indicatorEl.classList.add('ht-teal', 'ht-searching');
+    } else {
+      indicatorEl.classList.add('ht-blue');
+    }
 
     const badge = indicatorEl.querySelector('.ht-badge');
     if (badge) badge.textContent = badgeText;
@@ -868,8 +1730,18 @@
     indicatorEl.style.display = 'flex';
     indicatorEl.style.left = `${clientX}px`;
     indicatorEl.style.top = `${clientY}px`;
-    indicatorEl.classList.remove('ht-success');
-    indicatorEl.classList.toggle('ht-red', variant === 'red');
+    indicatorEl.classList.remove('ht-success', 'ht-red', 'ht-purple', 'ht-amber', 'ht-blue', 'ht-searching');
+
+    if (variant === 'red') {
+      indicatorEl.classList.add('ht-red');
+    } else if (variant === 'purple') {
+      indicatorEl.classList.add('ht-purple');
+    } else if (variant === 'amber') {
+      indicatorEl.classList.add('ht-amber');
+    } else {
+      indicatorEl.classList.add('ht-blue');
+    }
+
     indicatorEl.classList.add('ht-active');
     indicatorEl.classList.add('ht-dragging');
 
@@ -923,8 +1795,7 @@
     indicatorEl.classList.remove('ht-dragging');
     setTimeout(() => {
       if (!isHolding && !isHoldingText && !isDraggingLink && indicatorEl) {
-        indicatorEl.classList.remove('ht-success');
-        indicatorEl.classList.remove('ht-red');
+        indicatorEl.classList.remove('ht-success', 'ht-red', 'ht-purple', 'ht-amber', 'ht-cyan', 'ht-teal', 'ht-blue', 'ht-searching');
         indicatorEl.style.display = 'none';
         indicatorEl.style.left = '-9999px';
         indicatorEl.style.top = '-9999px';
@@ -980,18 +1851,18 @@
   }
 
   // Perform selected text search in new tab via Service Worker
-  function triggerSearchText(type, query) {
+  function triggerSearchText(type, query, isRightHold = false) {
     if (!query) return;
 
     hasTriggered = true;
-    if (type === 'background') {
+    if (isRightHold) {
       rightHoldSearchTriggered = true;
       suppressContextMenuUntil = performance.now() + 1800;
     } else {
       suppressClickUntil = performance.now() + 800;
     }
 
-    const badgeSuccess = type === 'background' ? 'Searched in BG' : 'Searching...';
+    const badgeSuccess = type === 'background' ? 'Searched in BG' : 'Active Search Opened';
     triggerSuccess(() => {}, badgeSuccess);
 
     try {
@@ -1063,10 +1934,12 @@
       const selectedText = getSelectedText();
       const linkInfo = findLink(e);
       const isTargetingText = Boolean(selectedText && isSelectionTarget(e, selectedText));
+      const isMultiClick = typeof e.detail === 'number' && e.detail >= 3;
 
-      // 1. Double Right-Click on Selected Text -> CUT text
-      if (config.enabled && config.textDoubleClickCopyCut !== false && timeDiff > 40 && timeDiff < DOUBLE_CLICK_INTERVAL && dist < DOUBLE_CLICK_MAX_DISTANCE && (isTargetingText || lastRightClickSelectedText)) {
-        const textToCut = selectedText || lastRightClickSelectedText;
+      // 1. Double Right-Click on Pre-existing Selected Text -> CUT text
+      // (Only cuts if text was already selected before the double-click started)
+      if (config.enabled && config.textDoubleClickCopyCut !== false && !isMultiClick && timeDiff > 40 && timeDiff < DOUBLE_CLICK_INTERVAL && dist < DOUBLE_CLICK_MAX_DISTANCE && lastRightClickSelectedText) {
+        const textToCut = lastRightClickSelectedText || selectedText;
         cancelHold();
         lastRightClickTime = 0;
         lastContextMenuTime = 0;
@@ -1122,20 +1995,43 @@
       rightSwipeTriggered = false;
       tabCycleDidExecute = false;
 
-      // 1. Text Search Hold (Right Click): Open new background tab and search selected text (Red circle UI)
-      if (config.enabled && config.textSearchHold !== false && selectedText && (!linkInfo || isSelectionTarget(e, selectedText))) {
+      // 1a. Alt + Right Click Hold on Selected Text: Search current website in a NEW TAB (Teal ring)
+      const altRightSearchQuery = selectedText || lastRightClickSelectedText || lastKnownSelectedText || getWordAtPoint(e.clientX, e.clientY);
+      if (config.enabled && config.altHoldSearchSite !== false && isAltPressed(e) && altRightSearchQuery) {
         cancelHold();
         isHoldingText = true;
-        textSearchType = 'background';
-        textSearchQuery = selectedText;
+        textSearchType = 'site-new-tab';
+        textSearchQuery = altRightSearchQuery;
         hasTriggered = false;
-        rightHoldSearchTriggered = false;
+        rightHoldSearchTriggered = true;
+        altGestureTriggered = true;
+        suppressContextMenuUntil = performance.now() + 1800;
         const duration = Math.max(150, config.holdDuration || 450);
-        showIndicator(rightStartX, rightStartY, duration, 'Search (BG)', 'red');
+        showIndicator(rightStartX, rightStartY, duration, 'Search Site (New Tab)', 'teal');
 
         textSearchTimer = setTimeout(() => {
           if (isHoldingText && !hasTriggered) {
-            triggerSearchText('background', textSearchQuery);
+            triggerSiteSearch('new-tab', textSearchQuery);
+          }
+        }, duration);
+        return;
+      }
+
+      // 1b. Text Search Hold (Right Click): Open new foreground tab, move to it (Active Search - Purple)
+      if (config.enabled && config.textSearchHold !== false && !isAltPressed(e) && selectedText && (!linkInfo || isSelectionTarget(e, selectedText))) {
+        cancelHold();
+        isHoldingText = true;
+        textSearchType = 'foreground';
+        textSearchQuery = selectedText;
+        hasTriggered = false;
+        rightHoldSearchTriggered = true;
+        suppressContextMenuUntil = performance.now() + 1800;
+        const duration = Math.max(150, config.holdDuration || 450);
+        showIndicator(rightStartX, rightStartY, duration, 'Active Search', 'purple');
+
+        textSearchTimer = setTimeout(() => {
+          if (isHoldingText && !hasTriggered) {
+            triggerSearchText('foreground', textSearchQuery, true);
           }
         }, duration);
         return;
@@ -1191,15 +2087,40 @@
 
       const leftTimeDiff = now - lastLeftClickTime;
       const leftDist = Math.hypot(e.clientX - lastLeftClickX, e.clientY - lastLeftClickY);
+      const isMultiClick = typeof e.detail === 'number' && e.detail >= 3;
 
       // Double Left-Click:
-      if (leftTimeDiff > 40 && leftTimeDiff < DOUBLE_CLICK_INTERVAL && leftDist < DOUBLE_CLICK_MAX_DISTANCE) {
-        // 1. Double Left-Click on Selected Text -> COPY text
-        if (config.enabled && config.textDoubleClickCopyCut !== false && (isTargetingText || lastLeftClickSelectedText)) {
-          const textToCopy = selectedText || lastLeftClickSelectedText;
+      if (!isMultiClick && leftTimeDiff > 40 && leftTimeDiff < DOUBLE_CLICK_INTERVAL && leftDist < DOUBLE_CLICK_MAX_DISTANCE) {
+        // 1. Alt + Double Left-Click -> FILL CURRENT SITE'S SEARCH BAR with selected text
+        const isAlt = isAltPressed(e) || lastLeftClickWithAlt;
+        if (isAlt && config.enabled && config.altDoubleClickFillSearch !== false) {
+          const textToFill = selectedText || lastLeftClickSelectedText || getWordAtPoint(e.clientX, e.clientY);
+          if (textToFill) {
+            cancelHold();
+            lastLeftClickTime = 0;
+            lastLeftClickSelectedText = '';
+            lastLeftClickWithAlt = false;
+            lastLeftClickIsInput = false;
+            lastLeftClickTargetInput = null;
+            altGestureTriggered = true;
+            suppressClickUntil = now + 600;
+
+            fillSiteSearchBar(textToFill);
+
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+          }
+        }
+
+        // 2. Double Left-Click on Pre-existing Selected Text -> COPY text
+        // (Requires text was already selected on Click 1 to preserve native double-click word selection and triple-click select-all)
+        if (config.enabled && config.textDoubleClickCopyCut !== false && lastLeftClickSelectedText) {
+          const textToCopy = lastLeftClickSelectedText || selectedText;
           cancelHold();
           lastLeftClickTime = 0;
           lastLeftClickSelectedText = '';
+          lastLeftClickWithAlt = false;
           lastLeftClickIsInput = false;
           lastLeftClickTargetInput = null;
           suppressClickUntil = now + 600;
@@ -1212,27 +2133,34 @@
           return;
         }
 
-        // 2. Double Left-Click with cursor in Input Field -> PASTE text
+        // 3. Double Left-Click with cursor in Input Field -> PASTE text
+        // (Allows pasting at boundaries or between words with smart spacing; inside words preserves native selection)
         if (config.enabled && config.inputDoubleClickPaste !== false && (targetIsInput || lastLeftClickIsInput)) {
           const inputToPaste = targetInputElement || lastLeftClickTargetInput;
-          cancelHold();
-          lastLeftClickTime = 0;
-          lastLeftClickSelectedText = '';
-          lastLeftClickIsInput = false;
-          lastLeftClickTargetInput = null;
-          suppressClickUntil = now + 600;
+          const isBetweenText = isCursorInOrBetweenText(inputToPaste);
 
-          performPaste(inputToPaste);
+          if (!isBetweenText) {
+            cancelHold();
+            lastLeftClickTime = 0;
+            lastLeftClickSelectedText = '';
+            lastLeftClickWithAlt = false;
+            lastLeftClickIsInput = false;
+            lastLeftClickTargetInput = null;
+            suppressClickUntil = now + 600;
 
-          e.preventDefault();
-          e.stopPropagation();
-          return;
+            performPaste(inputToPaste);
+
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+          }
         }
       }
 
       lastLeftClickTime = now;
       lastLeftClickX = e.clientX;
       lastLeftClickY = e.clientY;
+      lastLeftClickWithAlt = isAltPressed(e);
 
       if (isTargetingText) {
         lastLeftClickSelectedText = selectedText;
@@ -1247,21 +2175,43 @@
       isLeftMouseDown = true;
       isRightMouseDown = (e.buttons & 2) !== 0;
 
-      // Text Search Hold (Left Click): Open new tab, move to it (active/foreground) and search selected text
-      if (config.enabled && config.textSearchHold !== false && selectedText && (!linkInfo || isTargetingText)) {
+      // 1. Alt + Left Hold on Selected Text: Search current site in Current Tab (Cyan ring)
+      const altLeftSearchQuery = selectedText || lastLeftClickSelectedText || lastKnownSelectedText || getWordAtPoint(e.clientX, e.clientY);
+      if (config.enabled && config.altHoldSearchSite !== false && isAltPressed(e) && altLeftSearchQuery) {
         cancelHold();
         startX = e.clientX;
         startY = e.clientY;
         isHoldingText = true;
-        textSearchType = 'foreground';
-        textSearchQuery = selectedText;
+        textSearchType = 'current-site';
+        textSearchQuery = altLeftSearchQuery;
         hasTriggered = false;
+        altGestureTriggered = true;
         const duration = Math.max(150, config.holdDuration || 450);
-        showIndicator(startX, startY, duration, 'Search Tab', 'blue');
+        showIndicator(startX, startY, duration, 'Search Site', 'cyan');
 
         textSearchTimer = setTimeout(() => {
           if (isHoldingText && !hasTriggered) {
-            triggerSearchText('foreground', textSearchQuery);
+            triggerSiteSearch('current-tab', textSearchQuery);
+          }
+        }, duration);
+        return;
+      }
+
+      // 2. Text Search Hold (Left Click): Open new background tab and search selected text (Search in BG - Amber)
+      if (config.enabled && config.textSearchHold !== false && selectedText && (!linkInfo || isTargetingText) && !isAltPressed(e)) {
+        cancelHold();
+        startX = e.clientX;
+        startY = e.clientY;
+        isHoldingText = true;
+        textSearchType = 'background';
+        textSearchQuery = selectedText;
+        hasTriggered = false;
+        const duration = Math.max(150, config.holdDuration || 450);
+        showIndicator(startX, startY, duration, 'Search in BG', 'amber');
+
+        textSearchTimer = setTimeout(() => {
+          if (isHoldingText && !hasTriggered) {
+            triggerSearchText('background', textSearchQuery, false);
           }
         }, duration);
         return;
@@ -1325,10 +2275,10 @@
       isLeftMouseDown = false;
     }
 
-    // Cancel text search hold if mouse moved > 8px
+    // Cancel text search hold if mouse moved > 18px (tolerates trackpad micro-tremors)
     if (isHoldingText) {
       const textDist = Math.hypot(e.clientX - startX, e.clientY - startY);
-      if (textDist > 8) {
+      if (textDist > 18) {
         cancelHold();
       }
     }
@@ -1502,32 +2452,30 @@
     if (isAltScroll) {
       altGestureTriggered = true;
 
-      // Reset session state if user paused scrolling for > 380ms
-      if (now - lastAltScrollTime > 380) {
+      // Reset session state if user paused scrolling for > 300ms
+      if (now - lastAltScrollTime > 300) {
         altScrollAccumulator = 0;
         altLockedAxis = null;
         lastAltDirection = null;
       }
 
-      // Lock onto primary scroll axis (horizontal vs vertical) so diagonal trackpad swipes
-      // never flip sign mid-gesture when crossing between deltaX and deltaY dominance
+      // Lock onto primary scroll axis (horizontal vs vertical) at gesture start
+      // and keep it locked so diagonal wobble never flips axes mid-swipe!
       const absX = Math.abs(e.deltaX);
       const absY = Math.abs(e.deltaY);
       if (!altLockedAxis) {
-        if (absX === 0 && absY === 0) return;
+        if (absX < 2 && absY < 2) return;
         altLockedAxis = absX >= absY ? 'x' : 'y';
-      } else if (altLockedAxis === 'x' && absX < 1 && absY > 18) {
-        altLockedAxis = 'y';
-        altScrollAccumulator = 0;
-      } else if (altLockedAxis === 'y' && absY < 1 && absX > 18) {
-        altLockedAxis = 'x';
-        altScrollAccumulator = 0;
       }
 
       let rawDelta = 0;
       if (altLockedAxis === 'x') {
-        rawDelta = config.swipeDeviceMode === 'mousepad' ? e.deltaX : -e.deltaX;
+        // Standard mapping:
+        // Mouse mode (default): Swipe Right (deltaX > 0) = Next Tab, Swipe Left (deltaX < 0) = Prev Tab
+        // Mousepad mode: Inverted (Swipe Left = Next, Swipe Right = Prev) for "Natural Scrolling"
+        rawDelta = config.swipeDeviceMode === 'mousepad' ? -e.deltaX : e.deltaX;
       } else {
+        // Vertical two-finger scroll: Scroll Down (deltaY > 0) = Next Tab, Scroll Up (deltaY < 0) = Prev Tab
         rawDelta = e.deltaY;
       }
 
@@ -1553,8 +2501,7 @@
         candidateDirection !== lastAltDirection &&
         (now - lastAltScrollTime < 450);
 
-      // Require higher threshold when reversing direction within 450ms to filter out
-      // trackpad finger-lift bounce / return-stroke micro-deltas
+      // Require higher threshold when reversing direction to filter out trackpad rebound
       const requiredThreshold = isReversing ? ALT_REVERSE_THRESHOLD : ALT_SCROLL_THRESHOLD;
 
       if (Math.abs(altScrollAccumulator) >= requiredThreshold && (now - lastAltScrollTime >= ALT_SCROLL_COOLDOWN)) {
@@ -1565,7 +2512,7 @@
         sendCycleTabMessage(candidateDirection, {
           viaAlt: true,
           isScrollGesture: true,
-          intentionalReverse: isReversing,
+          intentionalReverse: false,
           lockedAxis: altLockedAxis
         });
       }
@@ -1623,11 +2570,28 @@
     }
   }, true);
 
-  // Prevent default HTML5 drag-and-drop from interfering when gesture triggered or holding
+  // Prevent default HTML5 drag-and-drop from interfering when link or text search gestures trigger
+  // BUT allow native HTML5 drag-and-drop for selected text when NO gesture is holding!
   window.addEventListener('dragstart', (e) => {
-    if (isHolding || isHoldingText || hasTriggered || isDraggingLink) {
+    // If our hold gesture or drag gesture is active, prevent HTML5 drag so it doesn't cancel our action
+    if (isHoldingText || isHolding || isDraggingLink || hasTriggered) {
       e.preventDefault();
+      return;
     }
+
+    const selectedText = getSelectedText();
+    if (selectedText && isSelectionTarget(e, selectedText)) {
+      return; // Allow native text drag when no gesture is active
+    }
+
+    e.preventDefault();
+  }, true);
+
+  // Clean up drag and hold states when native drag ends
+  window.addEventListener('dragend', () => {
+    isLeftMouseDown = false;
+    isRightMouseDown = false;
+    cancelHold();
   }, true);
 
   // Cancellation on window blur, visibilitychange, context menu, or Escape key

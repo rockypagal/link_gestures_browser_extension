@@ -293,10 +293,34 @@
         <div class="toggle-row">
           <div class="toggle-info">
             <div class="toggle-title">Double-Click Input to Paste</div>
-            <div class="toggle-desc">Double Left-Click with cursor in input/search box to 📋 Paste</div>
+            <div class="toggle-desc">Double Left-Click to 📋 Paste with smart spacing (between words, at boundaries, or in empty input)</div>
           </div>
           <label class="switch switch-sm" title="Toggle Double-Click Input to Paste">
             <input type="checkbox" id="inputDoubleClickPasteToggle" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <!-- Alt + Double-Click to Search Site -->
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <div class="toggle-title">Alt + Double-Click to Fill Search</div>
+            <div class="toggle-desc">Alt + Double Left-Click on text to fill current site's search bar</div>
+          </div>
+          <label class="switch switch-sm" title="Toggle Alt + Double-Click to Fill Search">
+            <input type="checkbox" id="altDoubleClickFillSearchToggle" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <!-- Alt + Hold to Search Current Site -->
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <div class="toggle-title">Alt + Hold to Search Site</div>
+            <div class="toggle-desc">Left-Hold: 🌐 Search current tab • Right-Hold: ↗️ Search in new tab</div>
+          </div>
+          <label class="switch switch-sm" title="Toggle Alt + Hold to Search Site">
+            <input type="checkbox" id="altHoldSearchSiteToggle" checked>
             <span class="slider"></span>
           </label>
         </div>
@@ -305,7 +329,7 @@
         <div class="toggle-row">
           <div class="toggle-info">
             <div class="toggle-title">Hold Text to Search</div>
-            <div class="toggle-desc">Left-Hold: Active search tab • Right-Hold: Background search tab</div>
+            <div class="toggle-desc">Left-Hold: 🟡 Background search tab • Right-Hold: 🟣 Active search tab</div>
           </div>
           <label class="switch switch-sm" title="Toggle Hold Selected Text to Search">
             <input type="checkbox" id="textSearchHoldToggle" checked>
@@ -367,7 +391,7 @@
 
     <!-- Footer -->
     <footer class="footer">
-      <span>v1.2.0 &bull; Auto-saved &bull; Manifest V3</span>
+      <span>v1.5.1 &bull; Auto-saved &bull; Manifest V3</span>
     </footer>
   </div>
 

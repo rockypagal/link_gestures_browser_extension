@@ -19,6 +19,8 @@ const DEFAULT_SETTINGS = {
   textSearchHold: true,    // Hold on selected text (Left: foreground search, Right: background search)
   textDoubleClickCopyCut: true, // Double left-click to copy, double right-click to cut on selected text
   inputDoubleClickPaste: true, // Double left-click in input field to paste clipboard text
+  altDoubleClickFillSearch: true, // Alt + double left-click on text fills current site's search bar
+  altHoldSearchSite: true, // Alt + hold on text to search site (Left: Current Tab, Right: New Tab)
   excludedDomains: []
 };
 
@@ -89,8 +91,8 @@ let isCyclingTab = false;
 let lastCycleTime = 0;
 let lastCycleDirection = null;
 let lastLockedAxis = null;
-const GLOBAL_CYCLE_COOLDOWN = 85;   // ms minimum interval between tab switches
-const REVERSE_BOUNCE_WINDOW = 450;  // ms guard against accidental trackpad reverse bounce
+const GLOBAL_CYCLE_COOLDOWN = 160;  // ms minimum interval between tab switches
+const REVERSE_BOUNCE_WINDOW = 400;  // ms strict window suppressing accidental trackpad reverse bounce
 
 /**
  * Checks if a tab allows extension content scripts to run.
@@ -126,7 +128,6 @@ async function handleCycleTab(message, sender) {
   const direction = message.direction;
   const viaAlt = Boolean(message.viaAlt);
   const isScrollGesture = Boolean(message.isScrollGesture || viaAlt);
-  const intentionalReverse = Boolean(message.intentionalReverse);
 
   const now = Date.now();
 
@@ -135,13 +136,13 @@ async function handleCycleTab(message, sender) {
     return { success: false, reason: 'Cooldown' };
   }
 
-  // Prevent trackpad lift-off bounce or diagonal wobble from ping-ponging back to previous tab
+  // Prevent trackpad lift-off bounce or diagonal wobble from ping-ponging back to previous tab.
+  // Within REVERSE_BOUNCE_WINDOW (400ms), any opposite scroll direction is discarded.
   if (
     isScrollGesture &&
     lastCycleDirection &&
     direction !== lastCycleDirection &&
-    (now - lastCycleTime < REVERSE_BOUNCE_WINDOW) &&
-    !intentionalReverse
+    (now - lastCycleTime < REVERSE_BOUNCE_WINDOW)
   ) {
     return { success: false, reason: 'Reverse bounce suppressed' };
   }

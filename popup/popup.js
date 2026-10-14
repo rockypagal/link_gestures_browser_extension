@@ -19,6 +19,8 @@ const DEFAULT_SETTINGS = {
   textSearchHold: true,
   textDoubleClickCopyCut: true,
   inputDoubleClickPaste: true,
+  altDoubleClickFillSearch: true,
+  altHoldSearchSite: true,
   excludedDomains: []
 };
 
@@ -184,6 +186,14 @@ function renderUI() {
   // Double-click in input to paste toggle (NEW)
   const inputDoubleClickPasteToggle = document.getElementById('inputDoubleClickPasteToggle');
   if (inputDoubleClickPasteToggle) inputDoubleClickPasteToggle.checked = currentSettings.inputDoubleClickPaste !== false;
+
+  // Alt + Double-Click to fill site search toggle (NEW)
+  const altDoubleClickFillSearchToggle = document.getElementById('altDoubleClickFillSearchToggle');
+  if (altDoubleClickFillSearchToggle) altDoubleClickFillSearchToggle.checked = currentSettings.altDoubleClickFillSearch !== false;
+
+  // Alt + Hold to Search Site toggle (NEW)
+  const altHoldSearchSiteToggle = document.getElementById('altHoldSearchSiteToggle');
+  if (altHoldSearchSiteToggle) altHoldSearchSiteToggle.checked = currentSettings.altHoldSearchSite !== false;
 
   // Excluded domains
   renderExcludedTags();
@@ -395,6 +405,22 @@ function setupEventListeners() {
   if (inputDoubleClickPasteToggle) {
     inputDoubleClickPasteToggle.addEventListener('change', (e) => {
       saveSettings({ inputDoubleClickPaste: e.target.checked });
+    });
+  }
+
+  // Alt + Double-Click to fill site search toggle (NEW)
+  const altDoubleClickFillSearchToggle = document.getElementById('altDoubleClickFillSearchToggle');
+  if (altDoubleClickFillSearchToggle) {
+    altDoubleClickFillSearchToggle.addEventListener('change', (e) => {
+      saveSettings({ altDoubleClickFillSearch: e.target.checked });
+    });
+  }
+
+  // Alt + Hold to Search Site toggle (NEW)
+  const altHoldSearchSiteToggle = document.getElementById('altHoldSearchSiteToggle');
+  if (altHoldSearchSiteToggle) {
+    altHoldSearchSiteToggle.addEventListener('change', (e) => {
+      saveSettings({ altHoldSearchSite: e.target.checked });
     });
   }
 
