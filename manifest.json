@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "HoldTab - Background Link Opener",
-  "version": "1.5.1",
+  "version": "1.3.0",
   "description": "Open links in background tabs without leaving your current tab using mouse gestures like long-press hold.",
   "permissions": [
     "storage",
