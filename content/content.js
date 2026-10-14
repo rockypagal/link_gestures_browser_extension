@@ -36,6 +36,7 @@
   // State management
   let isHolding = false;
   let holdTimer = null;
+  let indicatorTimer = null;
   let hasTriggered = false;
   let startX = 0;
   let startY = 0;
@@ -1672,52 +1673,72 @@
     }
   }
 
-  // Show visual indicator and start animated fill
+  // Show visual indicator and start animated fill (with grace period delay to prevent flicker on normal clicks)
   function showIndicator(x, y, duration, badgeText = 'New Tab', variant = 'blue') {
-    initShadowUi();
-    if (!indicatorEl) return;
-
-    indicatorEl.style.display = 'flex';
-    indicatorEl.style.left = `${x}px`;
-    indicatorEl.style.top = `${y}px`;
-    indicatorEl.classList.remove('ht-success', 'ht-dragging', 'ht-red', 'ht-purple', 'ht-amber', 'ht-cyan', 'ht-teal', 'ht-blue', 'ht-searching');
-
-    if (variant === 'red') {
-      indicatorEl.classList.add('ht-red');
-    } else if (variant === 'purple') {
-      indicatorEl.classList.add('ht-purple', 'ht-searching');
-    } else if (variant === 'amber') {
-      indicatorEl.classList.add('ht-amber', 'ht-searching');
-    } else if (variant === 'cyan') {
-      indicatorEl.classList.add('ht-cyan', 'ht-searching');
-    } else if (variant === 'teal') {
-      indicatorEl.classList.add('ht-teal', 'ht-searching');
-    } else {
-      indicatorEl.classList.add('ht-blue');
+    if (indicatorTimer) {
+      clearTimeout(indicatorTimer);
+      indicatorTimer = null;
     }
 
-    const badge = indicatorEl.querySelector('.ht-badge');
-    if (badge) badge.textContent = badgeText;
+    // Delay visual ring appearance by a brief grace period (default: 100ms)
+    // Fast single clicks release within 50-90ms and cancel hold before ring ever renders!
+    const graceDelay = Math.min(100, Math.floor(duration * 0.25));
 
-    const progressRing = indicatorEl.querySelector('.ht-progress');
-    const circumference = 87.96; // 2 * PI * 14
+    indicatorTimer = setTimeout(() => {
+      indicatorTimer = null;
+      if (!isHolding && !isHoldingText) return;
 
-    // Reset progress to empty
-    progressRing.style.transition = 'none';
-    progressRing.style.strokeDashoffset = `${circumference}`;
+      initShadowUi();
+      if (!indicatorEl) return;
 
-    // Force layout reflow
-    void progressRing.getBoundingClientRect();
+      indicatorEl.style.display = 'flex';
+      indicatorEl.style.left = `${x}px`;
+      indicatorEl.style.top = `${y}px`;
+      indicatorEl.classList.remove('ht-success', 'ht-dragging', 'ht-red', 'ht-purple', 'ht-amber', 'ht-cyan', 'ht-teal', 'ht-blue', 'ht-searching');
 
-    // Start fill transition matching configured duration
-    progressRing.style.transition = `stroke-dashoffset ${duration}ms cubic-bezier(0.2, 0, 0, 1)`;
-    progressRing.style.strokeDashoffset = '0';
+      if (variant === 'red') {
+        indicatorEl.classList.add('ht-red');
+      } else if (variant === 'purple') {
+        indicatorEl.classList.add('ht-purple', 'ht-searching');
+      } else if (variant === 'amber') {
+        indicatorEl.classList.add('ht-amber', 'ht-searching');
+      } else if (variant === 'cyan') {
+        indicatorEl.classList.add('ht-cyan', 'ht-searching');
+      } else if (variant === 'teal') {
+        indicatorEl.classList.add('ht-teal', 'ht-searching');
+      } else {
+        indicatorEl.classList.add('ht-blue');
+      }
 
-    indicatorEl.classList.add('ht-active');
+      const badge = indicatorEl.querySelector('.ht-badge');
+      if (badge) badge.textContent = badgeText;
+
+      const progressRing = indicatorEl.querySelector('.ht-progress');
+      const circumference = 87.96; // 2 * PI * 14
+      const remainingDuration = Math.max(50, duration - graceDelay);
+      const initialOffset = circumference * (1 - (graceDelay / duration));
+
+      // Reset progress to position reflecting elapsed grace delay
+      progressRing.style.transition = 'none';
+      progressRing.style.strokeDashoffset = `${initialOffset}`;
+
+      // Force layout reflow
+      void progressRing.getBoundingClientRect();
+
+      // Start fill transition matching remaining duration
+      progressRing.style.transition = `stroke-dashoffset ${remainingDuration}ms cubic-bezier(0.2, 0, 0, 1)`;
+      progressRing.style.strokeDashoffset = '0';
+
+      indicatorEl.classList.add('ht-active');
+    }, graceDelay);
   }
 
   // Update dynamic flick/drag indicator tracking the cursor and angle
   function updateDragIndicator(clientX, clientY, dx, dy, distance, variant = 'blue') {
+    if (indicatorTimer) {
+      clearTimeout(indicatorTimer);
+      indicatorTimer = null;
+    }
     initShadowUi();
     if (!indicatorEl) return;
 
@@ -1764,6 +1785,10 @@
 
   // Trigger success state and fade out
   function triggerSuccess(callback, successText = 'New Tab Opened') {
+    if (indicatorTimer) {
+      clearTimeout(indicatorTimer);
+      indicatorTimer = null;
+    }
     if (!indicatorEl) return;
 
     indicatorEl.classList.remove('ht-dragging');
@@ -1784,6 +1809,10 @@
 
   // Hide visual indicator
   function hideIndicator() {
+    if (indicatorTimer) {
+      clearTimeout(indicatorTimer);
+      indicatorTimer = null;
+    }
     if (!indicatorEl) return;
     indicatorEl.classList.remove('ht-active');
     indicatorEl.classList.remove('ht-dragging');
@@ -1878,6 +1907,10 @@
 
   // Cancel hold state
   function cancelHold() {
+    if (indicatorTimer) {
+      clearTimeout(indicatorTimer);
+      indicatorTimer = null;
+    }
     if (holdTimer) {
       clearTimeout(holdTimer);
       holdTimer = null;
