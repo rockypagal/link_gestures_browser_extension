@@ -1446,17 +1446,6 @@
     }
 
     if (!searchInput) {
-      // Fallback: If user wanted to search (andSubmit is true) but the page has no search bar at all,
-      // search the current website on Google right here in the current tab!
-      if (andSubmit) {
-        showClipboardHud('🔍 Searching Site on Google', cleanText);
-        const siteSearchUrl = `https://www.google.com/search?q=site%3A${encodeURIComponent(window.location.hostname)}+${encodeURIComponent(cleanText)}`;
-        setTimeout(() => {
-          window.location.href = siteSearchUrl;
-        }, 300);
-        return true;
-      }
-
       showClipboardHud('⚠️ No search bar found', cleanText);
       return false;
     }
@@ -1557,20 +1546,25 @@
       }
     }
 
-    // 3. Open current page URL with #ht-site-search hash so new tab auto-fills and searches
-    try {
-      const pageUrl = new URL(window.location.href);
-      pageUrl.hash = `ht-site-search=${encodeURIComponent(cleanQuery)}`;
-      return pageUrl.href;
-    } catch (_) {}
+    // 3. If a search input exists on the page, open current page URL with #ht-site-search hash so new tab auto-fills and searches
+    if (searchInput) {
+      try {
+        const pageUrl = new URL(window.location.href);
+        pageUrl.hash = `ht-site-search=${encodeURIComponent(cleanQuery)}`;
+        return pageUrl.href;
+      } catch (_) {}
+    }
 
-    return `https://www.google.com/search?q=site%3A${encodeURIComponent(hostname)}+${encodeURIComponent(cleanQuery)}`;
+    return null;
   }
 
   // Open a new tab with current website and search the selected text there
   function openSiteSearchInNewTab(query) {
     const targetUrl = getSiteSearchUrl(query);
-    if (!targetUrl) return;
+    if (!targetUrl) {
+      showClipboardHud('⚠️ No search bar found', query);
+      return;
+    }
 
     showClipboardHud('🔍 Search in New Tab', query);
 
