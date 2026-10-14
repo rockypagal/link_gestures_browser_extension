@@ -111,6 +111,13 @@ const REVERSE_BOUNCE_WINDOW = 400;  // ms strict window suppressing accidental t
 function isScriptableTab(tab) {
   if (!tab || !tab.url) return true;
   const url = tab.url.toLowerCase();
+
+  // Allow our own extension pages (such as test.html) where content script is included
+  const ownExtId = (chrome.runtime && chrome.runtime.id) ? chrome.runtime.id.toLowerCase() : '';
+  if (ownExtId && (url.startsWith(`chrome-extension://${ownExtId}/`) || url.startsWith(`moz-extension://${ownExtId}/`))) {
+    return true;
+  }
+
   if (
     url.startsWith('chrome://') ||
     url.startsWith('brave://') ||

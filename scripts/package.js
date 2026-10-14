@@ -43,7 +43,9 @@ const files = [
   'icons/icon-128.png',
   'popup/popup.html',
   'popup/popup.js',
-  'popup/popup.css'
+  'popup/popup.css',
+  'test.html',
+  'test.js'
 ];
 
 try {
