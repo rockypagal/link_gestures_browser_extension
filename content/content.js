@@ -30,6 +30,14 @@
     inputDoubleClickPaste: true, // Double left-click in input field to paste clipboard text
     altDoubleClickFillSearch: true, // Alt + Double Left-Click to fill current site's search bar
     altHoldSearchSite: true, // Alt + Hold on text to search site (Left: Current Tab, Right: New Tab)
+    animLinkHold: true,      // Show/hide link hold animation ring
+    animLinkHoldDelay: 180,  // ms grace delay for link hold ring (0 - 600)
+    animSiteSearch: true,    // Show/hide site search animation ring
+    animSiteSearchDelay: 180,// ms grace delay for site search ring (0 - 600)
+    animTextSearch: true,    // Show/hide text search animation ring
+    animTextSearchDelay: 180,// ms grace delay for text search ring (0 - 600)
+    animFlickDrag: true,     // Show/hide flick/drag dynamic arrow
+    animHudBadges: true,     // Show/hide floating HUD badges (tab cycling, clipboard)
     excludedDomains: []
   };
 
@@ -789,6 +797,7 @@
 
   // Show visual HUD when cycling tabs
   function showTabCycleHud(direction, title, index, totalTabs) {
+    if (config.animHudBadges === false || !config.tabCycleHud) return;
     initShadowUi();
     if (!hudEl) return;
 
@@ -817,6 +826,7 @@
 
   // Show visual HUD when closing tab
   function showCloseTabHud() {
+    if (config.animHudBadges === false || !config.tabCycleHud) return;
     initShadowUi();
     if (!hudEl) return;
 
@@ -833,6 +843,7 @@
 
   // Show visual HUD for clipboard operations and search actions (Copy / Cut / Fill Search)
   function showClipboardHud(actionText, previewText = '') {
+    if (config.animHudBadges === false) return;
     initShadowUi();
     if (!hudEl) return;
 
@@ -1684,19 +1695,32 @@
     }
   }
 
-  // Show visual indicator and start animated fill (with grace period delay to prevent flicker on normal clicks)
+  // Show visual indicator and start animated fill (respects per-animation toggles & grace delay settings)
   function showIndicator(x, y, duration, badgeText = 'New Tab', variant = 'blue') {
     if (indicatorTimer) {
       clearTimeout(indicatorTimer);
       indicatorTimer = null;
     }
 
-    // Delay visual ring appearance by a trackpad-calibrated grace period (up to 180ms)
-    // Single clicks on desktop mice (50-90ms) and laptop trackpads (120-175ms) release before the ring ever mounts!
-    const graceDelay = Math.min(180, Math.floor(duration * 0.4));
+    // Check if visual animation is disabled for this specific gesture type
+    const isSiteSearch = variant === 'cyan' || variant === 'teal';
+    const isTextSearch = variant === 'amber' || variant === 'purple';
+    const isLinkHold = variant === 'blue' || variant === 'red';
 
-    indicatorTimer = setTimeout(() => {
-      indicatorTimer = null;
+    if (isLinkHold && config.animLinkHold === false) return;
+    if (isSiteSearch && config.animSiteSearch === false) return;
+    if (isTextSearch && config.animTextSearch === false) return;
+
+    // Retrieve per-animation grace delay configured by the user
+    let userDelay = 180;
+    if (isLinkHold) userDelay = typeof config.animLinkHoldDelay === 'number' ? config.animLinkHoldDelay : 180;
+    else if (isSiteSearch) userDelay = typeof config.animSiteSearchDelay === 'number' ? config.animSiteSearchDelay : 180;
+    else if (isTextSearch) userDelay = typeof config.animTextSearchDelay === 'number' ? config.animTextSearchDelay : 180;
+
+    // Cap delay so ring has time to complete before the gesture finishes
+    const graceDelay = Math.min(userDelay, Math.floor(duration * 0.85));
+
+    const render = () => {
       if (!isHolding && !isHoldingText) return;
 
       initShadowUi();
@@ -1741,11 +1765,22 @@
       progressRing.style.strokeDashoffset = '0';
 
       indicatorEl.classList.add('ht-active');
-    }, graceDelay);
+    };
+
+    if (graceDelay <= 0) {
+      render();
+    } else {
+      indicatorTimer = setTimeout(() => {
+        indicatorTimer = null;
+        render();
+      }, graceDelay);
+    }
   }
 
   // Update dynamic flick/drag indicator tracking the cursor and angle
   function updateDragIndicator(clientX, clientY, dx, dy, distance, variant = 'blue') {
+    if (config.animFlickDrag === false) return;
+
     if (indicatorTimer) {
       clearTimeout(indicatorTimer);
       indicatorTimer = null;
@@ -1800,7 +1835,12 @@
       clearTimeout(indicatorTimer);
       indicatorTimer = null;
     }
-    if (!indicatorEl) return;
+
+    // If indicator element is not active or animation is disabled, finish cleanly
+    if (!indicatorEl || indicatorEl.style.display === 'none' || !indicatorEl.classList.contains('ht-active')) {
+      if (callback) callback();
+      return;
+    }
 
     indicatorEl.classList.remove('ht-dragging');
     indicatorEl.classList.add('ht-success');

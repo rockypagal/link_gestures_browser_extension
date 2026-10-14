@@ -21,6 +21,14 @@ const DEFAULT_SETTINGS = {
   inputDoubleClickPaste: true,
   altDoubleClickFillSearch: true,
   altHoldSearchSite: true,
+  animLinkHold: true,
+  animLinkHoldDelay: 180,
+  animSiteSearch: true,
+  animSiteSearchDelay: 180,
+  animTextSearch: true,
+  animTextSearchDelay: 180,
+  animFlickDrag: true,
+  animHudBadges: true,
   excludedDomains: []
 };
 
@@ -194,6 +202,49 @@ function renderUI() {
   // Alt + Hold to Search Site toggle (NEW)
   const altHoldSearchSiteToggle = document.getElementById('altHoldSearchSiteToggle');
   if (altHoldSearchSiteToggle) altHoldSearchSiteToggle.checked = currentSettings.altHoldSearchSite !== false;
+
+  // Animation & Visual toggles and delays
+  const animLinkHoldToggle = document.getElementById('animLinkHoldToggle');
+  if (animLinkHoldToggle) animLinkHoldToggle.checked = currentSettings.animLinkHold !== false;
+
+  const animLinkHoldDelay = document.getElementById('animLinkHoldDelay');
+  const animLinkHoldDelayVal = document.getElementById('animLinkHoldDelayValue');
+  const animLinkHoldGroup = document.getElementById('animLinkHoldDelayGroup');
+  if (animLinkHoldDelay && animLinkHoldDelayVal) {
+    animLinkHoldDelay.value = currentSettings.animLinkHoldDelay ?? 180;
+    animLinkHoldDelayVal.textContent = `${currentSettings.animLinkHoldDelay ?? 180} ms`;
+    if (animLinkHoldGroup) animLinkHoldGroup.style.opacity = currentSettings.animLinkHold !== false ? '1' : '0.4';
+  }
+
+  const animSiteSearchToggle = document.getElementById('animSiteSearchToggle');
+  if (animSiteSearchToggle) animSiteSearchToggle.checked = currentSettings.animSiteSearch !== false;
+
+  const animSiteSearchDelay = document.getElementById('animSiteSearchDelay');
+  const animSiteSearchDelayVal = document.getElementById('animSiteSearchDelayValue');
+  const animSiteSearchGroup = document.getElementById('animSiteSearchDelayGroup');
+  if (animSiteSearchDelay && animSiteSearchDelayVal) {
+    animSiteSearchDelay.value = currentSettings.animSiteSearchDelay ?? 180;
+    animSiteSearchDelayVal.textContent = `${currentSettings.animSiteSearchDelay ?? 180} ms`;
+    if (animSiteSearchGroup) animSiteSearchGroup.style.opacity = currentSettings.animSiteSearch !== false ? '1' : '0.4';
+  }
+
+  const animTextSearchToggle = document.getElementById('animTextSearchToggle');
+  if (animTextSearchToggle) animTextSearchToggle.checked = currentSettings.animTextSearch !== false;
+
+  const animTextSearchDelay = document.getElementById('animTextSearchDelay');
+  const animTextSearchDelayVal = document.getElementById('animTextSearchDelayValue');
+  const animTextSearchGroup = document.getElementById('animTextSearchDelayGroup');
+  if (animTextSearchDelay && animTextSearchDelayVal) {
+    animTextSearchDelay.value = currentSettings.animTextSearchDelay ?? 180;
+    animTextSearchDelayVal.textContent = `${currentSettings.animTextSearchDelay ?? 180} ms`;
+    if (animTextSearchGroup) animTextSearchGroup.style.opacity = currentSettings.animTextSearch !== false ? '1' : '0.4';
+  }
+
+  const animFlickDragToggle = document.getElementById('animFlickDragToggle');
+  if (animFlickDragToggle) animFlickDragToggle.checked = currentSettings.animFlickDrag !== false;
+
+  const animHudBadgesToggle = document.getElementById('animHudBadgesToggle');
+  if (animHudBadgesToggle) animHudBadgesToggle.checked = currentSettings.animHudBadges !== false;
 
   // Excluded domains
   renderExcludedTags();
@@ -424,6 +475,25 @@ function setupEventListeners() {
     });
   }
 
+  // Animation & Visual controls (NEW)
+  bindToggleWithSlider('animLinkHoldToggle', 'animLinkHold', 'animLinkHoldDelay', 'animLinkHoldDelayValue', 'animLinkHoldDelayGroup', 'animLinkHoldDelay');
+  bindToggleWithSlider('animSiteSearchToggle', 'animSiteSearch', 'animSiteSearchDelay', 'animSiteSearchDelayValue', 'animSiteSearchDelayGroup', 'animSiteSearchDelay');
+  bindToggleWithSlider('animTextSearchToggle', 'animTextSearch', 'animTextSearchDelay', 'animTextSearchDelayValue', 'animTextSearchDelayGroup', 'animTextSearchDelay');
+
+  const animFlickDragToggle = document.getElementById('animFlickDragToggle');
+  if (animFlickDragToggle) {
+    animFlickDragToggle.addEventListener('change', (e) => {
+      saveSettings({ animFlickDrag: e.target.checked });
+    });
+  }
+
+  const animHudBadgesToggle = document.getElementById('animHudBadgesToggle');
+  if (animHudBadgesToggle) {
+    animHudBadgesToggle.addEventListener('change', (e) => {
+      saveSettings({ animHudBadges: e.target.checked });
+    });
+  }
+
   // Add domain
   const addBtn = document.getElementById('addDomainBtn');
   const input = document.getElementById('newDomainInput');
@@ -476,6 +546,31 @@ function setupEventListeners() {
       }
       saveSettings({ excludedDomains: list });
       renderExcludedTags();
+    });
+  }
+}
+
+// Helper to bind animation toggle with delay slider
+function bindToggleWithSlider(toggleId, toggleKey, sliderId, valueId, groupId, delayKey) {
+  const toggle = document.getElementById(toggleId);
+  const slider = document.getElementById(sliderId);
+  const valueDisplay = document.getElementById(valueId);
+  const group = document.getElementById(groupId);
+
+  if (toggle) {
+    toggle.addEventListener('change', (e) => {
+      const isChecked = e.target.checked;
+      saveSettings({ [toggleKey]: isChecked });
+      if (group) group.style.opacity = isChecked ? '1' : '0.4';
+    });
+  }
+
+  if (slider && valueDisplay) {
+    slider.addEventListener('input', (e) => {
+      valueDisplay.textContent = `${e.target.value} ms`;
+    });
+    slider.addEventListener('change', (e) => {
+      saveSettings({ [delayKey]: parseInt(e.target.value, 10) });
     });
   }
 }

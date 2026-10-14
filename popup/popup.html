@@ -37,6 +37,10 @@
         <span class="nav-icon">⚡</span>
         <span>Shortcuts</span>
       </button>
+      <button class="nav-tab" data-tab="tab-visuals" role="tab" aria-selected="false">
+        <span class="nav-icon">✨</span>
+        <span>Visuals</span>
+      </button>
       <button class="nav-tab" data-tab="tab-sites" role="tab" aria-selected="false">
         <span class="nav-icon">🛡️</span>
         <span>Sites</span>
@@ -366,7 +370,114 @@
       </section>
     </main>
 
-    <!-- Tab 4: Domain Exclusions -->
+    <!-- Tab 4: Animations & Visual Controls -->
+    <main id="tab-visuals" class="tab-panel">
+      <!-- Section 1: Link Hold Animation -->
+      <section class="card">
+        <div class="card-header">
+          <span class="card-title">🔗 Link Hold Ring</span>
+          <label class="switch switch-sm" title="Toggle Link Hold Ring Animation">
+            <input type="checkbox" id="animLinkHoldToggle" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+        <p class="card-desc">Circular countdown ring when pressing and holding hyperlinks (Blue/Red ring).</p>
+
+        <div class="setting-group" id="animLinkHoldDelayGroup">
+          <div class="setting-label-row">
+            <label for="animLinkHoldDelay" class="setting-label">Grace Delay (Trackpad Buffer)</label>
+            <span id="animLinkHoldDelayValue" class="value-chip">180 ms</span>
+          </div>
+          <input type="range" id="animLinkHoldDelay" min="0" max="600" step="20" value="180" class="range-slider">
+          <div class="range-marks">
+            <span>Instant (0ms)</span>
+            <span>Trackpad (180ms)</span>
+            <span>High (600ms)</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 2: Current Site Search Animation (Alt+Hold) -->
+      <section class="card">
+        <div class="card-header">
+          <span class="card-title">🌐 Site Search Ring</span>
+          <label class="switch switch-sm" title="Toggle Site Search Ring Animation">
+            <input type="checkbox" id="animSiteSearchToggle" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+        <p class="card-desc">Countdown ring when holding Alt + Left/Right click on selected text (Cyan/Teal ring).</p>
+
+        <div class="setting-group" id="animSiteSearchDelayGroup">
+          <div class="setting-label-row">
+            <label for="animSiteSearchDelay" class="setting-label">Grace Delay</label>
+            <span id="animSiteSearchDelayValue" class="value-chip">180 ms</span>
+          </div>
+          <input type="range" id="animSiteSearchDelay" min="0" max="600" step="20" value="180" class="range-slider">
+          <div class="range-marks">
+            <span>Instant (0ms)</span>
+            <span>Trackpad (180ms)</span>
+            <span>High (600ms)</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 3: Web Search Animation (Text Hold) -->
+      <section class="card">
+        <div class="card-header">
+          <span class="card-title">🔍 Web Search Ring</span>
+          <label class="switch switch-sm" title="Toggle Web Search Ring Animation">
+            <input type="checkbox" id="animTextSearchToggle" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+        <p class="card-desc">Countdown ring when holding click on selected text for Google Search (Amber/Purple ring).</p>
+
+        <div class="setting-group" id="animTextSearchDelayGroup">
+          <div class="setting-label-row">
+            <label for="animTextSearchDelay" class="setting-label">Grace Delay</label>
+            <span id="animTextSearchDelayValue" class="value-chip">180 ms</span>
+          </div>
+          <input type="range" id="animTextSearchDelay" min="0" max="600" step="20" value="180" class="range-slider">
+          <div class="range-marks">
+            <span>Instant (0ms)</span>
+            <span>Trackpad (180ms)</span>
+            <span>High (600ms)</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 4: Other Visual Indicators -->
+      <section class="card">
+        <div class="card-header">
+          <span class="card-title">✨ Other Visuals</span>
+        </div>
+
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <div class="toggle-title">Flick/Drag Directional Arrow</div>
+            <div class="toggle-desc">Dynamic angle arrow tracking mouse while dragging links</div>
+          </div>
+          <label class="switch switch-sm" title="Toggle Drag Indicator">
+            <input type="checkbox" id="animFlickDragToggle" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <div class="toggle-title">Floating HUD Notifications</div>
+            <div class="toggle-desc">On-screen badges for tab cycling and clipboard copy/cut/paste actions</div>
+          </div>
+          <label class="switch switch-sm" title="Toggle Floating HUD Badges">
+            <input type="checkbox" id="animHudBadgesToggle" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+      </section>
+    </main>
+
+    <!-- Tab 5: Domain Exclusions -->
     <main id="tab-sites" class="tab-panel">
       <section class="card exclusions-card">
         <div class="card-header">
@@ -391,7 +502,7 @@
 
     <!-- Footer -->
     <footer class="footer">
-      <span>v1.3.4 &bull; Auto-saved &bull; Manifest V3</span>
+      <span>v1.4.0 &bull; Auto-saved &bull; Manifest V3</span>
     </footer>
   </div>
 

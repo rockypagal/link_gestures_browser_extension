@@ -21,6 +21,14 @@ const DEFAULT_SETTINGS = {
   inputDoubleClickPaste: true, // Double left-click in input field to paste clipboard text
   altDoubleClickFillSearch: true, // Alt + double left-click on text fills current site's search bar
   altHoldSearchSite: true, // Alt + hold on text to search site (Left: Current Tab, Right: New Tab)
+  animLinkHold: true,      // Show/hide link hold animation ring
+  animLinkHoldDelay: 180,  // ms grace delay for link hold ring (0 - 600)
+  animSiteSearch: true,    // Show/hide site search animation ring
+  animSiteSearchDelay: 180,// ms grace delay for site search ring (0 - 600)
+  animTextSearch: true,    // Show/hide text search animation ring
+  animTextSearchDelay: 180,// ms grace delay for text search ring (0 - 600)
+  animFlickDrag: true,     // Show/hide flick/drag dynamic arrow
+  animHudBadges: true,     // Show/hide floating HUD badges (tab cycling, clipboard)
   excludedDomains: []
 };
 
