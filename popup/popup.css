@@ -240,9 +240,9 @@ input:checked + .slider:before {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  background: rgba(239, 68, 68, 0.08);
-  border: 1px solid rgba(239, 68, 68, 0.22);
-  border-left: 3px solid #EF4444;
+  background: rgba(99, 102, 241, 0.08);
+  border: 1px solid rgba(99, 102, 241, 0.22);
+  border-left: 3px solid #6366F1;
   border-radius: var(--radius-sm);
   padding: 8px 10px;
   margin-top: 8px;
@@ -255,7 +255,7 @@ input:checked + .slider:before {
 
 .info-pill-body {
   font-size: 10.5px;
-  color: #FECACA;
+  color: #C7D2FE;
   line-height: 1.35;
 }
 
@@ -315,9 +315,9 @@ input:checked + .slider:before {
 
 .test-link.test-holding-right {
   border-style: solid;
-  border-color: #EF4444;
-  background: rgba(239, 68, 68, 0.22);
-  color: #FCA5A5;
+  border-color: #6366F1;
+  background: rgba(99, 102, 241, 0.22);
+  color: #C7D2FE;
 }
 
 .test-link.test-success {
@@ -327,9 +327,9 @@ input:checked + .slider:before {
 }
 
 .test-link.test-success-right {
-  background: rgba(239, 68, 68, 0.22);
-  border-color: #EF4444;
-  color: #F87171;
+  background: rgba(99, 102, 241, 0.25);
+  border-color: #818CF8;
+  color: #A5B4FC;
 }
 
 .link-icon {
@@ -350,7 +350,7 @@ input:checked + .slider:before {
 }
 
 .test-status.success-right {
-  color: #F87171;
+  color: #818CF8;
   font-weight: 600;
 }
 

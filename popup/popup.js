@@ -677,14 +677,14 @@ function setupTestArena() {
 
     if (e.button === 2) {
       testLink.classList.add('test-holding-right');
-      testStatus.textContent = `🔴 Right-Holding... (${duration}ms ➔ Open & Go)`;
+      testStatus.textContent = `🟣 Right-Holding... (${duration}ms ➔ Open & Go)`;
       testTimer = setTimeout(() => {
         if (isDown && !testTriggered) {
           testTriggered = true;
           testLink.classList.remove('test-holding-right');
           testLink.classList.add('test-success-right');
           testStatus.classList.add('success-right');
-          testStatus.textContent = '🔴 Right-Hold complete! Opened & moved to new tab (simulated)';
+          testStatus.textContent = '🟣 Right-Hold complete! Opened & moved to new tab (simulated)';
         }
       }, duration);
       return;
@@ -762,4 +762,12 @@ function setupTestArena() {
   testLink.addEventListener('click', (e) => {
     e.preventDefault(); // Don't actually navigate inside popup
   });
+
+  const openPlaygroundBtn = document.getElementById('openPlaygroundBtn');
+  if (openPlaygroundBtn) {
+    openPlaygroundBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      chrome.tabs.create({ url: chrome.runtime.getURL('test.html') });
+    });
+  }
 }

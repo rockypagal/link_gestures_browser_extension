@@ -559,32 +559,40 @@
         color: #E0F2FE;
       }
 
-      /* Red shade theme (Right-Click Foreground Link / Open & Go) */
+      /* Indigo shade theme (Right-Click Foreground Link / Open & Go) */
+      .ht-indicator.ht-indigo .ht-svg-wrap,
       .ht-indicator.ht-red .ht-svg-wrap {
-        filter: drop-shadow(0 2px 10px rgba(239, 68, 68, 0.45));
+        filter: drop-shadow(0 2px 10px rgba(99, 102, 241, 0.48));
       }
+      .ht-indicator.ht-indigo .ht-bg-circle,
       .ht-indicator.ht-red .ht-bg-circle {
-        fill: rgba(45, 10, 16, 0.9);
+        fill: rgba(30, 27, 75, 0.92);
       }
+      .ht-indicator.ht-indigo .ht-track,
       .ht-indicator.ht-red .ht-track {
-        stroke: rgba(252, 165, 165, 0.28);
+        stroke: rgba(165, 180, 252, 0.28);
       }
+      .ht-indicator.ht-indigo .ht-progress,
       .ht-indicator.ht-red .ht-progress {
-        stroke: #EF4444;
+        stroke: #6366F1;
       }
+      .ht-indicator.ht-indigo .ht-icon-arrow path,
       .ht-indicator.ht-red .ht-icon-arrow path {
-        fill: #EF4444;
+        fill: #6366F1;
       }
+      .ht-indicator.ht-indigo.ht-success .ht-progress,
       .ht-indicator.ht-red.ht-success .ht-progress {
-        stroke: #F43F5E !important;
+        stroke: #818CF8 !important;
       }
+      .ht-indicator.ht-indigo .ht-ripple,
       .ht-indicator.ht-red .ht-ripple {
-        border-color: #EF4444;
+        border-color: #6366F1;
       }
+      .ht-indicator.ht-indigo .ht-badge,
       .ht-indicator.ht-red .ht-badge {
-        background: rgba(45, 10, 16, 0.95);
-        border: 1px solid rgba(239, 68, 68, 0.45);
-        color: #FFE4E6;
+        background: rgba(30, 27, 75, 0.95);
+        border: 1px solid rgba(99, 102, 241, 0.45);
+        color: #E0E7FF;
       }
 
       /* Purple theme (Active Search Bar / Foreground Search) */
@@ -1707,7 +1715,7 @@
     // Check if visual animation is disabled for this specific gesture type
     const isSiteSearch = variant === 'cyan' || variant === 'teal';
     const isTextSearch = variant === 'amber' || variant === 'purple';
-    const isLinkHold = variant === 'blue' || variant === 'red';
+    const isLinkHold = variant === 'blue' || variant === 'red' || variant === 'indigo';
 
     if (isLinkHold && config.animLinkHold === false) return;
     if (isSiteSearch && config.animSiteSearch === false) return;
@@ -1731,10 +1739,10 @@
       indicatorEl.style.display = 'flex';
       indicatorEl.style.left = `${x}px`;
       indicatorEl.style.top = `${y}px`;
-      indicatorEl.classList.remove('ht-success', 'ht-dragging', 'ht-red', 'ht-purple', 'ht-amber', 'ht-cyan', 'ht-teal', 'ht-blue', 'ht-searching');
+      indicatorEl.classList.remove('ht-success', 'ht-dragging', 'ht-indigo', 'ht-red', 'ht-purple', 'ht-amber', 'ht-cyan', 'ht-teal', 'ht-blue', 'ht-searching');
 
-      if (variant === 'red') {
-        indicatorEl.classList.add('ht-red');
+      if (variant === 'indigo' || variant === 'red') {
+        indicatorEl.classList.add('ht-indigo');
       } else if (variant === 'purple') {
         indicatorEl.classList.add('ht-purple', 'ht-searching');
       } else if (variant === 'amber') {
@@ -1793,10 +1801,10 @@
     indicatorEl.style.display = 'flex';
     indicatorEl.style.left = `${clientX}px`;
     indicatorEl.style.top = `${clientY}px`;
-    indicatorEl.classList.remove('ht-success', 'ht-red', 'ht-purple', 'ht-amber', 'ht-blue', 'ht-searching');
+    indicatorEl.classList.remove('ht-success', 'ht-indigo', 'ht-red', 'ht-purple', 'ht-amber', 'ht-blue', 'ht-searching');
 
-    if (variant === 'red') {
-      indicatorEl.classList.add('ht-red');
+    if (variant === 'indigo' || variant === 'red') {
+      indicatorEl.classList.add('ht-indigo');
     } else if (variant === 'purple') {
       indicatorEl.classList.add('ht-purple');
     } else if (variant === 'amber') {
@@ -1871,7 +1879,7 @@
     indicatorEl.classList.remove('ht-dragging');
     setTimeout(() => {
       if (!isHolding && !isHoldingText && !isDraggingLink && indicatorEl) {
-        indicatorEl.classList.remove('ht-success', 'ht-red', 'ht-purple', 'ht-amber', 'ht-cyan', 'ht-teal', 'ht-blue', 'ht-searching');
+        indicatorEl.classList.remove('ht-success', 'ht-indigo', 'ht-red', 'ht-purple', 'ht-amber', 'ht-cyan', 'ht-teal', 'ht-blue', 'ht-searching');
         indicatorEl.style.display = 'none';
         indicatorEl.style.left = '-9999px';
         indicatorEl.style.top = '-9999px';
@@ -2117,7 +2125,7 @@
         return;
       }
 
-      // 2. Link Hold (Right Click): Open link in a new tab and move to that tab (Red circle UI)
+      // 2. Link Hold (Right Click): Open link in a new tab and move to that tab (Indigo circle UI)
       if (config.enabled && linkInfo && checkModifier(e)) {
         cancelHold();
         targetLinkUrl = linkInfo.url;
@@ -2128,7 +2136,7 @@
         hasTriggered = false;
         rightHoldSearchTriggered = false;
         const duration = Math.max(150, config.holdDuration || 450);
-        showIndicator(rightStartX, rightStartY, duration, 'Open & Go', 'red');
+        showIndicator(rightStartX, rightStartY, duration, 'Open & Go', 'indigo');
 
         holdTimer = setTimeout(() => {
           if (isHolding && !hasTriggered) {
