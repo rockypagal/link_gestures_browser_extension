@@ -32,6 +32,20 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // 2b. Clear / Deselect Text Helper
+  const clearSelectionBtn = document.getElementById('clearSelectionBtn');
+  if (clearSelectionBtn) {
+    clearSelectionBtn.addEventListener('click', () => {
+      if (window.getSelection) {
+        window.getSelection().removeAllRanges();
+      }
+      clearSelectionBtn.textContent = '✓ Unselected!';
+      setTimeout(() => {
+        clearSelectionBtn.textContent = '✕ Deselect / Unselect Text';
+      }, 1500);
+    });
+  }
+
   // 3. Reset Test Inputs Helper
   const resetInputsBtn = document.getElementById('resetInputsBtn');
   const editableInput = document.getElementById('editableInput');

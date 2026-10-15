@@ -208,12 +208,17 @@
     return isAltKeyDown;
   }
 
-  // Listen for text selection changes to preserve selected text even if a site clears selection on mousedown
+  // Listen for text selection changes to keep track of current active selection
   document.addEventListener('selectionchange', () => {
     try {
-      const sel = window.getSelection ? window.getSelection().toString().trim() : '';
-      if (sel) {
-        lastKnownSelectedText = sel;
+      const sel = window.getSelection ? window.getSelection() : null;
+      if (!sel || sel.isCollapsed || !sel.toString().trim()) {
+        // Selection was unselected/cleared!
+        lastKnownSelectedText = '';
+        lastLeftClickSelectedText = '';
+        lastRightClickSelectedText = '';
+      } else {
+        lastKnownSelectedText = sel.toString().trim();
       }
     } catch (_) {}
   });
@@ -221,10 +226,13 @@
   // Get currently selected text on page or inside input/textarea
   function getSelectedText() {
     try {
-      const sel = window.getSelection ? window.getSelection().toString().trim() : '';
-      if (sel) {
-        lastKnownSelectedText = sel;
-        return sel;
+      const sel = window.getSelection ? window.getSelection() : null;
+      if (sel && !sel.isCollapsed) {
+        const text = sel.toString().trim();
+        if (text) {
+          lastKnownSelectedText = text;
+          return text;
+        }
       }
 
       const active = document.activeElement;
@@ -240,14 +248,19 @@
 
       // Check shadow root selection if active element has shadowRoot
       if (active && active.shadowRoot && active.shadowRoot.getSelection) {
-        const shadowSel = active.shadowRoot.getSelection().toString().trim();
-        if (shadowSel) {
-          lastKnownSelectedText = shadowSel;
-          return shadowSel;
+        const shadowSelObj = active.shadowRoot.getSelection();
+        if (shadowSelObj && !shadowSelObj.isCollapsed) {
+          const shadowSel = shadowSelObj.toString().trim();
+          if (shadowSel) {
+            lastKnownSelectedText = shadowSel;
+            return shadowSel;
+          }
         }
       }
     } catch (_) {}
-    return lastKnownSelectedText || '';
+    // If no text is currently selected, clear stale caches and return empty string
+    lastKnownSelectedText = '';
+    return '';
   }
 
   // Check if mouse event is on or near the current text selection
@@ -266,15 +279,37 @@
       const sel = window.getSelection ? window.getSelection() : null;
       if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
         const range = sel.getRangeAt(0);
-        if (range.commonAncestorContainer && (range.commonAncestorContainer.contains(e.target) || e.target.contains(range.commonAncestorContainer))) {
-          return true;
-        }
         const rects = range.getClientRects();
-        for (let i = 0; i < rects.length; i++) {
-          const r = rects[i];
-          if (e.clientX >= r.left - 18 && e.clientX <= r.right + 18 &&
-              e.clientY >= r.top - 18 && e.clientY <= r.bottom + 18) {
-            return true;
+        if (rects && rects.length > 0) {
+          for (let i = 0; i < rects.length; i++) {
+            const r = rects[i];
+            if (e.clientX >= r.left - 18 && e.clientX <= r.right + 18 &&
+                e.clientY >= r.top - 18 && e.clientY <= r.bottom + 18) {
+              return true;
+            }
+          }
+        } else {
+          const br = range.getBoundingClientRect();
+          if (br && (br.width > 0 || br.height > 0)) {
+            if (e.clientX >= br.left - 18 && e.clientX <= br.right + 18 &&
+                e.clientY >= br.top - 18 && e.clientY <= br.bottom + 18) {
+              return true;
+            }
+          }
+        }
+      }
+
+      if (active && active.shadowRoot && active.shadowRoot.getSelection) {
+        const shadowSelObj = active.shadowRoot.getSelection();
+        if (shadowSelObj && shadowSelObj.rangeCount > 0 && !shadowSelObj.isCollapsed) {
+          const shadowRange = shadowSelObj.getRangeAt(0);
+          const sRects = shadowRange.getClientRects();
+          for (let i = 0; i < sRects.length; i++) {
+            const r = sRects[i];
+            if (e.clientX >= r.left - 18 && e.clientX <= r.right + 18 &&
+                e.clientY >= r.top - 18 && e.clientY <= r.bottom + 18) {
+              return true;
+            }
           }
         }
       }
@@ -1234,33 +1269,6 @@
     return results;
   }
 
-  // Helper to extract word under cursor position if no text was explicitly selected
-  function getWordAtPoint(x, y) {
-    try {
-      let range = null;
-      if (document.caretPositionFromPoint) {
-        const pos = document.caretPositionFromPoint(x, y);
-        if (pos && pos.offsetNode && pos.offsetNode.nodeType === Node.TEXT_NODE) {
-          range = document.createRange();
-          range.setStart(pos.offsetNode, pos.offset);
-          range.setEnd(pos.offsetNode, pos.offset);
-        }
-      } else if (document.caretRangeFromPoint) {
-        range = document.caretRangeFromPoint(x, y);
-      }
-      if (range && range.startContainer && range.startContainer.nodeType === Node.TEXT_NODE) {
-        const text = range.startContainer.textContent;
-        const offset = range.startOffset;
-        let start = offset;
-        while (start > 0 && /\S/.test(text[start - 1])) start--;
-        let end = offset;
-        while (end < text.length && /\S/.test(text[end])) end++;
-        const word = text.slice(start, end).trim();
-        return word;
-      }
-    } catch (_) {}
-    return '';
-  }
 
   // Find a visible search trigger button that opens an expandable search bar or modal (e.g. Algolia, Docusaurus)
   function findSearchTriggerButton() {
@@ -2084,7 +2092,8 @@
       tabCycleDidExecute = false;
 
       // 1a. Alt + Right Click Hold on Selected Text: Search current website in a NEW TAB (Teal ring)
-      const altRightSearchQuery = selectedText || lastRightClickSelectedText || lastKnownSelectedText || getWordAtPoint(e.clientX, e.clientY);
+      // Must strictly require that the user clicked directly on an active text selection!
+      const altRightSearchQuery = isTargetingText ? (selectedText || lastRightClickSelectedText) : '';
       if (config.enabled && config.altHoldSearchSite !== false && isAltPressed(e) && altRightSearchQuery) {
         cancelHold();
         isHoldingText = true;
@@ -2106,7 +2115,8 @@
       }
 
       // 1b. Text Search Hold (Right Click): Open new foreground tab, move to it (Active Search - Purple)
-      if (config.enabled && config.textSearchHold !== false && !isAltPressed(e) && selectedText && (!linkInfo || isSelectionTarget(e, selectedText))) {
+      // Must strictly require that the user clicked directly on an active text selection!
+      if (config.enabled && config.textSearchHold !== false && !isAltPressed(e) && isTargetingText && selectedText) {
         cancelHold();
         isHoldingText = true;
         textSearchType = 'foreground';
@@ -2182,7 +2192,7 @@
         // 1. Alt + Double Left-Click -> FILL CURRENT SITE'S SEARCH BAR with selected text
         const isAlt = isAltPressed(e) || lastLeftClickWithAlt;
         if (isAlt && config.enabled && config.altDoubleClickFillSearch !== false) {
-          const textToFill = selectedText || lastLeftClickSelectedText || getWordAtPoint(e.clientX, e.clientY);
+          const textToFill = (isTargetingText ? selectedText : '') || lastLeftClickSelectedText;
           if (textToFill) {
             cancelHold();
             lastLeftClickTime = 0;
@@ -2264,7 +2274,8 @@
       isRightMouseDown = (e.buttons & 2) !== 0;
 
       // 1. Alt + Left Hold on Selected Text: Search current site in Current Tab (Cyan ring)
-      const altLeftSearchQuery = selectedText || lastLeftClickSelectedText || lastKnownSelectedText || getWordAtPoint(e.clientX, e.clientY);
+      // Must strictly require that the user clicked directly on an active text selection!
+      const altLeftSearchQuery = isTargetingText ? (selectedText || lastLeftClickSelectedText) : '';
       if (config.enabled && config.altHoldSearchSite !== false && isAltPressed(e) && altLeftSearchQuery) {
         cancelHold();
         startX = e.clientX;
@@ -2286,7 +2297,8 @@
       }
 
       // 2. Text Search Hold (Left Click): Open new background tab and search selected text (Search in BG - Amber)
-      if (config.enabled && config.textSearchHold !== false && selectedText && (!linkInfo || isTargetingText) && !isAltPressed(e)) {
+      // Must strictly require that the user clicked directly on an active text selection!
+      if (config.enabled && config.textSearchHold !== false && isTargetingText && selectedText && !isAltPressed(e)) {
         cancelHold();
         startX = e.clientX;
         startY = e.clientY;
@@ -2759,6 +2771,9 @@
     }
     if (e.key === 'Escape') {
       cancelHold();
+      lastKnownSelectedText = '';
+      lastLeftClickSelectedText = '';
+      lastRightClickSelectedText = '';
     }
   }, true);
 
