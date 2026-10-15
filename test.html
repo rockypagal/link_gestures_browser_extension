@@ -3,180 +3,912 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HoldTab - Gesture Test Sandbox</title>
+  <title>HoldTab - Interactive Gesture Playground</title>
   <link rel="stylesheet" href="content/content.css">
   <style>
     :root {
-      --bg: #0F172A;
-      --card: #1E293B;
-      --text: #F8FAFC;
-      --muted: #94A3B8;
-      --accent: #38BDF8;
+      --bg: #0B1120;
+      --card-bg: #1E293B;
+      --card-border: rgba(255, 255, 255, 0.08);
+      --text-main: #F8FAFC;
+      --text-muted: #94A3B8;
+      --blue: #38BDF8;
+      --indigo: #818CF8;
+      --cyan: #06B6D4;
+      --teal: #14B8A6;
+      --amber: #F59E0B;
+      --purple: #A855F7;
+      --green: #10B981;
+      --rose: #F43F5E;
+      --radius: 12px;
     }
+
+    * {
+      box-sizing: border-box;
+    }
+
     body {
       margin: 0;
-      padding: 40px 20px;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      padding: 36px 18px 60px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       background: var(--bg);
-      color: var(--text);
+      color: var(--text-main);
       display: flex;
       justify-content: center;
+      line-height: 1.5;
     }
+
     .container {
-      max-width: 640px;
+      max-width: 740px;
       width: 100%;
     }
-    h1 {
-      font-size: 26px;
-      margin-bottom: 6px;
-      background: linear-gradient(135deg, #38BDF8, #818CF8);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
+
+    /* Header Hero */
+    .hero {
+      text-align: center;
+      margin-bottom: 28px;
     }
-    p {
-      color: var(--muted);
-      line-height: 1.6;
-      margin-bottom: 24px;
-    }
-    .card {
-      background: var(--card);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 12px;
-      padding: 20px;
-      margin-bottom: 20px;
-    }
-    .card h2 {
-      font-size: 18px;
-      margin-top: 0;
-      margin-bottom: 12px;
-      color: var(--text);
-    }
-    .links-grid {
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-    }
-    a.demo-link {
+
+    .hero-badge {
       display: inline-flex;
       align-items: center;
-      gap: 8px;
-      padding: 12px 18px;
-      background: rgba(56, 189, 248, 0.1);
+      gap: 6px;
+      font-size: 11.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      padding: 4px 12px;
+      border-radius: 999px;
+      background: rgba(56, 189, 248, 0.12);
+      color: var(--blue);
       border: 1px solid rgba(56, 189, 248, 0.3);
-      color: var(--accent);
-      text-decoration: none;
-      border-radius: 8px;
-      font-weight: 500;
-      transition: all 0.2s ease;
-      width: fit-content;
+      margin-bottom: 12px;
     }
-    a.demo-link:hover {
-      background: rgba(56, 189, 248, 0.2);
-      border-color: var(--accent);
+
+    h1 {
+      font-size: 30px;
+      font-weight: 800;
+      margin: 0 0 8px 0;
+      background: linear-gradient(135deg, #38BDF8 0%, #818CF8 50%, #C084FC 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: -0.5px;
     }
-    .instructions {
-      background: rgba(16, 185, 129, 0.1);
-      border-left: 4px solid #10B981;
-      padding: 14px 18px;
-      border-radius: 4px;
+
+    .hero-sub {
+      color: var(--text-muted);
+      font-size: 14.5px;
+      margin: 0 auto 18px;
+      max-width: 580px;
+      line-height: 1.55;
+    }
+
+    /* Quick Stat Chips */
+    .stats-bar {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .stat-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11.5px;
+      font-weight: 600;
+      background: rgba(30, 41, 59, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 999px;
+      padding: 4px 11px;
+      color: #E2E8F0;
+    }
+
+    .stat-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+    }
+    .dot-blue { background: var(--blue); box-shadow: 0 0 6px var(--blue); }
+    .dot-indigo { background: var(--indigo); box-shadow: 0 0 6px var(--indigo); }
+    .dot-green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .dot-cyan { background: var(--cyan); box-shadow: 0 0 6px var(--cyan); }
+
+    /* Playground Cards */
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 22px;
       margin-bottom: 24px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .card-title {
+      font-size: 19px;
+      font-weight: 700;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0;
+    }
+
+    .card-lead {
+      font-size: 13.5px;
+      color: var(--text-muted);
+      margin: 0 0 16px 0;
+      line-height: 1.5;
+    }
+
+    /* Badges */
+    .badge {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      padding: 2.5px 8px;
+      border-radius: 999px;
+      border: 1px solid transparent;
+      white-space: nowrap;
+    }
+    .badge-blue { background: rgba(56, 189, 248, 0.15); color: #38BDF8; border-color: rgba(56, 189, 248, 0.35); }
+    .badge-indigo { background: rgba(99, 102, 241, 0.18); color: #A5B4FC; border-color: rgba(99, 102, 241, 0.4); }
+    .badge-cyan { background: rgba(6, 182, 212, 0.15); color: #22D3EE; border-color: rgba(6, 182, 212, 0.35); }
+    .badge-teal { background: rgba(20, 184, 166, 0.15); color: #2DD4BF; border-color: rgba(20, 184, 166, 0.35); }
+    .badge-amber { background: rgba(245, 158, 11, 0.15); color: #FBBF24; border-color: rgba(245, 158, 11, 0.35); }
+    .badge-purple { background: rgba(168, 85, 247, 0.15); color: #C084FC; border-color: rgba(168, 85, 247, 0.35); }
+    .badge-green { background: rgba(16, 185, 129, 0.15); color: #34D399; border-color: rgba(16, 185, 129, 0.35); }
+    .badge-rose { background: rgba(244, 63, 94, 0.15); color: #FB7185; border-color: rgba(244, 63, 94, 0.35); }
+
+    /* Keyboard Key Tags */
+    kbd {
+      display: inline-block;
+      padding: 2px 6.5px;
+      font-size: 11px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-weight: 700;
+      color: #F1F5F9;
+      background: #0F172A;
+      border: 1px solid #475569;
+      border-bottom: 2px solid #334155;
+      border-radius: 4px;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+      vertical-align: baseline;
+    }
+
+    /* Links Playground Items */
+    .link-showcase-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .link-showcase-card {
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 10px;
+      padding: 14px;
+      transition: all 0.2s ease;
+    }
+
+    .link-showcase-card:hover {
+      border-color: rgba(255, 255, 255, 0.15);
+      background: rgba(15, 23, 42, 0.95);
+    }
+
+    .demo-link-btn {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      width: 100%;
+      padding: 12px 16px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 600;
       font-size: 14px;
-      color: #D1FAE5;
+      transition: transform 0.15s ease, background 0.15s ease;
+      cursor: pointer;
     }
-    .instructions strong {
-      color: #10B981;
+
+    .demo-link-btn:hover {
+      transform: translateY(-1px);
     }
-    button.regular-btn {
-      padding: 10px 16px;
-      background: #334155;
-      color: white;
-      border: none;
+
+    .demo-link-btn.btn-blue {
+      background: rgba(56, 189, 248, 0.12);
+      border: 1.5px solid rgba(56, 189, 248, 0.35);
+      color: #38BDF8;
+    }
+    .demo-link-btn.btn-blue:hover {
+      background: rgba(56, 189, 248, 0.22);
+      border-color: #38BDF8;
+    }
+
+    .demo-link-btn.btn-indigo {
+      background: rgba(99, 102, 241, 0.12);
+      border: 1.5px solid rgba(99, 102, 241, 0.35);
+      color: #A5B4FC;
+    }
+    .demo-link-btn.btn-indigo:hover {
+      background: rgba(99, 102, 241, 0.22);
+      border-color: #818CF8;
+    }
+
+    .demo-link-btn.btn-cyan {
+      background: rgba(6, 182, 212, 0.12);
+      border: 1.5px solid rgba(6, 182, 212, 0.35);
+      color: #22D3EE;
+    }
+    .demo-link-btn.btn-cyan:hover {
+      background: rgba(6, 182, 212, 0.22);
+      border-color: #06B6D4;
+    }
+
+    .link-main-text {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+
+    .link-icon-glyph {
+      font-size: 16px;
+    }
+
+    /* Highlight Action Callout Box directly below test buttons */
+    .action-highlight-box {
+      margin-top: 10px;
+      padding: 10px 14px;
+      border-radius: 7px;
+      font-size: 12.5px;
+      line-height: 1.45;
+    }
+
+    .highlight-blue {
+      background: rgba(56, 189, 248, 0.08);
+      border-left: 3.5px solid #38BDF8;
+      border-top: 1px solid rgba(56, 189, 248, 0.18);
+      border-right: 1px solid rgba(56, 189, 248, 0.18);
+      border-bottom: 1px solid rgba(56, 189, 248, 0.18);
+    }
+
+    .highlight-indigo {
+      background: rgba(99, 102, 241, 0.08);
+      border-left: 3.5px solid #818CF8;
+      border-top: 1px solid rgba(99, 102, 241, 0.18);
+      border-right: 1px solid rgba(99, 102, 241, 0.18);
+      border-bottom: 1px solid rgba(99, 102, 241, 0.18);
+    }
+
+    .highlight-cyan {
+      background: rgba(6, 182, 212, 0.08);
+      border-left: 3.5px solid #06B6D4;
+      border-top: 1px solid rgba(6, 182, 212, 0.18);
+      border-right: 1px solid rgba(6, 182, 212, 0.18);
+      border-bottom: 1px solid rgba(6, 182, 212, 0.18);
+    }
+
+    .action-instruction-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 4px;
+      color: #FFFFFF;
+      font-weight: 600;
+    }
+
+    .action-badge-cue {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 1px 6px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.12);
+      color: #FFFFFF;
+    }
+
+    .action-result-text {
+      color: #CBD5E1;
+      font-size: 12px;
+    }
+
+    .action-result-text strong {
+      color: #F8FAFC;
+    }
+
+    /* Feature-First Interactive Cards */
+    .feature-category-block {
+      margin-top: 18px;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      padding-top: 16px;
+    }
+
+    .feature-category-title {
+      font-size: 14.5px;
+      font-weight: 700;
+      color: #F1F5F9;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .feature-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .feature-row-card {
+      display: flex;
+      flex-direction: column;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 9px;
+      padding: 12px 14px;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+
+    .feature-row-card:hover {
+      background: rgba(15, 23, 42, 0.85);
+      border-color: rgba(255, 255, 255, 0.14);
+    }
+
+    .feature-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .feature-name {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: #F8FAFC;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .feature-shortcut-banner {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+      font-size: 12px;
+      color: #94A3B8;
+      background: rgba(0, 0, 0, 0.25);
+      border-radius: 6px;
+      padding: 6px 10px;
+      border: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .feature-shortcut-banner strong {
+      color: #E2E8F0;
+    }
+
+    /* Sandbox Interactive Box */
+    .sandbox-box {
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      border-radius: 10px;
+      padding: 16px;
+      margin: 14px 0 18px 0;
+    }
+
+    .sample-text-area {
+      background: rgba(30, 41, 59, 0.8);
+      border: 1.5px dashed rgba(56, 189, 248, 0.4);
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 14px;
+      line-height: 1.6;
+      color: #E2E8F0;
+      margin-bottom: 12px;
+      user-select: text;
+      -webkit-user-select: text;
+    }
+
+    .sample-text-area mark {
+      background: rgba(56, 189, 248, 0.25);
+      color: #FFFFFF;
+      padding: 2px 4px;
+      border-radius: 3px;
+    }
+
+    .sandbox-tools-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .btn-action-sm {
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: #38BDF8;
+      font-size: 11.5px;
+      font-weight: 600;
+      padding: 5px 12px;
       border-radius: 6px;
       cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-action-sm:hover {
+      background: rgba(56, 189, 248, 0.22);
+      border-color: #38BDF8;
+    }
+
+    .btn-reset-sm {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.25);
+      color: #F87171;
+      font-size: 11.5px;
+      font-weight: 600;
+      padding: 5px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-reset-sm:hover {
+      background: rgba(239, 68, 68, 0.2);
+      border-color: #EF4444;
+    }
+
+    .input-field-group {
+      margin-bottom: 12px;
+    }
+
+    .input-field-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: #94A3B8;
+      margin-bottom: 5px;
+    }
+
+    .text-input-field {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 9px 13px;
+      background: #0F172A;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 6px;
+      color: #F8FAFC;
+      font-size: 13.5px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .text-input-field:focus {
+      border-color: #38BDF8;
+      box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
+    }
+
+    .search-bar-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn-search-submit {
+      padding: 9px 18px;
+      background: #0284C7;
+      color: #FFFFFF;
+      border: none;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .btn-search-submit:hover {
+      background: #0369A1;
+    }
+
+    .notice-banner {
+      display: none;
+      margin-top: 8px;
+      padding: 9px 14px;
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid #10B981;
+      border-radius: 6px;
+      color: #6EE7B7;
+      font-size: 12.5px;
+    }
+
+    /* Regular Buttons Test */
+    .regular-btn {
+      padding: 10px 18px;
+      background: #334155;
+      color: #FFFFFF;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .regular-btn:hover {
+      background: #475569;
+    }
+
+    /* Footer */
+    .playground-footer {
+      text-align: center;
+      margin-top: 36px;
+      font-size: 12px;
+      color: var(--text-muted);
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding-top: 16px;
+    }
+
+    .playground-footer a {
+      color: var(--blue);
+      text-decoration: none;
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>HoldTab Test Playground</h1>
-    <p>Use this page to verify and test your mouse hold gesture in Chrome with the extension loaded.</p>
+    <!-- Header -->
+    <header class="hero">
+      <div class="hero-badge">🎮 Interactive Gesture Gym & Practice Sandbox</div>
+      <h1>HoldTab Playground</h1>
+      <p class="hero-sub">
+        Master every mouse hold, flick, tab cycle, and text search gesture. Every element on this page is live and interactive!
+      </p>
 
-    <div class="instructions">
-      <strong>How to test links:</strong>
-      <br>&bull; <strong>Left-Click Hold (Blue Ring):</strong> Press and hold left click on any link for ~450ms &rarr; opens link in a <em>background tab</em> while keeping this page active!
-      <br>&bull; <strong>Right-Click Hold (Indigo Ring):</strong> Press and hold right click on any link for ~450ms &rarr; opens link in a <em>foreground tab</em> and switches to it immediately ("Open & Go")!
-    </div>
+      <div class="stats-bar">
+        <div class="stat-pill"><span class="stat-dot dot-blue"></span> 🔗 Link Gestures</div>
+        <div class="stat-pill"><span class="stat-dot dot-indigo"></span> 🔄 Tab Cycling</div>
+        <div class="stat-pill"><span class="stat-dot dot-green"></span> 📋 Clipboard Suite</div>
+        <div class="stat-pill"><span class="stat-dot dot-cyan"></span> 🌐 Site & Web Search</div>
+      </div>
+    </header>
 
-    <div class="card">
-      <h2>Test Links</h2>
-      <div class="links-grid">
-        <a href="https://en.wikipedia.org/wiki/Main_Page" class="demo-link" target="_self">
-          <span>📚 Open Wikipedia (Background Tab Hold Test)</span>
-        </a>
-        <a href="https://news.ycombinator.com" class="demo-link" target="_self">
-          <span>📰 Open Hacker News (Background Tab Hold Test)</span>
-        </a>
-        <a href="https://github.com" class="demo-link" target="_self">
-          <span>🐙 Open GitHub (Background Tab Hold Test)</span>
-        </a>
+    <!-- SECTION 1: 🔗 Link Gestures with Highlighted Action Boxes Directly Below -->
+    <section class="card">
+      <div class="card-header">
+        <h2 class="card-title">🔗 1. Hyperlink Gestures</h2>
+        <span class="badge badge-blue">Interactive Test Links</span>
       </div>
-    </div>
+      <p class="card-lead">
+        Test opening links without leaving your current tab. Follow the highlighted action pill directly below each button:
+      </p>
 
-    <div class="card">
-      <h2>🔄 Tab Cycling Gestures Test</h2>
-      <p>Open multiple tabs in your browser, then try these gestures directly on this page:</p>
-      <ul style="color: var(--muted); line-height: 1.8; margin-left: 20px;">
-        <li><strong>Alt + Two-Finger Scroll (Both Left & Right Alt Supported):</strong> Hold down <em>either</em> <kbd>Left Alt</kbd> or <kbd>Right Alt</kbd> (<kbd>AltGr</kbd>) and scroll two fingers up/down or swipe left/right on your mousepad to smoothly cycle tabs without lag, runaway skips, or Windows menu focus!</li>
-        <li><strong>Right-Click + Wheel Scroll Down:</strong> Switches to the next tab (▶).</li>
-        <li><strong>Right-Click + Wheel Scroll Up:</strong> Switches to the previous tab (◀).</li>
-        <li><strong>Mouse Swipe Mode:</strong> Swipe Right = Next Tab (▶), Swipe Left = Previous Tab (◀).</li>
-        <li><strong>Mousepad / Trackpad Mode:</strong> Swipe Left = Next Tab (▶), Swipe Right = Previous Tab (◀).</li>
-        <li><strong>Rocker Gestures (Mousepad):</strong> Hold Left-Click + Click Right-Click (Next Tab ▶). Hold Right-Click + Click Left-Click (Prev Tab ◀).</li>
-        <li><strong>Double Right-Click:</strong> Double click right mouse button quickly anywhere on the page to close the active tab!</li>
-      </ul>
-      <p style="margin-top: 10px; font-size: 13px; color: #38BDF8;">Tip: Toggle gestures and customize device modes in the extension popup!</p>
-    </div>
+      <div class="link-showcase-grid">
+        <!-- Link 1: Open in Background -->
+        <div class="link-showcase-card">
+          <a href="https://en.wikipedia.org/wiki/Main_Page" class="demo-link-btn btn-blue" target="_self">
+            <span class="link-main-text">
+              <span class="link-icon-glyph">📚</span>
+              <span>Open Wikipedia Article</span>
+            </span>
+            <span class="badge badge-blue">Background Tab (Stay Here)</span>
+          </a>
 
-    <div class="card">
-      <h2>🔍 Selected Text Gestures (Search, Copy & Cut)</h2>
-      <p>Select any portion of the sample text below or in the input box, then test the gestures:</p>
-      <div style="background: rgba(15, 23, 42, 0.6); padding: 16px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.08); margin: 14px 0; font-size: 15px; line-height: 1.7; color: #E2E8F0;">
-        "HoldTab empowers ultra-fast tab navigation with mouse gestures, text search hold, and instant copy/cut."
-      </div>
-      <div style="margin-bottom: 14px;">
-        <label style="display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px;">Editable Input Test Box (select text here to test Cut & Copy):</label>
-        <input type="text" value="Quickly cut and copy this text using double-clicks!" style="width: 100%; box-sizing: border-box; padding: 10px 14px; background: #0F172A; border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 6px; color: #F8FAFC; font-size: 13.5px;">
-      </div>
-      <div style="margin-bottom: 14px;">
-        <label style="display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px;">Empty Paste Target (place cursor here & double left-click to Paste):</label>
-        <input type="text" placeholder="Place cursor here and double left-click to paste..." style="width: 100%; box-sizing: border-box; padding: 10px 14px; background: #0F172A; border: 1px dashed rgba(52, 211, 153, 0.5); border-radius: 6px; color: #F8FAFC; font-size: 13.5px;">
-      </div>
-      <div style="margin-bottom: 14px;">
-        <label style="display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px;">Site Search Bar (Test Alt + Double-Click to fill, or Alt + Hold to search):</label>
-        <form id="testSearchForm" style="display: flex; gap: 8px;">
-          <input type="search" id="searchInput" placeholder="Search this page or documentation..." style="flex: 1; box-sizing: border-box; padding: 10px 14px; background: #0F172A; border: 1px solid rgba(56, 189, 248, 0.5); border-radius: 6px; color: #F8FAFC; font-size: 13.5px;">
-          <button type="submit" style="padding: 10px 18px; background: #0284C7; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer;">Search</button>
-        </form>
-        <div id="searchResultNotice" style="display: none; margin-top: 8px; padding: 8px 12px; background: rgba(16, 185, 129, 0.15); border: 1px solid #10B981; border-radius: 6px; color: #6EE7B7; font-size: 13px;"></div>
-      </div>
-      <ul style="color: var(--muted); line-height: 1.8; margin-left: 20px;">
-        <li><strong style="color: #38BDF8;">🌐 Alt + Hold Left Mouse Button on Text:</strong> Select text, hold <kbd>Alt</kbd> + Left-Hold for ~450ms &rarr; animates a <strong>Cyan ring</strong> ("Search Site"), fills the current site's search bar, and <strong>automatically executes the search in the current tab</strong>!</li>
-        <li><strong style="color: #2DD4BF;">↗️ Alt + Hold Right Mouse Button on Text:</strong> Select text, hold <kbd>Alt</kbd> + Right-Hold for ~450ms &rarr; animates a <strong>Teal ring</strong> ("Search Site (New Tab)") and <strong>opens a new tab with the current website searching your text</strong>!</li>
-        <li><strong style="color: #38BDF8;">🔍 Alt + Double Left-Click:</strong> Select text, hold <kbd>Alt</kbd> + double left-click &rarr; fills the current site's search bar and focuses it without auto-submitting.</li>
-        <li><strong style="color: #38BDF8;">📋 Double Left-Click on Selected Text:</strong> Copies already-selected text to your clipboard. Triple-clicking smoothly selects all text/paragraphs without accidentally triggering copy!</li>
-        <li><strong style="color: #34D399;">📋 Double Left-Click to Paste in Input:</strong> Double left-click between words (e.g. between "hello" and "world"), at the start/end, or in empty input to paste clipboard text with automatic smart word spacing! Inside a word, it preserves native double-click word selection.</li>
-        <li><strong style="color: #F87171;">✂️ Double Right-Click on Selected Text:</strong> Cuts already-selected text (copies to clipboard and deletes it from inputs/textareas) with an on-screen HUD confirmation!</li>
-        <li><strong style="color: #60A5FA;">🖱️ Drag & Drop Selected Text:</strong> Double-click or highlight any text and drag it anywhere (like into the empty input box above) — native browser drag-and-drop works seamlessly!</li>
-        <li><strong style="color: #F59E0B;">🟡 Hold Left Mouse Button on Text:</strong> Select text, then hold left mouse button for ~450ms $\rightarrow$ opens background Google search tab (Amber ring with magnifying glass icon).</li>
-        <li><strong style="color: #A855F7;">🟣 Hold Right Mouse Button on Text:</strong> Select text, then hold right mouse button for ~450ms $\rightarrow$ opens active Google search tab (Purple ring with magnifying glass icon).</li>
-      </ul>
-    </div>
+          <!-- Highlighted Action Box Below -->
+          <div class="action-highlight-box highlight-blue">
+            <div class="action-instruction-row">
+              <span class="action-badge-cue">👉 HOW TO USE:</span>
+              <span>Click & <kbd>HOLD Left-Click</kbd> for ~450ms</span>
+              <span style="color: #94A3B8; font-weight: normal;">(or Flick 35px ➔)</span>
+            </div>
+            <div class="action-result-text">
+              <strong>🎯 Result:</strong> A <strong>Sky Blue countdown ring</strong> animates around your cursor. When filled, the link opens in a new tab <em>behind</em> this page so you never lose your place!
+            </div>
+          </div>
+        </div>
 
-    <div class="card">
-      <h2>Non-Link Elements (Should NOT trigger HoldTab)</h2>
-      <p>Clicking and holding regular buttons without text selected should behave completely normally:</p>
-      <button class="regular-btn">Regular Button (Test Click)</button>
-    </div>
+        <!-- Link 2: Open in Foreground (Open & Go) -->
+        <div class="link-showcase-card">
+          <a href="https://news.ycombinator.com" class="demo-link-btn btn-indigo" target="_self">
+            <span class="link-main-text">
+              <span class="link-icon-glyph">📰</span>
+              <span>Open Hacker News Feed</span>
+            </span>
+            <span class="badge badge-indigo">Foreground Tab (Open & Go)</span>
+          </a>
+
+          <!-- Highlighted Action Box Below -->
+          <div class="action-highlight-box highlight-indigo">
+            <div class="action-instruction-row">
+              <span class="action-badge-cue">👉 HOW TO USE:</span>
+              <span>Click & <kbd>HOLD Right-Click</kbd> for ~450ms</span>
+            </div>
+            <div class="action-result-text">
+              <strong>🎯 Result:</strong> An <strong>Indigo countdown ring</strong> animates around your cursor. When filled, the link opens and the browser <em>switches to the new tab immediately</em>!
+            </div>
+          </div>
+        </div>
+
+        <!-- Link 3: Flick / Drag Gesture -->
+        <div class="link-showcase-card">
+          <a href="https://github.com" class="demo-link-btn btn-cyan" target="_self">
+            <span class="link-main-text">
+              <span class="link-icon-glyph">🐙</span>
+              <span>Open GitHub Repository</span>
+            </span>
+            <span class="badge badge-cyan">Flick / Drag Gesture</span>
+          </a>
+
+          <!-- Highlighted Action Box Below -->
+          <div class="action-highlight-box highlight-cyan">
+            <div class="action-instruction-row">
+              <span class="action-badge-cue">👉 HOW TO USE:</span>
+              <span>Press Left-Click & <kbd>Drag / Flick 35px</kbd> in ANY direction</span>
+            </div>
+            <div class="action-result-text">
+              <strong>🎯 Result:</strong> A <strong>dynamic directional arrow</strong> tracks your mouse in real time. Releasing past 35px instantly triggers the background tab opening without waiting!
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 2: 📋 Selected Text Gestures (Organized Feature-First!) -->
+    <section class="card">
+      <div class="card-header">
+        <h2 class="card-title">🔍 2. Selected Text Gestures & Shortcuts</h2>
+        <span class="badge badge-green">Feature-First Guide</span>
+      </div>
+      <p class="card-lead">
+        Find what you want to achieve, then use the highlighted shortcut right in the practice sandbox below:
+      </p>
+
+      <!-- Interactive Practice Text Box -->
+      <div class="sandbox-box">
+        <div class="sandbox-tools-row">
+          <span style="font-size: 12.5px; font-weight: 700; color: #38BDF8;">🧪 Interactive Practice Sandbox</span>
+          <div style="display: flex; gap: 6px;">
+            <button id="selectSampleBtn" class="btn-action-sm">✨ Quick Select Sample Text</button>
+            <button id="resetInputsBtn" class="btn-reset-sm">↺ Reset Test Inputs</button>
+          </div>
+        </div>
+
+        <!-- Sample selectable text block -->
+        <div id="sampleText" class="sample-text-area" title="Highlight any word here to test!">
+          "HoldTab empowers ultra-fast tab navigation with mouse gestures, text search hold, and instant copy/cut."
+        </div>
+
+        <!-- Editable Input for Cut & Copy -->
+        <div class="input-field-group">
+          <label for="editableInput" class="input-field-label">Editable Input Box (select text here to test Cut & Copy):</label>
+          <input type="text" id="editableInput" class="text-input-field" value="Quickly cut and copy this text using double-clicks!">
+        </div>
+
+        <!-- Empty Paste Target -->
+        <div class="input-field-group">
+          <label for="pasteInput" class="input-field-label">Paste Target Box (double-click here to test Smart Paste):</label>
+          <input type="text" id="pasteInput" class="text-input-field" placeholder="Double left-click here to paste clipboard text...">
+        </div>
+
+        <!-- Embedded Site Search Input -->
+        <div class="input-field-group" style="margin-bottom: 0;">
+          <label for="searchInput" class="input-field-label">Current Site Search Bar (Test Alt + Hold to search this site):</label>
+          <form id="testSearchForm" class="search-bar-row">
+            <input type="search" id="searchInput" class="text-input-field" placeholder="Search this documentation...">
+            <button type="submit" class="btn-search-submit">Search</button>
+          </form>
+          <div id="searchResultNotice" class="notice-banner"></div>
+        </div>
+      </div>
+
+      <!-- Category A: Clipboard Suite -->
+      <div class="feature-category-block">
+        <div class="feature-category-title">
+          <span>📋 A. Instant Clipboard Operations (No Keyboard Needed)</span>
+        </div>
+        <div class="feature-grid">
+          <!-- Copy -->
+          <div class="feature-row-card">
+            <div class="feature-top">
+              <span class="feature-name">📋 Copy Selected Text</span>
+              <span class="badge badge-green">Instant Copy</span>
+            </div>
+            <div class="feature-shortcut-banner">
+              <span>👉 <strong>HOW TO DO IT:</strong> Highlight text ➔ <kbd>Double Left-Click</kbd> on it</span>
+              <span style="color: #6EE7B7;">• Shows green "📋 Copied" badge! (Triple-click selects full paragraphs).</span>
+            </div>
+          </div>
+
+          <!-- Cut -->
+          <div class="feature-row-card">
+            <div class="feature-top">
+              <span class="feature-name">✂️ Cut Selected Text</span>
+              <span class="badge badge-rose">Instant Cut</span>
+            </div>
+            <div class="feature-shortcut-banner">
+              <span>👉 <strong>HOW TO DO IT:</strong> Highlight text in an input ➔ <kbd>Double Right-Click</kbd> on it</span>
+              <span style="color: #FDA4AF;">• Copies to clipboard and removes it with a "✂️ Cut" HUD badge!</span>
+            </div>
+          </div>
+
+          <!-- Paste -->
+          <div class="feature-row-card">
+            <div class="feature-top">
+              <span class="feature-name">📋 Smart Paste with Word Spacing</span>
+              <span class="badge badge-green">Smart Paste</span>
+            </div>
+            <div class="feature-shortcut-banner">
+              <span>👉 <strong>HOW TO DO IT:</strong> <kbd>Double Left-Click</kbd> in empty input or between words</span>
+              <span style="color: #6EE7B7;">• Automatically handles spacing (e.g. "hello [paste] world" -> "hello pasted-text world").</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Category B: Current Website Search -->
+      <div class="feature-category-block">
+        <div class="feature-category-title">
+          <span>🌐 B. Search the Current Website</span>
+        </div>
+        <div class="feature-grid">
+          <!-- Search in Current Tab -->
+          <div class="feature-row-card">
+            <div class="feature-top">
+              <span class="feature-name">🌐 Search Current Site (In This Tab)</span>
+              <span class="badge badge-cyan">Cyan Ring</span>
+            </div>
+            <div class="feature-shortcut-banner">
+              <span>👉 <strong>HOW TO DO IT:</strong> Highlight text ➔ Hold <kbd>Alt</kbd> + <kbd>Left-Click</kbd> (~450ms)</span>
+              <span style="color: #22D3EE;">• Animated Cyan Ring fills ➔ Automatically finds site's search bar & searches here!</span>
+            </div>
+          </div>
+
+          <!-- Search in New Tab -->
+          <div class="feature-row-card">
+            <div class="feature-top">
+              <span class="feature-name">↗️ Search Current Site (In a New Tab)</span>
+              <span class="badge badge-teal">Teal Ring</span>
+            </div>
+            <div class="feature-shortcut-banner">
+              <span>👉 <strong>HOW TO DO IT:</strong> Highlight text ➔ Hold <kbd>Alt</kbd> + <kbd>Right-Click</kbd> (~450ms)</span>
+              <span style="color: #2DD4BF;">• Animated Teal Ring fills ➔ Opens a new tab with current site searching your query!</span>
+            </div>
+          </div>
+
+          <!-- Fill Search Bar without submitting -->
+          <div class="feature-row-card">
+            <div class="feature-top">
+              <span class="feature-name">🔍 Fill Search Bar & Focus Cursor</span>
+              <span class="badge badge-blue">Fill Only</span>
+            </div>
+            <div class="feature-shortcut-banner">
+              <span>👉 <strong>HOW TO DO IT:</strong> Highlight text ➔ Hold <kbd>Alt</kbd> + <kbd>Double Left-Click</kbd></span>
+              <span style="color: #38BDF8;">• Fills the search bar and focuses it without auto-submitting so you can edit it.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Category C: Global Web Search (Google) -->
+      <div class="feature-category-block">
+        <div class="feature-category-title">
+          <span>🔍 C. Google Web Search</span>
+        </div>
+        <div class="feature-grid">
+          <!-- Background Google Search -->
+          <div class="feature-row-card">
+            <div class="feature-top">
+              <span class="feature-name">🟡 Google Search in Background Tab</span>
+              <span class="badge badge-amber">Amber Ring</span>
+            </div>
+            <div class="feature-shortcut-banner">
+              <span>👉 <strong>HOW TO DO IT:</strong> Highlight text ➔ <kbd>Hold Left-Click</kbd> (~450ms) without Alt</span>
+              <span style="color: #FBBF24;">• Amber Ring fills ➔ Opens a new background tab searching Google for your query!</span>
+            </div>
+          </div>
+
+          <!-- Foreground Google Search -->
+          <div class="feature-row-card">
+            <div class="feature-top">
+              <span class="feature-name">🟣 Google Search & Switch Immediately</span>
+              <span class="badge badge-purple">Purple Ring</span>
+            </div>
+            <div class="feature-shortcut-banner">
+              <span>👉 <strong>HOW TO DO IT:</strong> Highlight text ➔ <kbd>Hold Right-Click</kbd> (~450ms) without Alt</span>
+              <span style="color: #C084FC;">• Purple Ring fills ➔ Opens a new tab searching Google and switches to it directly!</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 3: 🔄 Tab Cycling Gestures (Feature-First!) -->
+    <section class="card">
+      <div class="card-header">
+        <h2 class="card-title">🔄 3. Tab Cycling & Quick Tab Actions</h2>
+        <span class="badge badge-indigo">Multi-Tab Gestures</span>
+      </div>
+      <p class="card-lead">
+        Open several tabs in your browser to experience seamless tab switching:
+      </p>
+
+      <div class="feature-grid">
+        <!-- Alt Trackpad Scroll -->
+        <div class="feature-row-card">
+          <div class="feature-top">
+            <span class="feature-name">💻 Smooth Trackpad Two-Finger Tab Cycling</span>
+            <span class="badge badge-cyan">Mousepad Native</span>
+          </div>
+          <div class="feature-shortcut-banner">
+            <span>👉 <strong>HOW TO DO IT:</strong> Hold <kbd>Left Alt</kbd> or <kbd>Right Alt</kbd> + <kbd>Scroll Two Fingers Up/Down</kbd></span>
+            <span style="color: #22D3EE;">• Calibrated friction-free tab switching without Windows Alt-menu flashes!</span>
+          </div>
+        </div>
+
+        <!-- Right Click Scroll Wheel -->
+        <div class="feature-row-card">
+          <div class="feature-top">
+            <span class="feature-name">🖱️ Mouse Wheel Tab Switch (Next / Prev Tab)</span>
+            <span class="badge badge-blue">Mouse Scroll</span>
+          </div>
+          <div class="feature-shortcut-banner">
+            <span>👉 <strong>HOW TO DO IT:</strong> Hold <kbd>Right-Click</kbd> + scroll <kbd>Wheel Down</kbd> (Next ▶) or <kbd>Wheel Up</kbd> (Prev ◀)</span>
+          </div>
+        </div>
+
+        <!-- Rocker Gestures -->
+        <div class="feature-row-card">
+          <div class="feature-top">
+            <span class="feature-name">⚡ Rocker Gestures (Binary Switch)</span>
+            <span class="badge badge-indigo">Fast Switching</span>
+          </div>
+          <div class="feature-shortcut-banner">
+            <span>👉 <strong>HOW TO DO IT:</strong> Hold <kbd>Left-Click</kbd> + click <kbd>Right</kbd> (Next ▶) • Hold <kbd>Right-Click</kbd> + click <kbd>Left</kbd> (Prev ◀)</span>
+          </div>
+        </div>
+
+        <!-- Double Right Click Close -->
+        <div class="feature-row-card">
+          <div class="feature-top">
+            <span class="feature-name">❌ Instant Close Tab</span>
+            <span class="badge badge-rose">Close Gesture</span>
+          </div>
+          <div class="feature-shortcut-banner">
+            <span>👉 <strong>HOW TO DO IT:</strong> <kbd>Double Right-Click</kbd> quickly anywhere on empty space</span>
+            <span style="color: #FDA4AF;">• Closes the active tab with clean context menu suppression!</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 4: 🛡️ Non-Link Elements (Safety Verification) -->
+    <section class="card">
+      <div class="card-header">
+        <h2 class="card-title">🛡️ 4. Normal UI Safety Verification</h2>
+        <span class="badge" style="background: rgba(148, 163, 184, 0.15); color: #94A3B8;">Safety Check</span>
+      </div>
+      <p class="card-lead">
+        HoldTab is designed to be 100% non-intrusive. Regular buttons and UI controls without text selected should click normally:
+      </p>
+
+      <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+        <button id="regularBtn" class="regular-btn">Regular Button (Test Click)</button>
+        <span id="regularStatus" style="display: none; color: #10B981; font-size: 13px; font-weight: 600;"></span>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="playground-footer">
+      <span>HoldTab Extension &bull; All Gestures Configurable via the Extension Popup</span>
+    </footer>
   </div>
 
   <script src="content/content.js"></script>
