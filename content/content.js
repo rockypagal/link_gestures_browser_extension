@@ -62,14 +62,17 @@
   let lastLeftClickX = 0;
   let lastLeftClickY = 0;
   let lastLeftClickSelectedText = '';
+  let lastLeftClickRange = null;
+  let lastLeftClickInputStart = -1;
+  let lastLeftClickInputEnd = -1;
   let lastLeftClickWithAlt = false;
   let lastLeftClickIsInput = false;
   let lastLeftClickTargetInput = null;
   let lastRightClickSelectedText = '';
   let lastKnownSelectedText = '';
   let lastCopiedText = '';
-  const DOUBLE_CLICK_INTERVAL = 380; // ms
-  const DOUBLE_CLICK_MAX_DISTANCE = 35; // px
+  const DOUBLE_CLICK_INTERVAL = 500; // ms (relaxed to 500ms to match OS standard)
+  const DOUBLE_CLICK_MAX_DISTANCE = 45; // px (allows comfortable trackpad glide)
 
   // Text search hold state
   let isHoldingText = false;
@@ -213,10 +216,11 @@
     try {
       const sel = window.getSelection ? window.getSelection() : null;
       if (!sel || sel.isCollapsed || !sel.toString().trim()) {
-        // Selection was unselected/cleared!
+        // Active DOM selection is empty or collapsed
         lastKnownSelectedText = '';
-        lastLeftClickSelectedText = '';
-        lastRightClickSelectedText = '';
+        // Note: Do NOT clear lastLeftClickSelectedText or lastRightClickSelectedText here!
+        // When user clicks on selected text (Click 1 of a double-click), the browser collapses the selection,
+        // firing selectionchange. Clearing them here destroys Double-Click Copy & Cut before Click 2 arrives!
       } else {
         lastKnownSelectedText = sel.toString().trim();
       }
@@ -236,13 +240,12 @@
       }
 
       const active = document.activeElement;
-      if (active && (active.tagName === 'TEXTAREA' || (active.tagName === 'INPUT' && /^(text|search|url|tel|email)$/i.test(active.type)))) {
-        if (typeof active.selectionStart === 'number' && typeof active.selectionEnd === 'number' && active.selectionStart !== active.selectionEnd) {
-          const inputSel = active.value.slice(active.selectionStart, active.selectionEnd).trim();
-          if (inputSel) {
-            lastKnownSelectedText = inputSel;
-            return inputSel;
-          }
+      const targetInput = isInputField(active) ? active : (document.querySelector(':focus') && isInputField(document.querySelector(':focus')) ? document.querySelector(':focus') : null);
+      if (targetInput && typeof targetInput.selectionStart === 'number' && typeof targetInput.selectionEnd === 'number' && targetInput.selectionStart !== targetInput.selectionEnd) {
+        const inputSel = targetInput.value.slice(targetInput.selectionStart, targetInput.selectionEnd).trim();
+        if (inputSel) {
+          lastKnownSelectedText = inputSel;
+          return inputSel;
         }
       }
 
@@ -268,11 +271,10 @@
     if (!selectedText) return false;
     try {
       const active = document.activeElement;
-      if (active && (active.tagName === 'TEXTAREA' || (active.tagName === 'INPUT' && /^(text|search|url|tel|email)$/i.test(active.type)))) {
-        if (typeof active.selectionStart === 'number' && typeof active.selectionEnd === 'number' && active.selectionStart !== active.selectionEnd) {
-          if (e.target === active || (active.contains && active.contains(e.target))) {
-            return true;
-          }
+      const targetInput = isInputField(e.target) ? e.target : (isInputField(active) ? active : null);
+      if (targetInput && typeof targetInput.selectionStart === 'number' && typeof targetInput.selectionEnd === 'number' && targetInput.selectionStart !== targetInput.selectionEnd) {
+        if (e.target === targetInput || (targetInput.contains && targetInput.contains(e.target))) {
+          return true;
         }
       }
 
@@ -283,16 +285,16 @@
         if (rects && rects.length > 0) {
           for (let i = 0; i < rects.length; i++) {
             const r = rects[i];
-            if (e.clientX >= r.left - 18 && e.clientX <= r.right + 18 &&
-                e.clientY >= r.top - 18 && e.clientY <= r.bottom + 18) {
+            if (e.clientX >= r.left - 24 && e.clientX <= r.right + 24 &&
+                e.clientY >= r.top - 24 && e.clientY <= r.bottom + 24) {
               return true;
             }
           }
         } else {
           const br = range.getBoundingClientRect();
           if (br && (br.width > 0 || br.height > 0)) {
-            if (e.clientX >= br.left - 18 && e.clientX <= br.right + 18 &&
-                e.clientY >= br.top - 18 && e.clientY <= br.bottom + 18) {
+            if (e.clientX >= br.left - 24 && e.clientX <= br.right + 24 &&
+                e.clientY >= br.top - 24 && e.clientY <= br.bottom + 24) {
               return true;
             }
           }
@@ -306,8 +308,8 @@
           const sRects = shadowRange.getClientRects();
           for (let i = 0; i < sRects.length; i++) {
             const r = sRects[i];
-            if (e.clientX >= r.left - 18 && e.clientX <= r.right + 18 &&
-                e.clientY >= r.top - 18 && e.clientY <= r.bottom + 18) {
+            if (e.clientX >= r.left - 24 && e.clientX <= r.right + 24 &&
+                e.clientY >= r.top - 24 && e.clientY <= r.bottom + 24) {
               return true;
             }
           }
@@ -2034,7 +2036,7 @@
 
       // 1. Double Right-Click on Pre-existing Selected Text -> CUT text
       // (Only cuts if text was already selected before the double-click started)
-      if (config.enabled && config.textDoubleClickCopyCut !== false && !isMultiClick && timeDiff > 40 && timeDiff < DOUBLE_CLICK_INTERVAL && dist < DOUBLE_CLICK_MAX_DISTANCE && lastRightClickSelectedText) {
+      if (config.enabled && config.textDoubleClickCopyCut !== false && timeDiff > 40 && timeDiff < DOUBLE_CLICK_INTERVAL && dist < DOUBLE_CLICK_MAX_DISTANCE && lastRightClickSelectedText) {
         const textToCut = lastRightClickSelectedText || selectedText;
         cancelHold();
         lastRightClickTime = 0;
@@ -2187,8 +2189,8 @@
       const leftDist = Math.hypot(e.clientX - lastLeftClickX, e.clientY - lastLeftClickY);
       const isMultiClick = typeof e.detail === 'number' && e.detail >= 3;
 
-      // Double Left-Click:
-      if (!isMultiClick && leftTimeDiff > 40 && leftTimeDiff < DOUBLE_CLICK_INTERVAL && leftDist < DOUBLE_CLICK_MAX_DISTANCE) {
+      // Rapid Successive Click:
+      if (leftTimeDiff > 40 && leftTimeDiff < DOUBLE_CLICK_INTERVAL && leftDist < DOUBLE_CLICK_MAX_DISTANCE) {
         // 1. Alt + Double Left-Click -> FILL CURRENT SITE'S SEARCH BAR with selected text
         const isAlt = isAltPressed(e) || lastLeftClickWithAlt;
         if (isAlt && config.enabled && config.altDoubleClickFillSearch !== false) {
@@ -2197,6 +2199,7 @@
             cancelHold();
             lastLeftClickTime = 0;
             lastLeftClickSelectedText = '';
+            lastLeftClickRange = null;
             lastLeftClickWithAlt = false;
             lastLeftClickIsInput = false;
             lastLeftClickTargetInput = null;
@@ -2211,8 +2214,28 @@
           }
         }
 
-        // 2. Double Left-Click on Pre-existing Selected Text -> COPY text
-        // (Requires text was already selected on Click 1 to preserve native double-click word selection and triple-click select-all)
+        // 2a. Triple Left-Click on Pre-existing Selected Text in an Editable Input -> CUT text
+        if (config.enabled && config.textDoubleClickCopyCut !== false && isMultiClick && targetIsInput && (lastLeftClickSelectedText || selectedText)) {
+          const textToCut = lastLeftClickSelectedText || selectedText;
+          cancelHold();
+          lastLeftClickTime = 0;
+          lastLeftClickSelectedText = '';
+          lastLeftClickRange = null;
+          lastLeftClickWithAlt = false;
+          lastLeftClickIsInput = false;
+          lastLeftClickTargetInput = null;
+          suppressClickUntil = now + 600;
+
+          performCut(textToCut);
+          showClipboardHud('✂️ Cut', textToCut);
+
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+
+        // 2b. Double Left-Click on Pre-existing Selected Text -> COPY text
+        // (Triggers when text was already selected on Click 1)
         if (config.enabled && config.textDoubleClickCopyCut !== false && lastLeftClickSelectedText) {
           const textToCopy = lastLeftClickSelectedText || selectedText;
           cancelHold();
@@ -2226,6 +2249,23 @@
           performCopy(textToCopy);
           showClipboardHud('📋 Copied', textToCopy);
 
+          // Restore selection visual so the copied text remains visibly highlighted
+          if (lastLeftClickRange) {
+            try {
+              const s = window.getSelection();
+              if (s) {
+                s.removeAllRanges();
+                s.addRange(lastLeftClickRange);
+              }
+            } catch (_) {}
+            lastLeftClickRange = null;
+          } else if (lastLeftClickTargetInput && lastLeftClickInputStart >= 0 && lastLeftClickInputEnd > lastLeftClickInputStart) {
+            try {
+              lastLeftClickTargetInput.focus();
+              lastLeftClickTargetInput.setSelectionRange(lastLeftClickInputStart, lastLeftClickInputEnd);
+            } catch (_) {}
+          }
+
           e.preventDefault();
           e.stopPropagation();
           return;
@@ -2233,7 +2273,7 @@
 
         // 3. Double Left-Click with cursor in Input Field -> PASTE text
         // (Allows pasting at boundaries or between words with smart spacing; inside words preserves native selection)
-        if (config.enabled && config.inputDoubleClickPaste !== false && (targetIsInput || lastLeftClickIsInput)) {
+        if (!isMultiClick && config.enabled && config.inputDoubleClickPaste !== false && (targetIsInput || lastLeftClickIsInput)) {
           const inputToPaste = targetInputElement || lastLeftClickTargetInput;
           const isBetweenText = isCursorInOrBetweenText(inputToPaste);
 
@@ -2241,6 +2281,7 @@
             cancelHold();
             lastLeftClickTime = 0;
             lastLeftClickSelectedText = '';
+            lastLeftClickRange = null;
             lastLeftClickWithAlt = false;
             lastLeftClickIsInput = false;
             lastLeftClickTargetInput = null;
@@ -2262,10 +2303,30 @@
 
       if (isTargetingText) {
         lastLeftClickSelectedText = selectedText;
-        lastLeftClickIsInput = false;
-        lastLeftClickTargetInput = null;
+        lastLeftClickIsInput = Boolean(targetIsInput);
+        lastLeftClickTargetInput = targetInputElement;
+        const selObj = window.getSelection ? window.getSelection() : null;
+        if (selObj && selObj.rangeCount > 0 && !selObj.isCollapsed) {
+          try {
+            lastLeftClickRange = selObj.getRangeAt(0).cloneRange();
+          } catch (_) {
+            lastLeftClickRange = null;
+          }
+        } else {
+          lastLeftClickRange = null;
+        }
+        if (targetInputElement && typeof targetInputElement.selectionStart === 'number') {
+          lastLeftClickInputStart = targetInputElement.selectionStart;
+          lastLeftClickInputEnd = targetInputElement.selectionEnd;
+        } else {
+          lastLeftClickInputStart = -1;
+          lastLeftClickInputEnd = -1;
+        }
       } else {
         lastLeftClickSelectedText = '';
+        lastLeftClickRange = null;
+        lastLeftClickInputStart = -1;
+        lastLeftClickInputEnd = -1;
         lastLeftClickIsInput = Boolean(targetIsInput);
         lastLeftClickTargetInput = targetInputElement;
       }
@@ -2727,6 +2788,25 @@
       tabCycleDidExecute = false;
       rightSwipeTriggered = false;
       rightHoldSearchTriggered = false;
+      return false;
+    }
+
+    // Double right-click to CUT on selected text (suppress context menu and execute cut)
+    const rightClickDiff = now - lastRightClickTime;
+    const rightDist = Math.hypot(e.clientX - lastRightClickX, e.clientY - lastRightClickY);
+    if (config.enabled && config.textDoubleClickCopyCut !== false && lastRightClickSelectedText &&
+        rightClickDiff > 40 && rightClickDiff < DOUBLE_CLICK_INTERVAL && rightDist < DOUBLE_CLICK_MAX_DISTANCE) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      const textToCut = lastRightClickSelectedText;
+      lastRightClickTime = 0;
+      lastContextMenuTime = 0;
+      lastRightClickSelectedText = '';
+      tabCycleDidExecute = true;
+      suppressContextMenuUntil = now + 1500;
+      performCut(textToCut);
+      showClipboardHud('✂️ Cut', textToCut);
       return false;
     }
 
