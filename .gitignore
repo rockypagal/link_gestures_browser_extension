@@ -1,3 +1,4 @@
 *.zip
+!holdtab-firefox.zip
 .DS_Store
 Thumbs.db
