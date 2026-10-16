@@ -22,6 +22,7 @@
     tabCycleSwipe: true,     // Right-click + Swipe left/right
     tabCycleRocker: true,    // Rocker gestures (Left+Right: Next, Right+Left: Prev)
     tabCycleAltScroll: true, // Alt + Two-finger trackpad scroll / wheel
+    tabCycleAltKeys: true,   // Alt + < / > keybinds to cycle tabs
     tabCycleHud: true,       // On-screen visual HUD pill
     swipeDeviceMode: 'mouse', // 'mouse' | 'mousepad'
     closeTabOnDoubleRightClick: true, // Close tab on double right-click
@@ -105,6 +106,10 @@
   const ALT_SCROLL_THRESHOLD = 40;  // px threshold for smooth step
   const ALT_REVERSE_THRESHOLD = 120; // px threshold to reverse direction within bounce window
   const ALT_SCROLL_COOLDOWN = 160;  // ms minimum cooldown between steps
+
+  // Alt + < / > keybind state
+  let lastAltKeyCycleTime = 0;
+  const ALT_KEY_CYCLE_THROTTLE = 140; // ms minimum cooldown between keybind steps
 
   // Double right-click close tab state
   let lastRightClickTime = 0;
@@ -2854,6 +2859,34 @@
       lastKnownSelectedText = '';
       lastLeftClickSelectedText = '';
       lastRightClickSelectedText = '';
+    }
+
+    // Alt + < (Prev Tab) and Alt + > (Next Tab) keybinds
+    if (config.enabled && config.tabCycleAltKeys !== false && !isCurrentSiteExcluded()) {
+      const isAlt = isAltPressed(e);
+      if (isAlt && !e.ctrlKey && !e.metaKey) {
+        // Detect < (Prev Tab): e.key '<' or ',' or code 'Comma'
+        // Detect > (Next Tab): e.key '>' or '.' or code 'Period'
+        const isPrev = e.key === '<' || e.key === ',' || e.code === 'Comma';
+        const isNext = e.key === '>' || e.key === '.' || e.code === 'Period';
+
+        if (isPrev || isNext) {
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+
+          const now = performance.now();
+          if (now - lastAltKeyCycleTime >= ALT_KEY_CYCLE_THROTTLE) {
+            lastAltKeyCycleTime = now;
+            altGestureTriggered = true;
+            tabCycleDidExecute = true;
+
+            const direction = isPrev ? 'prev' : 'next';
+            sendCycleTabMessage(direction, { viaAlt: true, isScrollGesture: false });
+          }
+          return false;
+        }
+      }
     }
   }, true);
 

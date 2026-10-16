@@ -13,6 +13,7 @@ const DEFAULT_SETTINGS = {
   tabCycleSwipe: true,
   tabCycleRocker: true,
   tabCycleAltScroll: true,
+  tabCycleAltKeys: true,
   tabCycleHud: true,
   swipeDeviceMode: 'mouse',
   closeTabOnDoubleRightClick: true,
@@ -176,6 +177,10 @@ function renderUI() {
   // Alt + Two-finger scroll toggle
   const altScrollToggle = document.getElementById('tabCycleAltScrollToggle');
   if (altScrollToggle) altScrollToggle.checked = currentSettings.tabCycleAltScroll !== false;
+
+  // Alt + < / > keybinds toggle
+  const altKeysToggle = document.getElementById('tabCycleAltKeysToggle');
+  if (altKeysToggle) altKeysToggle.checked = currentSettings.tabCycleAltKeys !== false;
 
   // Swipe device mode
   const swipeDeviceRadio = document.querySelector(`input[name="swipeDeviceMode"][value="${currentSettings.swipeDeviceMode || 'mouse'}"]`);
@@ -456,6 +461,14 @@ function setupEventListeners() {
   if (altScrollToggle) {
     altScrollToggle.addEventListener('change', (e) => {
       saveSettings({ tabCycleAltScroll: e.target.checked });
+    });
+  }
+
+  // Alt + < / > keybinds toggle
+  const altKeysToggle = document.getElementById('tabCycleAltKeysToggle');
+  if (altKeysToggle) {
+    altKeysToggle.addEventListener('change', (e) => {
+      saveSettings({ tabCycleAltKeys: e.target.checked });
     });
   }
 

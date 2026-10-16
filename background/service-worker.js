@@ -13,6 +13,7 @@ const DEFAULT_SETTINGS = {
   tabCycleSwipe: true,     // Right-click + Swipe left/right
   tabCycleRocker: true,    // Rocker gestures (Left+Right: Next, Right+Left: Prev)
   tabCycleAltScroll: true, // Alt + Two-finger trackpad scroll / wheel
+  tabCycleAltKeys: true,   // Alt + < / > keybinds to cycle tabs
   tabCycleHud: true,       // On-screen visual HUD pill
   swipeDeviceMode: 'mouse', // 'mouse' (Right->Next, Left->Prev) | 'mousepad' (Left->Next, Right->Prev)
   closeTabOnDoubleRightClick: true, // Close tab on double right-click
