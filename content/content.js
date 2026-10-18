@@ -147,13 +147,31 @@
   // Load configuration from storage
   function loadConfig() {
     try {
-      if (chrome.runtime && chrome.runtime.id) {
-        chrome.storage.sync.get(config, (stored) => {
-          if (chrome.runtime.lastError) return;
-          if (stored) {
-            config = { ...config, ...stored };
-          }
-        });
+      if (chrome.runtime && chrome.runtime.id && chrome.storage) {
+        const storageArea = chrome.storage.sync || chrome.storage.local;
+        if (storageArea) {
+          storageArea.get(null, (stored) => {
+            if (chrome.runtime.lastError) {
+              if (chrome.storage.local && storageArea !== chrome.storage.local) {
+                chrome.storage.local.get(null, (localStored) => {
+                  if (localStored) {
+                    config = { ...config, ...localStored };
+                    if (!isToolbarAllowed() && typeof hideToolbar === 'function') {
+                      hideToolbar();
+                    }
+                  }
+                });
+              }
+              return;
+            }
+            if (stored && Object.keys(stored).length > 0) {
+              config = { ...config, ...stored };
+              if (!isToolbarAllowed() && typeof hideToolbar === 'function') {
+                hideToolbar();
+              }
+            }
+          });
+        }
       }
     } catch (e) {
       // Storage access may fail in sandboxed or terminating contexts
@@ -168,7 +186,18 @@
       chrome.storage.onChanged.addListener((changes, area) => {
         if (area === 'sync' || area === 'local') {
           for (const [key, change] of Object.entries(changes)) {
-            config[key] = change.newValue;
+            if (change && typeof change.newValue !== 'undefined') {
+              config[key] = change.newValue;
+            }
+          }
+          if (!isToolbarAllowed()) {
+            if (typeof hideToolbar === 'function') {
+              hideToolbar();
+            }
+          }
+          if (!config.enabled || isCurrentSiteExcluded()) {
+            if (typeof cancelHold === 'function') cancelHold();
+            if (typeof hideIndicator === 'function') hideIndicator();
           }
         }
       });
@@ -210,13 +239,39 @@
 
   // Check if current site is excluded
   function isCurrentSiteExcluded() {
-    if (!config.enabled) return true;
-    const currentHost = window.location.hostname.toLowerCase();
+    if (!config || !config.enabled) return true;
+    let currentHost = (window.location.hostname || '').toLowerCase();
+    if (!currentHost) {
+      const href = (window.location.href || '').toLowerCase();
+      if (!Array.isArray(config.excludedDomains)) return false;
+      return config.excludedDomains.some((d) => {
+        const domain = (d || '').trim().toLowerCase();
+        return domain && href.includes(domain);
+      });
+    }
+    const currentHostNoWww = currentHost.replace(/^www\./, '');
     if (!Array.isArray(config.excludedDomains)) return false;
     return config.excludedDomains.some((d) => {
-      const domain = d.trim().toLowerCase();
-      return domain && (currentHost === domain || currentHost.endsWith('.' + domain));
+      let rawDomain = (d || '').trim().toLowerCase();
+      if (!rawDomain) return false;
+      rawDomain = rawDomain.replace(/^https?:\/\//, '').replace(/\/.*$/, '').split(':')[0];
+      const domainNoWww = rawDomain.replace(/^www\./, '');
+      return (
+        currentHost === rawDomain ||
+        currentHostNoWww === domainNoWww ||
+        currentHost.endsWith('.' + domainNoWww) ||
+        domainNoWww.endsWith('.' + currentHostNoWww)
+      );
     });
+  }
+
+  // Check if floating text selection toolbar is permitted in current context
+  function isToolbarAllowed() {
+    if (!config || config.enabled === false) return false;
+    if (config.toolbarEnabled === false) return false;
+    if (config.toolbarMode === 'disabled') return false;
+    if (isCurrentSiteExcluded()) return false;
+    return true;
   }
 
   // Detect whether Left Alt or Right Alt (including AltGraph / AltGr on Windows) is pressed
@@ -2028,8 +2083,6 @@
 
   // Mouse Down Event Listener
   window.addEventListener('mousedown', (e) => {
-    if (isCurrentSiteExcluded()) return;
-
     // Dismiss floating selection toolbar if clicking outside
     if (isToolbarVisible && !isToolbarHovered && !isSubmenuHovered) {
       const path = typeof e.composedPath === 'function' ? e.composedPath() : [];
@@ -2037,6 +2090,12 @@
         hideToolbar();
       }
     }
+
+    if (!isToolbarAllowed() && isToolbarVisible) {
+      hideToolbar();
+    }
+
+    if (isCurrentSiteExcluded()) return;
 
     // Handle right-click
     if (e.button === 2) {
@@ -3809,7 +3868,7 @@
   }
 
   function handleToolbarSelectionChange(e) {
-    if (!config.enabled || config.toolbarEnabled === false || config.toolbarMode === 'disabled' || isCurrentSiteExcluded()) {
+    if (!isToolbarAllowed()) {
       if (isToolbarVisible) hideToolbar();
       return;
     }
@@ -3825,6 +3884,11 @@
     if (toolbarTimer) {
       clearTimeout(toolbarTimer);
       toolbarTimer = null;
+    }
+
+    if (!isToolbarAllowed()) {
+      if (isToolbarVisible) hideToolbar();
+      return;
     }
 
     const sel = window.getSelection ? window.getSelection() : null;
@@ -3863,6 +3927,11 @@
   }
 
   function renderAndShowToolbar(sel, text) {
+    if (!isToolbarAllowed()) {
+      if (isToolbarVisible) hideToolbar();
+      return;
+    }
+
     initToolbarHost();
     if (!toolbarRoot || !toolbarEl) return;
 
@@ -4382,12 +4451,20 @@
   document.addEventListener('selectionchange', handleToolbarSelectionChange);
 
   window.addEventListener('mouseup', (e) => {
+    if (!isToolbarAllowed()) {
+      if (isToolbarVisible) hideToolbar();
+      return;
+    }
     if (!isToolbarHovered && !isSubmenuHovered && !isSearchInputFocused) {
       scheduleToolbarDisplay(e);
     }
   }, { passive: true });
 
   window.addEventListener('scroll', () => {
+    if (!isToolbarAllowed()) {
+      if (isToolbarVisible) hideToolbar();
+      return;
+    }
     if (isToolbarVisible && !isToolbarHovered && !isSubmenuHovered && !isSearchInputFocused) {
       const sel = window.getSelection ? window.getSelection() : null;
       if (sel && !sel.isCollapsed && sel.rangeCount > 0) {
@@ -4405,6 +4482,10 @@
   }, { passive: true });
 
   window.addEventListener('resize', () => {
+    if (!isToolbarAllowed()) {
+      if (isToolbarVisible) hideToolbar();
+      return;
+    }
     if (isToolbarVisible) {
       const sel = window.getSelection ? window.getSelection() : null;
       if (sel && !sel.isCollapsed && sel.rangeCount > 0) {
