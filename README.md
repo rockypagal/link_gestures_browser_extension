@@ -135,7 +135,7 @@ The extension settings popup provides granular control across 6 dedicated panels
 - **Links Tab**: Trigger mode (Hold, Flick, Both), Flick distance (15px&ndash;100px), Activation key, Tab placement, Default focus, and the Live Test Arena.
 - **Tabs Tab**: Toggles for Alt scroll, Alt + &lt; / &gt; keys, Rocker gestures, Right-Click wheel, Right-Click swipe (with Mouse vs. Mousepad mode), and Tab HUD.
 - **Shortcuts Tab**: Toggles for Double-Click copy/cut, Smart paste, Alt double-click fill search, Alt hold site search, Text hold Google search, and Double right-click tab close.
-- **Toolbar Tab (`🪄`)**: Master toolbar toggle, Display mode (Automatic, On Demand with modifier key, Disabled), Appearance delay slider (0&ndash;600ms), Minimum selection length slider (1&ndash;10 chars), Search submenu toggle, and complete **Search Engines Manager** (add custom engine with `{query}` URL template, reorder, edit, enable/disable, and restore defaults).
+- **Toolbar Tab (`🪄`)**: Master toolbar toggle, Display mode (Automatic, On Demand with modifier key, Disabled), Appearance delay slider (0&ndash;600ms), Minimum selection length slider (1&ndash;10 chars), Search submenu toggle, and complete **Search Engines Manager** (add custom search engine by simply pasting any website or search URL &mdash; `{query}` is auto-added, auto-name detection, reorder, edit, enable/disable, and restore defaults).
 - **Visuals Tab**:
   - **Link Hold Ring**: Independent toggle, Hold duration slider (200ms&ndash;1200ms), Grace delay slider (0ms&ndash;600ms).
   - **Site Search Ring**: Independent toggle, Hold duration slider, Grace delay slider.

@@ -485,13 +485,13 @@
         <div id="websiteFormCard" class="website-form-card" style="display: none;">
           <div class="website-form-title" id="websiteFormTitle">Add Custom Website</div>
           <div class="setting-group" style="margin-bottom: 8px;">
-            <label class="setting-label" style="font-size: 11px;">Website Name</label>
-            <input type="text" id="websiteNameInput" placeholder="e.g. DuckDuckGo" class="text-input" style="width: 100%; margin-top: 4px;">
+            <label class="setting-label" style="font-size: 11px;">Website Name (optional)</label>
+            <input type="text" id="websiteNameInput" placeholder="Auto-detected if blank (e.g. DuckDuckGo)" class="text-input" style="width: 100%; margin-top: 4px;">
           </div>
           <div class="setting-group" style="margin-bottom: 6px;">
-            <label class="setting-label" style="font-size: 11px;">Search URL Template</label>
-            <input type="url" id="websiteUrlInput" placeholder="e.g. https://duckduckgo.com/?q={query}" class="text-input" style="width: 100%; margin-top: 4px;">
-            <span class="form-hint">Use <code>{query}</code> as placeholder for selected text.</span>
+            <label class="setting-label" style="font-size: 11px;">Website or Search URL</label>
+            <input type="text" id="websiteUrlInput" placeholder="e.g. duckduckgo.com or bing.com/search?q=" class="text-input" style="width: 100%; margin-top: 4px;">
+            <span class="form-hint">✨ <code>{query}</code> is added automatically if you just paste any website or search URL!</span>
           </div>
           <div id="websiteFormError" class="form-error" style="display: none;"></div>
           <div style="display: flex; gap: 8px; margin-top: 10px;">

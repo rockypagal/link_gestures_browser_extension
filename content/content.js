@@ -3375,10 +3375,21 @@
     const query = currentSelectionText.trim();
     if (!query) return;
 
-    const template = site.template || 'https://www.google.com/search?q={query}';
-    if (!/^https?:\/\//i.test(template)) return;
+    let template = (site.template || 'https://www.google.com/search?q={query}').trim();
+    if (!/^https?:\/\//i.test(template)) {
+      template = 'https://' + template;
+    }
 
-    const finalUrl = template.replace(/\{query\}/g, encodeURIComponent(query));
+    let finalUrl;
+    if (template.includes('{query}')) {
+      finalUrl = template.replace(/\{query\}/g, encodeURIComponent(query));
+    } else {
+      const joiner = template.includes('?')
+        ? (template.endsWith('?') || template.endsWith('&') ? '' : '&')
+        : '?';
+      finalUrl = `${template}${joiner}q=${encodeURIComponent(query)}`;
+    }
+
     chrome.runtime.sendMessage({
       action: 'openLink',
       url: finalUrl,

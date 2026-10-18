@@ -689,6 +689,167 @@ function setupEventListeners() {
 
 let editingWebsiteId = null;
 
+// Known domain to branded display name dictionary
+const KNOWN_DOMAIN_NAMES = {
+  'duckduckgo.com': 'DuckDuckGo',
+  'bing.com': 'Bing',
+  'yahoo.com': 'Yahoo',
+  'baidu.com': 'Baidu',
+  'ecosia.org': 'Ecosia',
+  'brave.com': 'Brave Search',
+  'startpage.com': 'Startpage',
+  'kagi.com': 'Kagi',
+  'x.com': 'X (Twitter)',
+  'twitter.com': 'Twitter',
+  'stackoverflow.com': 'Stack Overflow',
+  'pinterest.com': 'Pinterest',
+  'ebay.com': 'eBay',
+  'netflix.com': 'Netflix',
+  'spotify.com': 'Spotify',
+  'imdb.com': 'IMDb',
+  'twitch.tv': 'Twitch',
+  'github.com': 'GitHub',
+  'reddit.com': 'Reddit',
+  'youtube.com': 'YouTube',
+  'wikipedia.org': 'Wikipedia',
+  'amazon.com': 'Amazon',
+  'google.com': 'Google',
+  'ycombinator.com': 'Hacker News'
+};
+
+// Automatically infers a clean website name from a URL or domain string
+function deriveNameFromUrl(rawUrl) {
+  if (!rawUrl) return '';
+  try {
+    let clean = rawUrl.trim();
+    if (!/^https?:\/\//i.test(clean)) {
+      clean = 'https://' + clean;
+    }
+    const parsed = new URL(clean);
+    const host = parsed.hostname.toLowerCase().replace(/^www\./i, '');
+
+    for (const [domain, brandName] of Object.entries(KNOWN_DOMAIN_NAMES)) {
+      if (host === domain || host.endsWith('.' + domain)) {
+        return brandName;
+      }
+    }
+
+    const parts = host.split('.');
+    const mainPart = parts.length > 2 && parts[0] === 'search' ? parts[1] : parts[0];
+    if (mainPart) {
+      return mainPart.charAt(0).toUpperCase() + mainPart.slice(1);
+    }
+  } catch (_) {}
+  return '';
+}
+
+// Automatically normalizes any website or search URL into a working search template with {query}
+function normalizeSearchTemplate(rawUrl) {
+  let url = (rawUrl || '').trim();
+  if (!url) return '';
+
+  // 1. Ensure http:// or https:// protocol
+  if (!/^https?:\/\//i.test(url)) {
+    if (url.startsWith('//')) {
+      url = 'https:' + url;
+    } else {
+      url = 'https://' + url;
+    }
+  }
+
+  // 2. If it already contains {query} (case-insensitive), normalize to lowercase {query}
+  if (/\{query\}/i.test(url)) {
+    return url.replace(/\{query\}/gi, '{query}');
+  }
+
+  // 3. Known popular search engines
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase().replace(/^www\./i, '');
+
+    const knownTemplates = [
+      { pattern: /(^|\.)duckduckgo\.com$/i, template: 'https://duckduckgo.com/?q={query}' },
+      { pattern: /(^|\.)bing\.com$/i, template: 'https://www.bing.com/search?q={query}' },
+      { pattern: /(^|\.)yahoo\.com$/i, template: 'https://search.yahoo.com/search?p={query}' },
+      { pattern: /(^|\.)baidu\.com$/i, template: 'https://www.baidu.com/s?wd={query}' },
+      { pattern: /(^|\.)ecosia\.org$/i, template: 'https://www.ecosia.org/search?q={query}' },
+      { pattern: /(^|\.)brave\.com$/i, template: 'https://search.brave.com/search?q={query}' },
+      { pattern: /(^|\.)startpage\.com$/i, template: 'https://www.startpage.com/sp/search?query={query}' },
+      { pattern: /(^|\.)kagi\.com$/i, template: 'https://kagi.com/search?q={query}' },
+      { pattern: /(^|\.)(twitter|x)\.com$/i, template: 'https://x.com/search?q={query}' },
+      { pattern: /(^|\.)stackoverflow\.com$/i, template: 'https://stackoverflow.com/search?q={query}' },
+      { pattern: /(^|\.)pinterest\.com$/i, template: 'https://www.pinterest.com/search/pins/?q={query}' },
+      { pattern: /(^|\.)ebay\.com$/i, template: 'https://www.ebay.com/sch/i.html?_nkw={query}' },
+      { pattern: /(^|\.)twitch\.tv$/i, template: 'https://www.twitch.tv/search?term={query}' },
+      { pattern: /(^|\.)github\.com$/i, template: 'https://github.com/search?q={query}' },
+      { pattern: /(^|\.)reddit\.com$/i, template: 'https://www.reddit.com/search/?q={query}' },
+      { pattern: /(^|\.)youtube\.com$/i, template: 'https://www.youtube.com/results?search_query={query}' },
+      { pattern: /(^|\.)wikipedia\.org$/i, template: 'https://en.wikipedia.org/w/index.php?search={query}' },
+      { pattern: /(^|\.)amazon\.com$/i, template: 'https://www.amazon.com/s?k={query}' },
+      { pattern: /(^|\.)google\.com$/i, template: 'https://www.google.com/search?q={query}' }
+    ];
+
+    if ((parsed.pathname === '/' || !parsed.pathname) && !parsed.search) {
+      for (const entry of knownTemplates) {
+        if (entry.pattern.test(host)) {
+          return entry.template;
+        }
+      }
+    }
+
+    // 4. If URL has query parameters, check if any parameter is a search term to replace
+    const searchKeys = [
+      'q', 'query', 'search', 'search_query', 'searchquery', 'search_term',
+      'searchterm', 'term', 'k', 'p', 's', 'wd', 'text', 'keyword',
+      'keywords', '_nkw', 'find'
+    ];
+
+    let foundSearchParam = false;
+    for (const key of searchKeys) {
+      if (parsed.searchParams.has(key)) {
+        parsed.searchParams.set(key, '{query}');
+        foundSearchParam = true;
+        break;
+      }
+    }
+
+    if (foundSearchParam) {
+      return parsed.toString().replace(/%7Bquery%7D/gi, '{query}');
+    }
+
+    // If there is only one query parameter in the URL, replace its value with {query}
+    const allKeys = Array.from(parsed.searchParams.keys());
+    if (allKeys.length === 1) {
+      parsed.searchParams.set(allKeys[0], '{query}');
+      return parsed.toString().replace(/%7Bquery%7D/gi, '{query}');
+    }
+
+    // If query string exists but doesn't have an obvious search key, append &q={query}
+    if (parsed.search) {
+      return parsed.toString() + '&q={query}';
+    }
+
+    // 5. If no query parameters exist:
+    // If the path looks like a search route (/search, /s, /find, /results, etc.)
+    if (/\/(search|s|find|results|query)\/?$/i.test(parsed.pathname)) {
+      parsed.search = 'q={query}';
+      return parsed.toString().replace(/%7Bquery%7D/gi, '{query}');
+    }
+
+    // Otherwise, append ?q={query}
+    if (parsed.pathname === '/' || !parsed.pathname) {
+      return `${parsed.origin}/?q={query}`;
+    }
+    return `${parsed.origin}${parsed.pathname}?q={query}`;
+  } catch (_) {
+    if (url.includes('?')) {
+      const joiner = (url.endsWith('?') || url.endsWith('&')) ? '' : '&';
+      return `${url}${joiner}q={query}`;
+    }
+    return `${url}?q={query}`;
+  }
+}
+
 // Setup Text Selection Toolbar event listeners
 function setupToolbarEventListeners() {
   const toolbarEnabledToggle = document.getElementById('toolbarEnabledToggle');
@@ -769,7 +930,7 @@ function setupToolbarEventListeners() {
       if (urlInput) urlInput.value = '';
       if (formError) formError.style.display = 'none';
       formCard.style.display = 'block';
-      if (nameInput) nameInput.focus();
+      if (urlInput) urlInput.focus();
     });
   }
 
@@ -781,29 +942,65 @@ function setupToolbarEventListeners() {
     });
   }
 
+  // Real-time auto-formatting on URL input
+  if (urlInput) {
+    urlInput.addEventListener('blur', () => {
+      const val = urlInput.value.trim();
+      if (val && !val.includes('{query}')) {
+        const normalized = normalizeSearchTemplate(val);
+        if (normalized) {
+          urlInput.value = normalized;
+        }
+      }
+      if (nameInput && !nameInput.value.trim() && val) {
+        const autoName = deriveNameFromUrl(val);
+        if (autoName) nameInput.value = autoName;
+      }
+    });
+
+    urlInput.addEventListener('input', () => {
+      if (formError && formError.style.display !== 'none') {
+        formError.style.display = 'none';
+      }
+      const val = urlInput.value.trim();
+      if (nameInput && !nameInput.value.trim() && val) {
+        const autoName = deriveNameFromUrl(val);
+        if (autoName) nameInput.value = autoName;
+      }
+    });
+  }
+
   if (saveBtn && formCard) {
     saveBtn.addEventListener('click', () => {
-      const name = nameInput ? nameInput.value.trim() : '';
-      const template = urlInput ? urlInput.value.trim() : '';
+      let name = nameInput ? nameInput.value.trim() : '';
+      const rawUrl = urlInput ? urlInput.value.trim() : '';
 
-      if (!name) {
-        showWebsiteFormError('Please enter a website name.');
+      if (!rawUrl) {
+        showWebsiteFormError('Please enter a website or search URL.');
+        if (urlInput) urlInput.focus();
         return;
       }
 
-      if (!template) {
-        showWebsiteFormError('Please enter a search URL template.');
+      // Automatically normalize URL and add {query} placeholder
+      let template = normalizeSearchTemplate(rawUrl);
+
+      if (!template || !/^https?:\/\//i.test(template)) {
+        showWebsiteFormError('Please enter a valid website URL (http:// or https://).');
         return;
       }
 
-      if (!/^https?:\/\//i.test(template)) {
-        showWebsiteFormError('URL template must start with http:// or https://');
-        return;
-      }
-
+      // Guarantee {query} is present in template
       if (!template.includes('{query}')) {
-        showWebsiteFormError('URL template must include the {query} placeholder.');
-        return;
+        const joiner = template.includes('?')
+          ? (template.endsWith('?') || template.endsWith('&') ? '' : '&')
+          : '?';
+        template = `${template}${joiner}q={query}`;
+      }
+
+      // If user left website name blank, automatically detect name from URL
+      if (!name) {
+        name = deriveNameFromUrl(rawUrl) || 'Search Engine';
+        if (nameInput) nameInput.value = name;
       }
 
       const sites = Array.isArray(currentSettings.toolbarSearchWebsites)
