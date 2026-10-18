@@ -3475,12 +3475,19 @@
       template = template.replace('steamdb.info/?q=', 'steamdb.info/search/?q=');
     }
 
-    // Form-compatible search query encoding: spaces as '+'
-    const encodedQuery = encodeURIComponent(query).replace(/%20/g, '+');
+    // Determine query encoding: inside path (spaces as %20) vs inside search params (spaces as '+')
+    let encodedQuery;
+    const qIndex = template.indexOf('{query}');
+    const questionIndex = template.indexOf('?');
+    if (questionIndex === -1 || (qIndex !== -1 && qIndex < questionIndex)) {
+      encodedQuery = encodeURIComponent(query);
+    } else {
+      encodedQuery = encodeURIComponent(query).replace(/%20/g, '+');
+    }
 
     let finalUrl;
     if (template.includes('{query}')) {
-      finalUrl = template.replace(/\{query\}/g, encodedQuery);
+      finalUrl = template.replace(/\{query\}/gi, encodedQuery);
     } else {
       const joiner = template.includes('?')
         ? (template.endsWith('?') || template.endsWith('&') ? '' : '&')

@@ -1,693 +1,1233 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HoldTab Settings</title>
-  <link rel="stylesheet" href="popup.css">
-</head>
-<body>
-  <div class="popup-container">
-    <!-- Header -->
-    <header class="header">
-      <div class="brand">
-        <img src="../icons/icon-48.png" alt="HoldTab Logo" class="brand-icon">
-        <div>
-          <h1 class="brand-title">HoldTab</h1>
-          <span class="brand-subtitle">Gestures & Tab Suite</span>
-        </div>
-      </div>
-      <label class="switch" title="Toggle Extension">
-        <input type="checkbox" id="masterToggle" checked>
-        <span class="slider"></span>
-      </label>
-    </header>
-
-    <!-- Organized Navigation Tabs -->
-    <nav class="nav-tabs" role="tablist">
-      <button class="nav-tab active" data-tab="tab-links" role="tab" aria-selected="true">
-        <span class="nav-icon">🔗</span>
-        <span>Links</span>
-      </button>
-      <button class="nav-tab" data-tab="tab-cycling" role="tab" aria-selected="false">
-        <span class="nav-icon">🔄</span>
-        <span>Tabs</span>
-      </button>
-      <button class="nav-tab" data-tab="tab-shortcuts" role="tab" aria-selected="false">
-        <span class="nav-icon">⚡</span>
-        <span>Shortcuts</span>
-      </button>
-      <button class="nav-tab" data-tab="tab-toolbar" role="tab" aria-selected="false">
-        <span class="nav-icon">🪄</span>
-        <span>Toolbar</span>
-      </button>
-      <button class="nav-tab" data-tab="tab-visuals" role="tab" aria-selected="false">
-        <span class="nav-icon">✨</span>
-        <span>Visuals</span>
-      </button>
-      <button class="nav-tab" data-tab="tab-sites" role="tab" aria-selected="false">
-        <span class="nav-icon">🛡️</span>
-        <span>Sites</span>
-      </button>
-    </nav>
-
-    <!-- Tab 1: Links & Gesture Trigger -->
-    <main id="tab-links" class="tab-panel active">
-      <section class="card">
-        <div class="card-header">
-          <span class="card-title">Link Gestures</span>
-          <span class="badge">Core</span>
-        </div>
-
-        <!-- Gesture Mode -->
-        <div class="setting-group">
-          <label class="setting-label">Trigger Mode</label>
-          <div class="segmented-control">
-            <label class="segment">
-              <input type="radio" name="gestureMode" value="hold" checked>
-              <span>Hold</span>
-            </label>
-            <label class="segment">
-              <input type="radio" name="gestureMode" value="drag">
-              <span>Flick</span>
-            </label>
-            <label class="segment">
-              <input type="radio" name="gestureMode" value="both">
-              <span>Both</span>
-            </label>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HoldTab Settings</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div class="popup-container">
+      <!-- Header -->
+      <header class="header">
+        <div class="brand">
+          <img
+            src="../icons/icon-48.png"
+            alt="HoldTab Logo"
+            class="brand-icon"
+          />
+          <div>
+            <h1 class="brand-title">HoldTab</h1>
+            <span class="brand-subtitle">Gestures & Tab Suite</span>
           </div>
         </div>
+        <label class="switch" title="Toggle Extension">
+          <input type="checkbox" id="masterToggle" checked />
+          <span class="slider"></span>
+        </label>
+      </header>
 
-        <!-- Flick Distance Slider -->
-        <div class="setting-group" id="dragDistanceGroup">
-          <div class="setting-label-row">
-            <label for="dragDistance" class="setting-label">Flick Distance</label>
-            <span id="dragDistanceValue" class="value-chip">35 px</span>
-          </div>
-          <input type="range" id="dragDistance" min="15" max="100" step="5" value="35" class="range-slider">
-          <div class="range-marks">
-            <span>Short (15px)</span>
-            <span>Recommended (35px)</span>
-            <span>Long (100px)</span>
-          </div>
-        </div>
-
-        <!-- Modifier key (optional) -->
-        <div class="setting-group">
-          <div class="setting-label-row">
-            <label for="requireModifier" class="setting-label">Activation Key</label>
-            <select id="requireModifier" class="select-dropdown">
-              <option value="none">None (Direct Click)</option>
-              <option value="alt">Alt + Click</option>
-              <option value="ctrl">Ctrl / Cmd + Click</option>
-              <option value="shift">Shift + Click</option>
-            </select>
-          </div>
-        </div>
-      </section>
-
-      <!-- Target Behavior Card -->
-      <section class="card">
-        <div class="card-header">
-          <span class="card-title">Target Tab</span>
-        </div>
-
-        <!-- Tab Placement -->
-        <div class="setting-group">
-          <label class="setting-label">New Tab Placement</label>
-          <div class="segmented-control">
-            <label class="segment">
-              <input type="radio" name="tabPosition" value="next" checked>
-              <span>Next to active</span>
-            </label>
-            <label class="segment">
-              <input type="radio" name="tabPosition" value="end">
-              <span>At the end</span>
-            </label>
-          </div>
-        </div>
-
-        <!-- Tab Focus -->
-        <div class="setting-group" style="margin-bottom: 0;">
-          <label class="setting-label">Default Focus</label>
-          <div class="segmented-control">
-            <label class="segment">
-              <input type="radio" name="tabFocus" value="background" checked>
-              <span>Background (Stay)</span>
-            </label>
-            <label class="segment">
-              <input type="radio" name="tabFocus" value="foreground">
-              <span>Foreground (Go)</span>
-            </label>
-          </div>
-        </div>
-      </section>
-
-      <!-- Interactive Test Arena -->
-      <section class="card test-arena">
-        <div class="card-header" style="justify-content: center; margin-bottom: 6px;">
-          <span class="badge badge-accent">Live Test Arena</span>
-        </div>
-        <p class="arena-desc">Test your hold or flick gesture below:</p>
-        <div class="test-button-wrap">
-          <a href="https://example.com" id="testLink" class="test-link" draggable="false">
-            <svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-            </svg>
-            <span id="testLinkText">Hold or Flick Me (Test Link)</span>
-          </a>
-          <div id="testStatus" class="test-status">Press & hold or flick 35px to test</div>
-          <button id="openPlaygroundBtn" class="btn-subtle" style="margin-top: 8px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 10.5px; padding: 5px 8px;">
-            📖 Open Interactive Practice Guide
-          </button>
-        </div>
-      </section>
-    </main>
-
-    <!-- Tab 2: Tab Cycling -->
-    <main id="tab-cycling" class="tab-panel">
-      <!-- Mousepad & Trackpad Card -->
-      <section class="card">
-        <div class="card-header">
-          <span class="card-title">💻 Trackpad & Mousepad</span>
-          <span class="badge">Fast</span>
-        </div>
-
-        <!-- Alt + Two-Finger Scroll -->
-        <div class="toggle-row">
-          <div class="toggle-info">
-            <div class="toggle-title">Alt + Two-Finger Scroll</div>
-            <div class="toggle-desc">Hold Left or Right Alt + scroll 2 fingers to cycle tabs</div>
-          </div>
-          <label class="switch switch-sm" title="Toggle Alt + Two-Finger Scroll">
-            <input type="checkbox" id="tabCycleAltScrollToggle" checked>
-            <span class="slider"></span>
-          </label>
-        </div>
-
-        <!-- Alt + < / > Keys -->
-        <div class="toggle-row">
-          <div class="toggle-info">
-            <div class="toggle-title">Alt + &lt; / &gt; Keys</div>
-            <div class="toggle-desc">Press Alt + &lt; (Prev Tab) and Alt + &gt; (Next Tab)</div>
-          </div>
-          <label class="switch switch-sm" title="Toggle Alt + < / > Keys">
-            <input type="checkbox" id="tabCycleAltKeysToggle" checked>
-            <span class="slider"></span>
-          </label>
-        </div>
-
-        <!-- Rocker Gestures -->
-        <div class="toggle-row">
-          <div class="toggle-info">
-            <div class="toggle-title">Rocker Gestures</div>
-            <div class="toggle-desc">Hold Left + Click Right (▶ Next), Hold Right + Click Left (◀ Prev)</div>
-          </div>
-          <label class="switch switch-sm" title="Toggle Rocker Gestures">
-            <input type="checkbox" id="tabCycleRockerToggle" checked>
-            <span class="slider"></span>
-          </label>
-        </div>
-      </section>
-
-      <!-- Mouse Gestures Card -->
-      <section class="card">
-        <div class="card-header">
-          <span class="card-title">🖱️ Mouse Gestures</span>
-        </div>
-
-        <!-- Right-Click + Wheel -->
-        <div class="toggle-row">
-          <div class="toggle-info">
-            <div class="toggle-title">Right-Click + Wheel Scroll</div>
-            <div class="toggle-desc">Hold right mouse button and roll scroll wheel</div>
-          </div>
-          <label class="switch switch-sm" title="Toggle Wheel Tab Cycling">
-            <input type="checkbox" id="tabCycleWheelToggle" checked>
-            <span class="slider"></span>
-          </label>
-        </div>
-
-        <!-- Right-Click + Swipe -->
-        <div class="toggle-row">
-          <div class="toggle-info">
-            <div class="toggle-title">Right-Click + Swipe</div>
-            <div class="toggle-desc">Hold right-click and swipe cursor horizontally</div>
-          </div>
-          <label class="switch switch-sm" title="Toggle Swipe Tab Cycling">
-            <input type="checkbox" id="tabCycleSwipeToggle" checked>
-            <span class="slider"></span>
-          </label>
-        </div>
-
-        <!-- Swipe Device Mode -->
-        <div class="setting-group" id="swipeDeviceModeGroup" style="margin-top: 6px; margin-bottom: 2px;">
-          <div class="setting-label-row">
-            <label class="setting-label" style="font-size: 11px; color: var(--text-secondary);">Swipe Direction Mode</label>
-          </div>
-          <div class="segmented-control" style="margin-top: 3px;">
-            <label class="segment">
-              <input type="radio" name="swipeDeviceMode" value="mouse" checked>
-              <span>🖱️ Mouse (Right ➔ Next)</span>
-            </label>
-            <label class="segment">
-              <input type="radio" name="swipeDeviceMode" value="mousepad">
-              <span>💻 Mousepad (Left ➔ Next)</span>
-            </label>
-          </div>
-        </div>
-      </section>
-
-      <!-- Visual HUD Card -->
-      <section class="card">
-        <div class="card-header">
-          <span class="card-title">Visual Feedback</span>
-        </div>
-        <div class="toggle-row">
-          <div class="toggle-info">
-            <div class="toggle-title">Visual Tab HUD Pill</div>
-            <div class="toggle-desc">Floating pill displaying tab title and index [2/5]</div>
-          </div>
-          <label class="switch switch-sm" title="Toggle Visual Tab HUD">
-            <input type="checkbox" id="tabCycleHudToggle" checked>
-            <span class="slider"></span>
-          </label>
-        </div>
-      </section>
-    </main>
-
-    <!-- Tab 3: Text & Click Shortcuts -->
-    <main id="tab-shortcuts" class="tab-panel">
-      <!-- Text Selection Actions -->
-      <section class="card">
-        <div class="card-header">
-          <span class="card-title">Selected Text Actions</span>
-          <span class="badge badge-accent">New</span>
-        </div>
-
-        <!-- Double-Click Copy & Cut -->
-        <div class="toggle-row">
-          <div class="toggle-info">
-            <div class="toggle-title">Double-Click Copy & Cut</div>
-            <div class="toggle-desc">Double Left-Click: 📋 Copy • Double Right-Click: ✂️ Cut</div>
-          </div>
-          <label class="switch switch-sm" title="Toggle Double-Click Copy & Cut">
-            <input type="checkbox" id="textDoubleClickCopyCutToggle" checked>
-            <span class="slider"></span>
-          </label>
-        </div>
-
-        <!-- Double-Click in Input to Paste -->
-        <div class="toggle-row">
-          <div class="toggle-info">
-            <div class="toggle-title">Double-Click Input to Paste</div>
-            <div class="toggle-desc">Double Left-Click to 📋 Paste with smart spacing (between words, at boundaries, or in empty input)</div>
-          </div>
-          <label class="switch switch-sm" title="Toggle Double-Click Input to Paste">
-            <input type="checkbox" id="inputDoubleClickPasteToggle" checked>
-            <span class="slider"></span>
-          </label>
-        </div>
-
-        <!-- Alt + Double-Click to Search Site -->
-        <div class="toggle-row">
-          <div class="toggle-info">
-            <div class="toggle-title">Alt + Double-Click to Fill Search</div>
-            <div class="toggle-desc">Alt + Double Left-Click on text to fill current site's search bar</div>
-          </div>
-          <label class="switch switch-sm" title="Toggle Alt + Double-Click to Fill Search">
-            <input type="checkbox" id="altDoubleClickFillSearchToggle" checked>
-            <span class="slider"></span>
-          </label>
-        </div>
-
-        <!-- Alt + Hold to Search Current Site -->
-        <div class="toggle-row">
-          <div class="toggle-info">
-            <div class="toggle-title">Alt + Hold to Search Site</div>
-            <div class="toggle-desc">Left-Hold: 🌐 Search current tab • Right-Hold: ↗️ Search in new tab</div>
-          </div>
-          <label class="switch switch-sm" title="Toggle Alt + Hold to Search Site">
-            <input type="checkbox" id="altHoldSearchSiteToggle" checked>
-            <span class="slider"></span>
-          </label>
-        </div>
-
-        <!-- Hold Selected Text to Search -->
-        <div class="toggle-row">
-          <div class="toggle-info">
-            <div class="toggle-title">Hold Text to Search</div>
-            <div class="toggle-desc">Left-Hold: 🟡 Background search tab • Right-Hold: 🟣 Active search tab</div>
-          </div>
-          <label class="switch switch-sm" title="Toggle Hold Selected Text to Search">
-            <input type="checkbox" id="textSearchHoldToggle" checked>
-            <span class="slider"></span>
-          </label>
-        </div>
-      </section>
-
-      <!-- Mouse Quick Actions -->
-      <section class="card">
-        <div class="card-header">
-          <span class="card-title">Mouse Quick Actions</span>
-        </div>
-
-        <!-- Double Right-Click to Close Tab -->
-        <div class="toggle-row">
-          <div class="toggle-info">
-            <div class="toggle-title">Double Right-Click to Close</div>
-            <div class="toggle-desc">Double right-click anywhere on empty space to close tab</div>
-          </div>
-          <label class="switch switch-sm" title="Toggle Double Right-Click to Close Tab">
-            <input type="checkbox" id="closeTabOnDoubleRightClickToggle" checked>
-            <span class="slider"></span>
-          </label>
-        </div>
-
-        <!-- Right-Click Link Hold (Info banner) -->
-        <div class="info-pill">
-          <span class="info-pill-icon">🟣</span>
-          <div class="info-pill-body">
-            <strong>Right-Click Link Hold:</strong> Hold right-click on any link to open in new tab and switch to it immediately (Indigo ring).
-          </div>
-        </div>
-      </section>
-    </main>
-
-    <!-- Tab 4: Text Selection Toolbar -->
-    <main id="tab-toolbar" class="tab-panel">
-      <!-- Toolbar Settings Card -->
-      <section class="card">
-        <div class="card-header">
-          <span class="card-title">Selection Toolbar</span>
-          <label class="switch switch-sm" title="Toggle Floating Selection Toolbar">
-            <input type="checkbox" id="toolbarEnabledToggle" checked>
-            <span class="slider"></span>
-          </label>
-        </div>
-        <p class="card-desc">Floating toolbar appearing on text selection with Select All, Search, Copy, and Cut actions.</p>
-
-        <!-- Display Mode -->
-        <div class="setting-group">
-          <label class="setting-label">Display Mode</label>
-          <div class="segmented-control">
-            <label class="segment">
-              <input type="radio" name="toolbarMode" value="auto" checked>
-              <span>Automatic</span>
-            </label>
-            <label class="segment">
-              <input type="radio" name="toolbarMode" value="demand">
-              <span>On Demand</span>
-            </label>
-            <label class="segment">
-              <input type="radio" name="toolbarMode" value="disabled">
-              <span>Disabled</span>
-            </label>
-          </div>
-        </div>
-
-        <!-- On-Demand Modifier Key -->
-        <div class="setting-group" id="toolbarModifierGroup" style="display: none;">
-          <div class="setting-label-row">
-            <label for="toolbarModifier" class="setting-label">Activation Key</label>
-            <select id="toolbarModifier" class="select-dropdown">
-              <option value="alt">Alt + Select</option>
-              <option value="ctrl">Ctrl / Cmd + Select</option>
-              <option value="shift">Shift + Select</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- Appearance Delay -->
-        <div class="setting-group" id="toolbarDelayGroup">
-          <div class="setting-label-row">
-            <label for="toolbarDelay" class="setting-label">Appearance Delay</label>
-            <span id="toolbarDelayValue" class="value-chip">250 ms</span>
-          </div>
-          <input type="range" id="toolbarDelay" min="0" max="600" step="25" value="250" class="range-slider">
-          <div class="range-marks">
-            <span>Instant (0ms)</span>
-            <span>Default (250ms)</span>
-            <span>Slow (600ms)</span>
-          </div>
-        </div>
-
-        <!-- Minimum Selection Length -->
-        <div class="setting-group" id="toolbarMinLengthGroup">
-          <div class="setting-label-row">
-            <label for="toolbarMinLength" class="setting-label">Min Selection Length</label>
-            <span id="toolbarMinLengthValue" class="value-chip">2 chars</span>
-          </div>
-          <input type="range" id="toolbarMinLength" min="1" max="10" step="1" value="2" class="range-slider">
-          <div class="range-marks">
-            <span>1 char</span>
-            <span>2 chars (Default)</span>
-            <span>10 chars</span>
-          </div>
-        </div>
-
-        <!-- Search Submenu Toggle -->
-        <div class="toggle-row" style="margin-bottom: 0;">
-          <div class="toggle-info">
-            <div class="toggle-title">Search Websites Submenu</div>
-            <div class="toggle-desc">Show search engines grid on hovering Search button</div>
-          </div>
-          <label class="switch switch-sm" title="Toggle Search Submenu">
-            <input type="checkbox" id="toolbarSearchSubmenuToggle" checked>
-            <span class="slider"></span>
-          </label>
-        </div>
-      </section>
-
-      <!-- Search Websites Management Card -->
-      <section class="card">
-        <div class="card-header">
-          <span class="card-title">Search Engines</span>
-          <span class="badge">Submenu</span>
-        </div>
-        <p class="card-desc">Configure search websites available in the Search hover submenu:</p>
-
-        <!-- Dynamic Website List -->
-        <div id="toolbarWebsitesList" class="website-list"></div>
-
-        <!-- Website Action Buttons -->
-        <div class="website-btn-row">
-          <button id="addWebsiteBtn" class="btn-secondary" style="flex: 1; padding: 7px 10px; font-size: 11.5px; display: flex; align-items: center; justify-content: center; gap: 5px;">
-            <span>➕</span> Add Custom Website
-          </button>
-          <button id="restoreWebsitesBtn" class="btn-subtle" style="padding: 7px 10px; font-size: 11.5px;" title="Reset to default websites">
-            ↺ Defaults
-          </button>
-        </div>
-
-        <!-- Inline Add / Edit Website Form Modal/Card -->
-        <div id="websiteFormCard" class="website-form-card" style="display: none;">
-          <div class="website-form-title" id="websiteFormTitle">Add Custom Website</div>
-          <div class="setting-group" style="margin-bottom: 8px;">
-            <label class="setting-label" style="font-size: 11px;">Website Name (optional)</label>
-            <input type="text" id="websiteNameInput" placeholder="Auto-detected if blank (e.g. DuckDuckGo)" class="text-input" style="width: 100%; margin-top: 4px;">
-          </div>
-          <div class="setting-group" style="margin-bottom: 6px;">
-            <label class="setting-label" style="font-size: 11px;">Website or Search URL</label>
-            <input type="text" id="websiteUrlInput" placeholder="e.g. duckduckgo.com or bing.com/search?q=" class="text-input" style="width: 100%; margin-top: 4px;">
-            <span class="form-hint">✨ <code>{query}</code> is added automatically if you just paste any website or search URL!</span>
-          </div>
-          <div id="websiteFormError" class="form-error" style="display: none;"></div>
-          <div style="display: flex; gap: 8px; margin-top: 10px;">
-            <button id="saveWebsiteBtn" class="btn-primary" style="flex: 1; padding: 6px 12px; font-size: 11.5px;">Save Website</button>
-            <button id="cancelWebsiteBtn" class="btn-secondary" style="padding: 6px 12px; font-size: 11.5px;">Cancel</button>
-          </div>
-        </div>
-      </section>
-    </main>
-
-    <!-- Tab 5: Animations & Visual Controls -->
-    <main id="tab-visuals" class="tab-panel">
-      <!-- Section 1: Link Hold Animation -->
-      <section class="card">
-        <div class="card-header">
-          <span class="card-title">🔗 Link Hold Ring</span>
-          <label class="switch switch-sm" title="Toggle Link Hold Ring Animation">
-            <input type="checkbox" id="animLinkHoldToggle" checked>
-            <span class="slider"></span>
-          </label>
-        </div>
-        <p class="card-desc">Circular countdown ring when pressing and holding hyperlinks (Blue/Indigo ring).</p>
-
-        <!-- Hold Duration (Blue) -->
-        <div class="setting-group" id="holdDurationGroup">
-          <div class="setting-label-row">
-            <label for="holdDuration" class="setting-label">Hold Duration</label>
-            <span id="durationValue" class="value-chip">450 ms</span>
-          </div>
-          <input type="range" id="holdDuration" min="200" max="1200" step="25" value="450" class="range-slider">
-          <div class="range-marks">
-            <span>Fast (200ms)</span>
-            <span>Recommended (450ms)</span>
-            <span>Slow (1200ms)</span>
-          </div>
-        </div>
-
-        <!-- Grace Delay (Amber) -->
-        <div class="setting-group" id="animLinkHoldDelayGroup">
-          <div class="setting-label-row">
-            <label for="animLinkHoldDelay" class="setting-label">Grace Delay</label>
-            <span id="animLinkHoldDelayValue" class="value-chip value-chip-delay">180 ms</span>
-          </div>
-          <input type="range" id="animLinkHoldDelay" min="0" max="600" step="20" value="180" class="range-slider range-slider-delay">
-          <div class="range-marks">
-            <span>Instant (0ms)</span>
-            <span>Recommended (180ms)</span>
-            <span>High (600ms)</span>
-          </div>
-        </div>
-      </section>
-
-      <!-- Section 2: Current Site Search Animation (Alt+Hold) -->
-      <section class="card">
-        <div class="card-header">
-          <span class="card-title">🌐 Site Search Ring</span>
-          <label class="switch switch-sm" title="Toggle Site Search Ring Animation">
-            <input type="checkbox" id="animSiteSearchToggle" checked>
-            <span class="slider"></span>
-          </label>
-        </div>
-        <p class="card-desc">Countdown ring when holding Alt + Left/Right click on selected text (Cyan/Teal ring).</p>
-
-        <!-- Hold Duration (Blue) -->
-        <div class="setting-group" id="siteSearchHoldDurationGroup">
-          <div class="setting-label-row">
-            <label for="siteSearchHoldDuration" class="setting-label">Hold Duration</label>
-            <span id="siteSearchHoldDurationValue" class="value-chip">450 ms</span>
-          </div>
-          <input type="range" id="siteSearchHoldDuration" min="200" max="1200" step="25" value="450" class="range-slider">
-          <div class="range-marks">
-            <span>Fast (200ms)</span>
-            <span>Recommended (450ms)</span>
-            <span>Slow (1200ms)</span>
-          </div>
-        </div>
-
-        <!-- Grace Delay (Amber) -->
-        <div class="setting-group" id="animSiteSearchDelayGroup">
-          <div class="setting-label-row">
-            <label for="animSiteSearchDelay" class="setting-label">Grace Delay</label>
-            <span id="animSiteSearchDelayValue" class="value-chip value-chip-delay">180 ms</span>
-          </div>
-          <input type="range" id="animSiteSearchDelay" min="0" max="600" step="20" value="180" class="range-slider range-slider-delay">
-          <div class="range-marks">
-            <span>Instant (0ms)</span>
-            <span>Recommended (180ms)</span>
-            <span>High (600ms)</span>
-          </div>
-        </div>
-      </section>
-
-      <!-- Section 3: Web Search Animation (Text Hold) -->
-      <section class="card">
-        <div class="card-header">
-          <span class="card-title">🔍 Web Search Ring</span>
-          <label class="switch switch-sm" title="Toggle Web Search Ring Animation">
-            <input type="checkbox" id="animTextSearchToggle" checked>
-            <span class="slider"></span>
-          </label>
-        </div>
-        <p class="card-desc">Countdown ring when holding click on selected text for Google Search (Amber/Purple ring).</p>
-
-        <!-- Hold Duration (Blue) -->
-        <div class="setting-group" id="textSearchHoldDurationGroup">
-          <div class="setting-label-row">
-            <label for="textSearchHoldDuration" class="setting-label">Hold Duration</label>
-            <span id="textSearchHoldDurationValue" class="value-chip">450 ms</span>
-          </div>
-          <input type="range" id="textSearchHoldDuration" min="200" max="1200" step="25" value="450" class="range-slider">
-          <div class="range-marks">
-            <span>Fast (200ms)</span>
-            <span>Recommended (450ms)</span>
-            <span>Slow (1200ms)</span>
-          </div>
-        </div>
-
-        <!-- Grace Delay (Amber) -->
-        <div class="setting-group" id="animTextSearchDelayGroup">
-          <div class="setting-label-row">
-            <label for="animTextSearchDelay" class="setting-label">Grace Delay</label>
-            <span id="animTextSearchDelayValue" class="value-chip value-chip-delay">180 ms</span>
-          </div>
-          <input type="range" id="animTextSearchDelay" min="0" max="600" step="20" value="180" class="range-slider range-slider-delay">
-          <div class="range-marks">
-            <span>Instant (0ms)</span>
-            <span>Recommended (180ms)</span>
-            <span>High (600ms)</span>
-          </div>
-        </div>
-      </section>
-
-      <!-- Section 4: Other Visual Indicators -->
-      <section class="card">
-        <div class="card-header">
-          <span class="card-title">✨ Other Visuals</span>
-        </div>
-
-        <div class="toggle-row">
-          <div class="toggle-info">
-            <div class="toggle-title">Flick/Drag Directional Arrow</div>
-            <div class="toggle-desc">Dynamic angle arrow tracking mouse while dragging links</div>
-          </div>
-          <label class="switch switch-sm" title="Toggle Drag Indicator">
-            <input type="checkbox" id="animFlickDragToggle" checked>
-            <span class="slider"></span>
-          </label>
-        </div>
-
-        <div class="toggle-row">
-          <div class="toggle-info">
-            <div class="toggle-title">Floating HUD Notifications</div>
-            <div class="toggle-desc">On-screen badges for tab cycling and clipboard copy/cut/paste actions</div>
-          </div>
-          <label class="switch switch-sm" title="Toggle Floating HUD Badges">
-            <input type="checkbox" id="animHudBadgesToggle" checked>
-            <span class="slider"></span>
-          </label>
-        </div>
-      </section>
-    </main>
-
-    <!-- Tab 5: Domain Exclusions -->
-    <main id="tab-sites" class="tab-panel">
-      <section class="card exclusions-card">
-        <div class="card-header">
-          <span class="card-title">Domain Exclusions</span>
-        </div>
-        <p class="card-desc">All gestures and shortcuts are disabled on excluded domains:</p>
-
-        <button id="toggleCurrentDomainBtn" class="btn-subtle" title="Toggle current website">
-          + Exclude This Site
+      <!-- Organized Navigation Tabs -->
+      <nav class="nav-tabs" role="tablist">
+        <button
+          class="nav-tab active"
+          data-tab="tab-links"
+          role="tab"
+          aria-selected="true"
+        >
+          <span class="nav-icon">🔗</span>
+          <span>Links</span>
         </button>
+        <button
+          class="nav-tab"
+          data-tab="tab-cycling"
+          role="tab"
+          aria-selected="false"
+        >
+          <span class="nav-icon">🔄</span>
+          <span>Tabs</span>
+        </button>
+        <button
+          class="nav-tab"
+          data-tab="tab-shortcuts"
+          role="tab"
+          aria-selected="false"
+        >
+          <span class="nav-icon">⚡</span>
+          <span>Shortcuts</span>
+        </button>
+        <button
+          class="nav-tab"
+          data-tab="tab-toolbar"
+          role="tab"
+          aria-selected="false"
+        >
+          <span class="nav-icon">🪄</span>
+          <span>Toolbar</span>
+        </button>
+        <button
+          class="nav-tab"
+          data-tab="tab-visuals"
+          role="tab"
+          aria-selected="false"
+        >
+          <span class="nav-icon">✨</span>
+          <span>Visuals</span>
+        </button>
+        <button
+          class="nav-tab"
+          data-tab="tab-sites"
+          role="tab"
+          aria-selected="false"
+        >
+          <span class="nav-icon">🛡️</span>
+          <span>Sites</span>
+        </button>
+      </nav>
 
-        <div id="excludedList" class="excluded-tags">
-          <!-- Tag pills inserted dynamically -->
+      <!-- Tab 1: Links & Gesture Trigger -->
+      <main id="tab-links" class="tab-panel active">
+        <section class="card">
+          <div class="card-header">
+            <span class="card-title">Link Gestures</span>
+            <span class="badge">Core</span>
+          </div>
+
+          <!-- Gesture Mode -->
+          <div class="setting-group">
+            <label class="setting-label">Trigger Mode</label>
+            <div class="segmented-control">
+              <label class="segment">
+                <input type="radio" name="gestureMode" value="hold" checked />
+                <span>Hold</span>
+              </label>
+              <label class="segment">
+                <input type="radio" name="gestureMode" value="drag" />
+                <span>Flick</span>
+              </label>
+              <label class="segment">
+                <input type="radio" name="gestureMode" value="both" />
+                <span>Both</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Flick Distance Slider -->
+          <div class="setting-group" id="dragDistanceGroup">
+            <div class="setting-label-row">
+              <label for="dragDistance" class="setting-label"
+                >Flick Distance</label
+              >
+              <span id="dragDistanceValue" class="value-chip">35 px</span>
+            </div>
+            <input
+              type="range"
+              id="dragDistance"
+              min="15"
+              max="100"
+              step="5"
+              value="35"
+              class="range-slider"
+            />
+            <div class="range-marks">
+              <span>Short (15px)</span>
+              <span>Recommended (35px)</span>
+              <span>Long (100px)</span>
+            </div>
+          </div>
+
+          <!-- Modifier key (optional) -->
+          <div class="setting-group">
+            <div class="setting-label-row">
+              <label for="requireModifier" class="setting-label"
+                >Activation Key</label
+              >
+              <select id="requireModifier" class="select-dropdown">
+                <option value="none">None (Direct Click)</option>
+                <option value="alt">Alt + Click</option>
+                <option value="ctrl">Ctrl / Cmd + Click</option>
+                <option value="shift">Shift + Click</option>
+              </select>
+            </div>
+          </div>
+        </section>
+
+        <!-- Target Behavior Card -->
+        <section class="card">
+          <div class="card-header">
+            <span class="card-title">Target Tab</span>
+          </div>
+
+          <!-- Tab Placement -->
+          <div class="setting-group">
+            <label class="setting-label">New Tab Placement</label>
+            <div class="segmented-control">
+              <label class="segment">
+                <input type="radio" name="tabPosition" value="next" checked />
+                <span>Next to active</span>
+              </label>
+              <label class="segment">
+                <input type="radio" name="tabPosition" value="end" />
+                <span>At the end</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Tab Focus -->
+          <div class="setting-group" style="margin-bottom: 0">
+            <label class="setting-label">Default Focus</label>
+            <div class="segmented-control">
+              <label class="segment">
+                <input
+                  type="radio"
+                  name="tabFocus"
+                  value="background"
+                  checked
+                />
+                <span>Background (Stay)</span>
+              </label>
+              <label class="segment">
+                <input type="radio" name="tabFocus" value="foreground" />
+                <span>Foreground (Go)</span>
+              </label>
+            </div>
+          </div>
+        </section>
+
+        <!-- Interactive Test Arena -->
+        <section class="card test-arena">
+          <div
+            class="card-header"
+            style="justify-content: center; margin-bottom: 6px"
+          >
+            <span class="badge badge-accent">Live Test Arena</span>
+          </div>
+          <p class="arena-desc">Test your hold or flick gesture below:</p>
+          <div class="test-button-wrap">
+            <a
+              href="https://example.com"
+              id="testLink"
+              class="test-link"
+              draggable="false"
+            >
+              <svg
+                class="link-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <path
+                  d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"
+                />
+                <path
+                  d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"
+                />
+              </svg>
+              <span id="testLinkText">Hold or Flick Me (Test Link)</span>
+            </a>
+            <div id="testStatus" class="test-status">
+              Press & hold or flick 35px to test
+            </div>
+            <button
+              id="openPlaygroundBtn"
+              class="btn-subtle"
+              style="
+                margin-top: 8px;
+                width: 100%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 6px;
+                font-size: 10.5px;
+                padding: 5px 8px;
+              "
+            >
+              📖 Open Interactive Practice Guide
+            </button>
+          </div>
+        </section>
+      </main>
+
+      <!-- Tab 2: Tab Cycling -->
+      <main id="tab-cycling" class="tab-panel">
+        <!-- Mousepad & Trackpad Card -->
+        <section class="card">
+          <div class="card-header">
+            <span class="card-title">💻 Trackpad & Mousepad</span>
+            <span class="badge">Fast</span>
+          </div>
+
+          <!-- Alt + Two-Finger Scroll -->
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <div class="toggle-title">Alt + Two-Finger Scroll</div>
+              <div class="toggle-desc">
+                Hold Left or Right Alt + scroll 2 fingers to cycle tabs
+              </div>
+            </div>
+            <label
+              class="switch switch-sm"
+              title="Toggle Alt + Two-Finger Scroll"
+            >
+              <input type="checkbox" id="tabCycleAltScrollToggle" checked />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <!-- Alt + < / > Keys -->
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <div class="toggle-title">Alt + &lt; / &gt; Keys</div>
+              <div class="toggle-desc">
+                Press Alt + &lt; (Prev Tab) and Alt + &gt; (Next Tab)
+              </div>
+            </div>
+            <label class="switch switch-sm" title="Toggle Alt + < / > Keys">
+              <input type="checkbox" id="tabCycleAltKeysToggle" checked />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <!-- Rocker Gestures -->
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <div class="toggle-title">Rocker Gestures</div>
+              <div class="toggle-desc">
+                Hold Left + Click Right (▶ Next), Hold Right + Click Left (◀
+                Prev)
+              </div>
+            </div>
+            <label class="switch switch-sm" title="Toggle Rocker Gestures">
+              <input type="checkbox" id="tabCycleRockerToggle" checked />
+              <span class="slider"></span>
+            </label>
+          </div>
+        </section>
+
+        <!-- Mouse Gestures Card -->
+        <section class="card">
+          <div class="card-header">
+            <span class="card-title">🖱️ Mouse Gestures</span>
+          </div>
+
+          <!-- Right-Click + Wheel -->
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <div class="toggle-title">Right-Click + Wheel Scroll</div>
+              <div class="toggle-desc">
+                Hold right mouse button and roll scroll wheel
+              </div>
+            </div>
+            <label class="switch switch-sm" title="Toggle Wheel Tab Cycling">
+              <input type="checkbox" id="tabCycleWheelToggle" checked />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <!-- Right-Click + Swipe -->
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <div class="toggle-title">Right-Click + Swipe</div>
+              <div class="toggle-desc">
+                Hold right-click and swipe cursor horizontally
+              </div>
+            </div>
+            <label class="switch switch-sm" title="Toggle Swipe Tab Cycling">
+              <input type="checkbox" id="tabCycleSwipeToggle" checked />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <!-- Swipe Device Mode -->
+          <div
+            class="setting-group"
+            id="swipeDeviceModeGroup"
+            style="margin-top: 6px; margin-bottom: 2px"
+          >
+            <div class="setting-label-row">
+              <label
+                class="setting-label"
+                style="font-size: 11px; color: var(--text-secondary)"
+                >Swipe Direction Mode</label
+              >
+            </div>
+            <div class="segmented-control" style="margin-top: 3px">
+              <label class="segment">
+                <input
+                  type="radio"
+                  name="swipeDeviceMode"
+                  value="mouse"
+                  checked
+                />
+                <span>🖱️ Mouse (Right ➔ Next)</span>
+              </label>
+              <label class="segment">
+                <input type="radio" name="swipeDeviceMode" value="mousepad" />
+                <span>💻 Mousepad (Left ➔ Next)</span>
+              </label>
+            </div>
+          </div>
+        </section>
+
+        <!-- Visual HUD Card -->
+        <section class="card">
+          <div class="card-header">
+            <span class="card-title">Visual Feedback</span>
+          </div>
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <div class="toggle-title">Visual Tab HUD Pill</div>
+              <div class="toggle-desc">
+                Floating pill displaying tab title and index [2/5]
+              </div>
+            </div>
+            <label class="switch switch-sm" title="Toggle Visual Tab HUD">
+              <input type="checkbox" id="tabCycleHudToggle" checked />
+              <span class="slider"></span>
+            </label>
+          </div>
+        </section>
+      </main>
+
+      <!-- Tab 3: Text & Click Shortcuts -->
+      <main id="tab-shortcuts" class="tab-panel">
+        <!-- Text Selection Actions -->
+        <section class="card">
+          <div class="card-header">
+            <span class="card-title">Selected Text Actions</span>
+            <span class="badge badge-accent">New</span>
+          </div>
+
+          <!-- Double-Click Copy & Cut -->
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <div class="toggle-title">Double-Click Copy & Cut</div>
+              <div class="toggle-desc">
+                Double Left-Click: 📋 Copy • Double Right-Click: ✂️ Cut
+              </div>
+            </div>
+            <label
+              class="switch switch-sm"
+              title="Toggle Double-Click Copy & Cut"
+            >
+              <input
+                type="checkbox"
+                id="textDoubleClickCopyCutToggle"
+                checked
+              />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <!-- Double-Click in Input to Paste -->
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <div class="toggle-title">Double-Click Input to Paste</div>
+              <div class="toggle-desc">
+                Double Left-Click to 📋 Paste with smart spacing (between words,
+                at boundaries, or in empty input)
+              </div>
+            </div>
+            <label
+              class="switch switch-sm"
+              title="Toggle Double-Click Input to Paste"
+            >
+              <input type="checkbox" id="inputDoubleClickPasteToggle" checked />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <!-- Alt + Double-Click to Search Site -->
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <div class="toggle-title">Alt + Double-Click to Fill Search</div>
+              <div class="toggle-desc">
+                Alt + Double Left-Click on text to fill current site's search
+                bar
+              </div>
+            </div>
+            <label
+              class="switch switch-sm"
+              title="Toggle Alt + Double-Click to Fill Search"
+            >
+              <input
+                type="checkbox"
+                id="altDoubleClickFillSearchToggle"
+                checked
+              />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <!-- Alt + Hold to Search Current Site -->
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <div class="toggle-title">Alt + Hold to Search Site</div>
+              <div class="toggle-desc">
+                Left-Hold: 🌐 Search current tab • Right-Hold: ↗️ Search in new
+                tab
+              </div>
+            </div>
+            <label
+              class="switch switch-sm"
+              title="Toggle Alt + Hold to Search Site"
+            >
+              <input type="checkbox" id="altHoldSearchSiteToggle" checked />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <!-- Hold Selected Text to Search -->
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <div class="toggle-title">Hold Text to Search</div>
+              <div class="toggle-desc">
+                Left-Hold: 🟡 Background search tab • Right-Hold: 🟣 Active
+                search tab
+              </div>
+            </div>
+            <label
+              class="switch switch-sm"
+              title="Toggle Hold Selected Text to Search"
+            >
+              <input type="checkbox" id="textSearchHoldToggle" checked />
+              <span class="slider"></span>
+            </label>
+          </div>
+        </section>
+
+        <!-- Mouse Quick Actions -->
+        <section class="card">
+          <div class="card-header">
+            <span class="card-title">Mouse Quick Actions</span>
+          </div>
+
+          <!-- Double Right-Click to Close Tab -->
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <div class="toggle-title">Double Right-Click to Close</div>
+              <div class="toggle-desc">
+                Double right-click anywhere on empty space to close tab
+              </div>
+            </div>
+            <label
+              class="switch switch-sm"
+              title="Toggle Double Right-Click to Close Tab"
+            >
+              <input
+                type="checkbox"
+                id="closeTabOnDoubleRightClickToggle"
+                checked
+              />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <!-- Right-Click Link Hold (Info banner) -->
+          <div class="info-pill">
+            <span class="info-pill-icon">🟣</span>
+            <div class="info-pill-body">
+              <strong>Right-Click Link Hold:</strong> Hold right-click on any
+              link to open in new tab and switch to it immediately (Indigo
+              ring).
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <!-- Tab 4: Text Selection Toolbar -->
+      <main id="tab-toolbar" class="tab-panel">
+        <!-- Search Websites Management Card -->
+        <section class="card">
+          <!-- Website Action Buttons -->
+          <div class="website-btn-row">
+            <button
+              id="startCaptureBtn"
+              class="btn-primary"
+              style="
+                flex: 1.35;
+                padding: 7px 8px;
+                font-size: 11.5px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 5px;
+              "
+              title="Automatically capture search URL from active tab (Recommended)"
+            >
+              <span>🎯</span> Capture Search URL <span class="badge" style="background: rgba(255, 255, 255, 0.22); font-size: 8.5px; padding: 1px 4px; text-transform: uppercase;">Auto</span>
+            </button>
+            <button
+              id="addWebsiteBtn"
+              class="btn-secondary"
+              style="
+                flex: 1;
+                padding: 7px 8px;
+                font-size: 11.5px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 4px;
+              "
+              title="Manually enter a search URL"
+            >
+              <span>✏️</span> Enter Manually
+            </button>
+            <button
+              id="restoreWebsitesBtn"
+              class="btn-subtle"
+              style="padding: 7px 8px; font-size: 11.5px"
+              title="Reset to default websites"
+            >
+              ↺ Defaults
+            </button>
+          </div>
+
+          <!-- Step 1 Dialog: Capture Search URL Workflow Card -->
+          <div
+            id="captureSearchCard"
+            class="website-form-card capture-card"
+            style="display: none"
+          >
+            <div class="capture-header">
+              <div class="website-form-title" style="margin-bottom: 0">🎯 Capture Search URL</div>
+              <span class="capture-step-badge">Step 1 of 2</span>
+            </div>
+            <p class="card-desc" style="margin-bottom: 9px; font-size: 10.5px">
+              Add any website without editing URL parameters. Follow these quick steps:
+            </p>
+
+            <div class="capture-steps-list">
+              <div class="capture-step-item">
+                <span class="step-num">1</span>
+                <div class="step-content">
+                  <div class="step-label">Copy this unique test keyword:</div>
+                  <div class="marker-container">
+                    <code id="captureMarkerDisplay" class="marker-code">holdtab_test_...</code>
+                    <button type="button" id="copyMarkerBtn" class="btn-copy-marker" title="Copy marker to clipboard">
+                      📋 Copy Keyword
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="capture-step-item">
+                <span class="step-num">2</span>
+                <div class="step-content">
+                  <div class="step-label">Open the website you want to add in a new tab.</div>
+                </div>
+              </div>
+
+              <div class="capture-step-item">
+                <span class="step-num">3</span>
+                <div class="step-content">
+                  <div class="step-label">Paste keyword into the website's search box and search.</div>
+                </div>
+              </div>
+
+              <div class="capture-step-item">
+                <span class="step-num">4</span>
+                <div class="step-content">
+                  <div class="step-label">Return to this popup and click below:</div>
+                </div>
+              </div>
+            </div>
+
+            <div id="captureStatusMessage" class="capture-status-message" style="display: none"></div>
+
+            <div class="capture-actions-row">
+              <button id="captureActiveUrlBtn" class="btn-primary" style="flex: 1.5; padding: 7px 10px; font-size: 11.5px; display: flex; align-items: center; justify-content: center; gap: 5px;">
+                <span id="captureSpinner" class="capture-spinner" style="display: none"></span>
+                <span id="captureBtnText">🔍 Capture Current URL</span>
+              </button>
+              <button id="cancelCaptureBtn" class="btn-secondary" style="flex: 1; padding: 7px 10px; font-size: 11.5px;">
+                Cancel
+              </button>
+            </div>
+            
+            <div style="text-align: center; margin-top: 7px;">
+              <button type="button" id="switchToManualBtn" class="link-btn" style="font-size: 10.5px; color: var(--text-muted); background: none; border: none; cursor: pointer; text-decoration: underline;">
+                Need to enter URL manually instead?
+              </button>
+            </div>
+          </div>
+
+          <!-- Step 2 Dialog: Preview & Confirmation Card -->
+          <div
+            id="capturePreviewCard"
+            class="website-form-card capture-card"
+            style="display: none"
+          >
+            <div class="capture-header">
+              <div class="website-form-title" style="margin-bottom: 0">✨ Review & Save Search Engine</div>
+              <span class="capture-step-badge">Step 2 of 2</span>
+            </div>
+            <p class="card-desc" style="margin-bottom: 9px; font-size: 10.5px">
+              URL captured! Review the detected template, test it, and save.
+            </p>
+
+            <div id="captureMultipleWarning" class="form-warning" style="display: none; margin-bottom: 8px;">
+              ⚠️ Keyword appeared multiple times in the URL. We selected the primary search parameter. Verify the template below.
+            </div>
+
+            <!-- Website Name -->
+            <div class="setting-group" style="margin-bottom: 8px">
+              <label class="setting-label" style="font-size: 11px">Website Name</label>
+              <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
+                <div id="captureIconPreview" class="website-icon-preview" style="flex-shrink: 0; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center;"></div>
+                <input
+                  type="text"
+                  id="captureNameInput"
+                  placeholder="e.g. Amazon India"
+                  class="text-input"
+                  style="width: 100%"
+                />
+              </div>
+            </div>
+
+            <!-- Template Input -->
+            <div class="setting-group" style="margin-bottom: 8px">
+              <label class="setting-label" style="font-size: 11px">Search URL Template</label>
+              <input
+                type="text"
+                id="captureTemplateInput"
+                placeholder="https://example.com/search?q={query}"
+                class="text-input"
+                style="width: 100%; margin-top: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 10.5px;"
+              />
+              <span class="form-hint">Must include <code>{query}</code> placeholder for selected text.</span>
+            </div>
+
+            <!-- Test Query & Live Preview -->
+            <div class="setting-group" style="margin-bottom: 8px; background: rgba(0, 0, 0, 0.28); padding: 7px 9px; border-radius: 6px; border: 1px solid var(--border-subtle);">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <label class="setting-label" style="font-size: 10.5px; color: var(--accent-primary); margin: 0;">Sample Test Query</label>
+                <span style="font-weight: normal; color: var(--text-muted); font-size: 9.5px;">Live URL Preview</span>
+              </div>
+              <input
+                type="text"
+                id="captureTestQueryInput"
+                value="wireless headphones"
+                placeholder="Enter sample query"
+                class="text-input"
+                style="width: 100%; margin-top: 4px; font-size: 11px;"
+              />
+              <div class="preview-box-label" style="font-size: 9.5px; color: var(--text-muted); margin-top: 5px;">Resulting Search URL:</div>
+              <div id="capturePreviewUrlBox" class="preview-url-box" title="Resulting URL"></div>
+            </div>
+
+            <div id="capturePreviewError" class="form-error" style="display: none; margin-bottom: 8px;"></div>
+            <div id="capturePreviewSuccess" class="form-success" style="display: none; margin-bottom: 8px;"></div>
+
+            <!-- Action Buttons -->
+            <div style="display: flex; gap: 6px; margin-top: 10px;">
+              <button id="testSearchBtn" class="btn-secondary" style="flex: 1; padding: 6px 8px; font-size: 11px; display: flex; align-items: center; justify-content: center; gap: 4px;" title="Test search in a new background tab">
+                <span>🧪</span> Test Search
+              </button>
+              <button id="saveCapturedWebsiteBtn" class="btn-primary" style="flex: 1.25; padding: 6px 10px; font-size: 11px;">
+                💾 Save Website
+              </button>
+              <button id="cancelCapturePreviewBtn" class="btn-subtle" style="padding: 6px 8px; font-size: 11px;">
+                Cancel
+              </button>
+            </div>
+            
+            <div style="text-align: center; margin-top: 6px;">
+              <button type="button" id="backToCaptureBtn" class="link-btn" style="font-size: 10px; color: var(--text-muted); background: none; border: none; cursor: pointer;">
+                ← Back to keyword capture
+              </button>
+            </div>
+          </div>
+
+          <!-- Inline Add / Edit Website Form Modal/Card (Option B: Manual) -->
+          <div
+            id="websiteFormCard"
+            class="website-form-card"
+            style="display: none"
+          >
+            <div class="website-form-title" id="websiteFormTitle">
+              Add Custom Website
+            </div>
+            <div class="setting-group" style="margin-bottom: 8px">
+              <label class="setting-label" style="font-size: 11px"
+                >Website Name (optional)</label
+              >
+              <input
+                type="text"
+                id="websiteNameInput"
+                placeholder="Auto-detected if blank (e.g. DuckDuckGo)"
+                class="text-input"
+                style="width: 100%; margin-top: 4px"
+              />
+            </div>
+            <div class="setting-group" style="margin-bottom: 6px">
+              <label class="setting-label" style="font-size: 11px"
+                >Website or Search URL</label
+              >
+              <input
+                type="text"
+                id="websiteUrlInput"
+                placeholder="e.g. duckduckgo.com or bing.com/search?q="
+                class="text-input"
+                style="width: 100%; margin-top: 4px"
+              />
+              <span class="form-hint"
+                >✨ <code>{query}</code> is added automatically if you just
+                paste any website or search URL!</span
+              >
+            </div>
+            <div
+              id="websiteFormError"
+              class="form-error"
+              style="display: none"
+            ></div>
+            <div style="display: flex; gap: 8px; margin-top: 10px">
+              <button
+                id="saveWebsiteBtn"
+                class="btn-primary"
+                style="flex: 1; padding: 6px 12px; font-size: 11.5px"
+              >
+                Save Website
+              </button>
+              <button
+                id="cancelWebsiteBtn"
+                class="btn-secondary"
+                style="padding: 6px 12px; font-size: 11.5px"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+          <div class="card-header" style="margin-top: 15px">
+            <span class="card-title">Search Engines</span>
+            <span class="badge">Submenu</span>
+          </div>
+          <p class="card-desc">
+            Configure search websites available in the Search hover submenu:
+          </p>
+
+          <!-- Dynamic Website List -->
+          <div id="toolbarWebsitesList" class="website-list"></div>
+        </section>
+        <!-- Toolbar Settings Card -->
+        <section class="card">
+          <div class="card-header">
+            <span class="card-title">Selection Toolbar</span>
+            <label
+              class="switch switch-sm"
+              title="Toggle Floating Selection Toolbar"
+            >
+              <input type="checkbox" id="toolbarEnabledToggle" checked />
+              <span class="slider"></span>
+            </label>
+          </div>
+          <p class="card-desc">
+            Floating toolbar appearing on text selection with Select All,
+            Search, Copy, and Cut actions.
+          </p>
+
+          <!-- Display Mode -->
+          <div class="setting-group">
+            <label class="setting-label">Display Mode</label>
+            <div class="segmented-control">
+              <label class="segment">
+                <input type="radio" name="toolbarMode" value="auto" checked />
+                <span>Automatic</span>
+              </label>
+              <label class="segment">
+                <input type="radio" name="toolbarMode" value="demand" />
+                <span>On Demand</span>
+              </label>
+              <label class="segment">
+                <input type="radio" name="toolbarMode" value="disabled" />
+                <span>Disabled</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- On-Demand Modifier Key -->
+          <div
+            class="setting-group"
+            id="toolbarModifierGroup"
+            style="display: none"
+          >
+            <div class="setting-label-row">
+              <label for="toolbarModifier" class="setting-label"
+                >Activation Key</label
+              >
+              <select id="toolbarModifier" class="select-dropdown">
+                <option value="alt">Alt + Select</option>
+                <option value="ctrl">Ctrl / Cmd + Select</option>
+                <option value="shift">Shift + Select</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Appearance Delay -->
+          <div class="setting-group" id="toolbarDelayGroup">
+            <div class="setting-label-row">
+              <label for="toolbarDelay" class="setting-label"
+                >Appearance Delay</label
+              >
+              <span id="toolbarDelayValue" class="value-chip">250 ms</span>
+            </div>
+            <input
+              type="range"
+              id="toolbarDelay"
+              min="0"
+              max="600"
+              step="25"
+              value="250"
+              class="range-slider"
+            />
+            <div class="range-marks">
+              <span>Instant (0ms)</span>
+              <span>Default (250ms)</span>
+              <span>Slow (600ms)</span>
+            </div>
+          </div>
+
+          <!-- Minimum Selection Length -->
+          <div class="setting-group" id="toolbarMinLengthGroup">
+            <div class="setting-label-row">
+              <label for="toolbarMinLength" class="setting-label"
+                >Min Selection Length</label
+              >
+              <span id="toolbarMinLengthValue" class="value-chip">2 chars</span>
+            </div>
+            <input
+              type="range"
+              id="toolbarMinLength"
+              min="1"
+              max="10"
+              step="1"
+              value="2"
+              class="range-slider"
+            />
+            <div class="range-marks">
+              <span>1 char</span>
+              <span>2 chars (Default)</span>
+              <span>10 chars</span>
+            </div>
+          </div>
+
+          <!-- Search Submenu Toggle -->
+          <div class="toggle-row" style="margin-bottom: 0">
+            <div class="toggle-info">
+              <div class="toggle-title">Search Websites Submenu</div>
+              <div class="toggle-desc">
+                Show search engines grid on hovering Search button
+              </div>
+            </div>
+            <label class="switch switch-sm" title="Toggle Search Submenu">
+              <input type="checkbox" id="toolbarSearchSubmenuToggle" checked />
+              <span class="slider"></span>
+            </label>
+          </div>
+        </section>
+      </main>
+
+      <!-- Tab 5: Animations & Visual Controls -->
+      <main id="tab-visuals" class="tab-panel">
+        <!-- Section 1: Link Hold Animation -->
+        <section class="card">
+          <div class="card-header">
+            <span class="card-title">🔗 Link Hold Ring</span>
+            <label
+              class="switch switch-sm"
+              title="Toggle Link Hold Ring Animation"
+            >
+              <input type="checkbox" id="animLinkHoldToggle" checked />
+              <span class="slider"></span>
+            </label>
+          </div>
+          <p class="card-desc">
+            Circular countdown ring when pressing and holding hyperlinks
+            (Blue/Indigo ring).
+          </p>
+
+          <!-- Hold Duration (Blue) -->
+          <div class="setting-group" id="holdDurationGroup">
+            <div class="setting-label-row">
+              <label for="holdDuration" class="setting-label"
+                >Hold Duration</label
+              >
+              <span id="durationValue" class="value-chip">450 ms</span>
+            </div>
+            <input
+              type="range"
+              id="holdDuration"
+              min="200"
+              max="1200"
+              step="25"
+              value="450"
+              class="range-slider"
+            />
+            <div class="range-marks">
+              <span>Fast (200ms)</span>
+              <span>Recommended (450ms)</span>
+              <span>Slow (1200ms)</span>
+            </div>
+          </div>
+
+          <!-- Grace Delay (Amber) -->
+          <div class="setting-group" id="animLinkHoldDelayGroup">
+            <div class="setting-label-row">
+              <label for="animLinkHoldDelay" class="setting-label"
+                >Grace Delay</label
+              >
+              <span
+                id="animLinkHoldDelayValue"
+                class="value-chip value-chip-delay"
+                >180 ms</span
+              >
+            </div>
+            <input
+              type="range"
+              id="animLinkHoldDelay"
+              min="0"
+              max="600"
+              step="20"
+              value="180"
+              class="range-slider range-slider-delay"
+            />
+            <div class="range-marks">
+              <span>Instant (0ms)</span>
+              <span>Recommended (180ms)</span>
+              <span>High (600ms)</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Section 2: Current Site Search Animation (Alt+Hold) -->
+        <section class="card">
+          <div class="card-header">
+            <span class="card-title">🌐 Site Search Ring</span>
+            <label
+              class="switch switch-sm"
+              title="Toggle Site Search Ring Animation"
+            >
+              <input type="checkbox" id="animSiteSearchToggle" checked />
+              <span class="slider"></span>
+            </label>
+          </div>
+          <p class="card-desc">
+            Countdown ring when holding Alt + Left/Right click on selected text
+            (Cyan/Teal ring).
+          </p>
+
+          <!-- Hold Duration (Blue) -->
+          <div class="setting-group" id="siteSearchHoldDurationGroup">
+            <div class="setting-label-row">
+              <label for="siteSearchHoldDuration" class="setting-label"
+                >Hold Duration</label
+              >
+              <span id="siteSearchHoldDurationValue" class="value-chip"
+                >450 ms</span
+              >
+            </div>
+            <input
+              type="range"
+              id="siteSearchHoldDuration"
+              min="200"
+              max="1200"
+              step="25"
+              value="450"
+              class="range-slider"
+            />
+            <div class="range-marks">
+              <span>Fast (200ms)</span>
+              <span>Recommended (450ms)</span>
+              <span>Slow (1200ms)</span>
+            </div>
+          </div>
+
+          <!-- Grace Delay (Amber) -->
+          <div class="setting-group" id="animSiteSearchDelayGroup">
+            <div class="setting-label-row">
+              <label for="animSiteSearchDelay" class="setting-label"
+                >Grace Delay</label
+              >
+              <span
+                id="animSiteSearchDelayValue"
+                class="value-chip value-chip-delay"
+                >180 ms</span
+              >
+            </div>
+            <input
+              type="range"
+              id="animSiteSearchDelay"
+              min="0"
+              max="600"
+              step="20"
+              value="180"
+              class="range-slider range-slider-delay"
+            />
+            <div class="range-marks">
+              <span>Instant (0ms)</span>
+              <span>Recommended (180ms)</span>
+              <span>High (600ms)</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Section 3: Web Search Animation (Text Hold) -->
+        <section class="card">
+          <div class="card-header">
+            <span class="card-title">🔍 Web Search Ring</span>
+            <label
+              class="switch switch-sm"
+              title="Toggle Web Search Ring Animation"
+            >
+              <input type="checkbox" id="animTextSearchToggle" checked />
+              <span class="slider"></span>
+            </label>
+          </div>
+          <p class="card-desc">
+            Countdown ring when holding click on selected text for Google Search
+            (Amber/Purple ring).
+          </p>
+
+          <!-- Hold Duration (Blue) -->
+          <div class="setting-group" id="textSearchHoldDurationGroup">
+            <div class="setting-label-row">
+              <label for="textSearchHoldDuration" class="setting-label"
+                >Hold Duration</label
+              >
+              <span id="textSearchHoldDurationValue" class="value-chip"
+                >450 ms</span
+              >
+            </div>
+            <input
+              type="range"
+              id="textSearchHoldDuration"
+              min="200"
+              max="1200"
+              step="25"
+              value="450"
+              class="range-slider"
+            />
+            <div class="range-marks">
+              <span>Fast (200ms)</span>
+              <span>Recommended (450ms)</span>
+              <span>Slow (1200ms)</span>
+            </div>
+          </div>
+
+          <!-- Grace Delay (Amber) -->
+          <div class="setting-group" id="animTextSearchDelayGroup">
+            <div class="setting-label-row">
+              <label for="animTextSearchDelay" class="setting-label"
+                >Grace Delay</label
+              >
+              <span
+                id="animTextSearchDelayValue"
+                class="value-chip value-chip-delay"
+                >180 ms</span
+              >
+            </div>
+            <input
+              type="range"
+              id="animTextSearchDelay"
+              min="0"
+              max="600"
+              step="20"
+              value="180"
+              class="range-slider range-slider-delay"
+            />
+            <div class="range-marks">
+              <span>Instant (0ms)</span>
+              <span>Recommended (180ms)</span>
+              <span>High (600ms)</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Section 4: Other Visual Indicators -->
+        <section class="card">
+          <div class="card-header">
+            <span class="card-title">✨ Other Visuals</span>
+          </div>
+
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <div class="toggle-title">Flick/Drag Directional Arrow</div>
+              <div class="toggle-desc">
+                Dynamic angle arrow tracking mouse while dragging links
+              </div>
+            </div>
+            <label class="switch switch-sm" title="Toggle Drag Indicator">
+              <input type="checkbox" id="animFlickDragToggle" checked />
+              <span class="slider"></span>
+            </label>
+          </div>
+
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <div class="toggle-title">Floating HUD Notifications</div>
+              <div class="toggle-desc">
+                On-screen badges for tab cycling and clipboard copy/cut/paste
+                actions
+              </div>
+            </div>
+            <label class="switch switch-sm" title="Toggle Floating HUD Badges">
+              <input type="checkbox" id="animHudBadgesToggle" checked />
+              <span class="slider"></span>
+            </label>
+          </div>
+        </section>
+      </main>
+
+      <!-- Tab 5: Domain Exclusions -->
+      <main id="tab-sites" class="tab-panel">
+        <section class="card exclusions-card">
+          <div class="card-header">
+            <span class="card-title">Domain Exclusions</span>
+          </div>
+          <p class="card-desc">
+            All gestures and shortcuts are disabled on excluded domains:
+          </p>
+
+          <button
+            id="toggleCurrentDomainBtn"
+            class="btn-subtle"
+            title="Toggle current website"
+          >
+            + Exclude This Site
+          </button>
+
+          <div id="excludedList" class="excluded-tags">
+            <!-- Tag pills inserted dynamically -->
+          </div>
+
+          <div class="add-domain-row">
+            <input
+              type="text"
+              id="newDomainInput"
+              placeholder="e.g. reddit.com"
+              class="text-input"
+            />
+            <button id="addDomainBtn" class="btn-secondary">Add</button>
+          </div>
+        </section>
+      </main>
+
+      <!-- Footer -->
+      <footer class="footer">
+        <div class="footer-meta">
+          <span>v1.5.0 &bull; Auto-saved</span>
         </div>
+        <button
+          id="resetDefaultsBtn"
+          class="btn-reset"
+          title="Reset all settings to recommended defaults"
+        >
+          ↺ Reset Defaults
+        </button>
+      </footer>
+    </div>
 
-        <div class="add-domain-row">
-          <input type="text" id="newDomainInput" placeholder="e.g. reddit.com" class="text-input">
-          <button id="addDomainBtn" class="btn-secondary">Add</button>
-        </div>
-      </section>
-    </main>
-
-    <!-- Footer -->
-    <footer class="footer">
-      <div class="footer-meta">
-        <span>v1.5.0 &bull; Auto-saved</span>
-      </div>
-      <button id="resetDefaultsBtn" class="btn-reset" title="Reset all settings to recommended defaults">
-        ↺ Reset Defaults
-      </button>
-    </footer>
-  </div>
-
-  <script src="popup.js"></script>
-</body>
+    <script src="popup.js"></script>
+  </body>
 </html>

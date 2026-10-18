@@ -60,6 +60,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadAndRenderSettings();
   setupEventListeners();
   setupTestArena();
+  await resumeCaptureSessionIfActive();
 });
 
 // Setup organized tab switching
@@ -713,7 +714,17 @@ const KNOWN_DOMAIN_NAMES = {
   'youtube.com': 'YouTube',
   'wikipedia.org': 'Wikipedia',
   'amazon.com': 'Amazon',
+  'amazon.in': 'Amazon India',
+  'amazon.co.uk': 'Amazon UK',
+  'amazon.de': 'Amazon Germany',
+  'amazon.ca': 'Amazon Canada',
+  'amazon.co.jp': 'Amazon Japan',
+  'amazon.com.au': 'Amazon Australia',
   'google.com': 'Google',
+  'google.co.in': 'Google India',
+  'google.co.uk': 'Google UK',
+  'google.de': 'Google Germany',
+  'google.ca': 'Google Canada',
   'steamdb.info': 'SteamDB',
   'steampowered.com': 'Steam',
   'nexusmods.com': 'Nexus Mods',
@@ -860,6 +871,432 @@ function normalizeSearchTemplate(rawUrl) {
   }
 }
 
+// Capture Search URL Session configuration
+const CAPTURE_SESSION_KEY = 'holdtab_active_capture_session';
+const CAPTURE_SESSION_TTL = 20 * 60 * 1000; // 20 minutes
+
+// Helper to escape regex special characters
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Safely constructs and validates search URL from a template and query
+function buildSearchUrl(template, query) {
+  if (!template || typeof template !== 'string') {
+    return { valid: false, error: 'Please enter a search URL template.' };
+  }
+  let cleanTemplate = template.trim();
+  if (!cleanTemplate) {
+    return { valid: false, error: 'Template is empty.' };
+  }
+  if (!/^https?:\/\//i.test(cleanTemplate)) {
+    return { valid: false, error: 'Search URL must begin with http:// or https://' };
+  }
+  if (/^(javascript|data|file|vbscript|blob):/i.test(cleanTemplate)) {
+    return { valid: false, error: 'Unsafe URL scheme detected (javascript:, data:, etc. are not allowed).' };
+  }
+  if (!cleanTemplate.includes('{query}')) {
+    return { valid: false, error: 'Template must contain the {query} placeholder.' };
+  }
+
+  const cleanQuery = (typeof query === 'string' ? query : '').trim();
+
+  try {
+    const qIndex = cleanTemplate.indexOf('{query}');
+    const questionIndex = cleanTemplate.indexOf('?');
+
+    let encodedQuery;
+    // If {query} appears before '?' or no '?' exists, it is in the URL pathname
+    if (questionIndex === -1 || (qIndex !== -1 && qIndex < questionIndex)) {
+      // In path: spaces must be encoded as %20 (not +)
+      encodedQuery = encodeURIComponent(cleanQuery);
+    } else {
+      // In query parameters: standard form search query, spaces as '+'
+      encodedQuery = encodeURIComponent(cleanQuery).replace(/%20/g, '+');
+    }
+
+    const finalUrl = cleanTemplate.replace(/\{query\}/gi, encodedQuery);
+    new URL(finalUrl);
+
+    return { valid: true, url: finalUrl };
+  } catch (err) {
+    return { valid: false, error: err.message || 'Invalid search URL structure' };
+  }
+}
+
+// Retrieve active capture session if unexpired
+async function getActiveCaptureSession() {
+  try {
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      const res = await chrome.storage.local.get(CAPTURE_SESSION_KEY);
+      const session = res[CAPTURE_SESSION_KEY];
+      if (session && typeof session === 'object') {
+        if (session.expiresAt && Date.now() < session.expiresAt) {
+          return session;
+        } else {
+          await chrome.storage.local.remove(CAPTURE_SESSION_KEY);
+        }
+      }
+    }
+  } catch (_) {}
+  return null;
+}
+
+// Persist active capture session with expiration
+async function saveActiveCaptureSession(data) {
+  try {
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      const session = {
+        ...data,
+        updatedAt: Date.now(),
+        expiresAt: Date.now() + CAPTURE_SESSION_TTL
+      };
+      await chrome.storage.local.set({ [CAPTURE_SESSION_KEY]: session });
+    }
+  } catch (_) {}
+}
+
+// Discard / clear active capture session
+async function clearActiveCaptureSession() {
+  try {
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+      await chrome.storage.local.remove(CAPTURE_SESSION_KEY);
+    }
+  } catch (_) {}
+}
+
+// Generates an unpredictable test search marker
+function generateSearchMarker() {
+  const rand = Math.random().toString(36).substring(2, 7);
+  return `holdtab_test_${rand}`;
+}
+
+// Analyzes captured tab URL and replaces marker with {query}
+function deriveTemplateFromCapturedUrl(tabUrl, marker) {
+  if (!tabUrl || !marker) return null;
+  const markerTrimmed = marker.trim();
+  if (!markerTrimmed) return null;
+
+  const markerLower = markerTrimmed.toLowerCase();
+  const urlLower = tabUrl.toLowerCase();
+
+  // Find occurrences of marker (case-insensitive)
+  const occurrences = [];
+  let idx = 0;
+  while ((idx = urlLower.indexOf(markerLower, idx)) !== -1) {
+    occurrences.push(idx);
+    idx += markerLower.length;
+  }
+
+  // Also check URL-encoded version if different
+  if (occurrences.length === 0) {
+    const encodedMarker = encodeURIComponent(markerTrimmed).toLowerCase();
+    if (encodedMarker !== markerLower) {
+      idx = 0;
+      while ((idx = urlLower.indexOf(encodedMarker, idx)) !== -1) {
+        occurrences.push(idx);
+        idx += encodedMarker.length;
+      }
+    }
+  }
+
+  if (occurrences.length === 0) {
+    return null;
+  }
+
+  const multipleOccurrences = occurrences.length > 1;
+
+  if (multipleOccurrences) {
+    // Check if one of the occurrences is inside a recognized search query parameter
+    try {
+      const parsed = new URL(tabUrl);
+      const searchKeys = [
+        'q', 'query', 'k', 'search_query', 'searchquery', 'term', 'search_term',
+        'search', 's', 'p', 'keyword', 'keywords', 'text', 'find', '_nkw', 'wd'
+      ];
+
+      let targetKey = null;
+      for (const key of searchKeys) {
+        if (parsed.searchParams.has(key)) {
+          const val = parsed.searchParams.get(key) || '';
+          if (val.toLowerCase().includes(markerLower)) {
+            targetKey = key;
+            break;
+          }
+        }
+      }
+
+      // If no recognized searchKey, check any query parameter containing the marker
+      if (!targetKey) {
+        for (const [key, val] of parsed.searchParams.entries()) {
+          if (val.toLowerCase().includes(markerLower)) {
+            targetKey = key;
+            break;
+          }
+        }
+      }
+
+      if (targetKey) {
+        const originalVal = parsed.searchParams.get(targetKey) || '';
+        const regex = new RegExp(escapeRegex(markerTrimmed), 'i');
+        const replacedVal = originalVal.replace(regex, '{query}');
+        parsed.searchParams.set(targetKey, replacedVal);
+        return {
+          template: parsed.toString().replace(/%7Bquery%7D/gi, '{query}'),
+          multipleOccurrences: true
+        };
+      }
+    } catch (_) {}
+  }
+
+  // Exact slice replacement preserving original casing of the rest of the URL
+  const start = occurrences[0];
+  const end = start + markerLower.length;
+  const template = tabUrl.substring(0, start) + '{query}' + tabUrl.substring(end);
+
+  return {
+    template,
+    multipleOccurrences
+  };
+}
+
+// Hide all website cards (capture, preview, manual form)
+function hideAllWebsiteCards() {
+  const captureCard = document.getElementById('captureSearchCard');
+  const previewCard = document.getElementById('capturePreviewCard');
+  const formCard = document.getElementById('websiteFormCard');
+  if (captureCard) captureCard.style.display = 'none';
+  if (previewCard) previewCard.style.display = 'none';
+  if (formCard) formCard.style.display = 'none';
+  editingWebsiteId = null;
+}
+
+// Display Step 1 capture dialog
+function showCaptureDialog(marker) {
+  hideAllWebsiteCards();
+  const card = document.getElementById('captureSearchCard');
+  const markerDisplay = document.getElementById('captureMarkerDisplay');
+  const copyBtn = document.getElementById('copyMarkerBtn');
+  const statusMsg = document.getElementById('captureStatusMessage');
+  const captureBtn = document.getElementById('captureActiveUrlBtn');
+  const spinner = document.getElementById('captureSpinner');
+  const btnText = document.getElementById('captureBtnText');
+
+  if (markerDisplay) markerDisplay.textContent = marker;
+  if (copyBtn) {
+    copyBtn.textContent = '📋 Copy Keyword';
+    copyBtn.classList.remove('copied');
+  }
+  if (statusMsg) {
+    statusMsg.style.display = 'none';
+    statusMsg.innerHTML = '';
+  }
+  if (captureBtn) captureBtn.disabled = false;
+  if (spinner) spinner.style.display = 'none';
+  if (btnText) btnText.textContent = '🔍 Capture Current URL';
+
+  if (card) card.style.display = 'block';
+}
+
+// Display Step 2 preview dialog
+function showCapturePreview(data) {
+  hideAllWebsiteCards();
+  const card = document.getElementById('capturePreviewCard');
+  const nameInput = document.getElementById('captureNameInput');
+  const templateInput = document.getElementById('captureTemplateInput');
+  const testQueryInput = document.getElementById('captureTestQueryInput');
+  const multipleWarning = document.getElementById('captureMultipleWarning');
+  const errorBox = document.getElementById('capturePreviewError');
+  const successBox = document.getElementById('capturePreviewSuccess');
+
+  if (nameInput) nameInput.value = data.siteName || '';
+  if (templateInput) templateInput.value = data.template || '';
+  if (testQueryInput) testQueryInput.value = data.testQuery || 'wireless headphones';
+
+  if (multipleWarning) {
+    multipleWarning.style.display = data.multipleOccurrences ? 'block' : 'none';
+  }
+  if (errorBox) errorBox.style.display = 'none';
+  if (successBox) successBox.style.display = 'none';
+
+  updateCapturePreviewUi();
+  if (card) card.style.display = 'block';
+  if (nameInput) nameInput.focus();
+}
+
+// Update preview box and icon preview
+function updateCapturePreviewUi() {
+  const nameInput = document.getElementById('captureNameInput');
+  const templateInput = document.getElementById('captureTemplateInput');
+  const testQueryInput = document.getElementById('captureTestQueryInput');
+  const previewBox = document.getElementById('capturePreviewUrlBox');
+  const iconContainer = document.getElementById('captureIconPreview');
+  const errorBox = document.getElementById('capturePreviewError');
+
+  if (!templateInput || !previewBox) return;
+
+  const templateVal = templateInput.value.trim();
+  const testQueryVal = testQueryInput ? testQueryInput.value : 'wireless headphones';
+  const siteName = nameInput ? nameInput.value.trim() : '';
+
+  if (iconContainer) {
+    iconContainer.innerHTML = getWebsiteIconHtml({
+      icon: 'custom',
+      template: templateVal,
+      name: siteName || 'Custom Search'
+    });
+  }
+
+  const result = buildSearchUrl(templateVal, testQueryVal);
+  if (result.valid) {
+    previewBox.textContent = result.url;
+    if (errorBox) errorBox.style.display = 'none';
+  } else {
+    previewBox.innerHTML = `<span style="color: #ef4444;">⚠️ ${escapeHtml(result.error)}</span>`;
+  }
+}
+
+// Capture current active tab URL and process marker
+async function captureActiveTabUrl() {
+  const captureBtn = document.getElementById('captureActiveUrlBtn');
+  const spinner = document.getElementById('captureSpinner');
+  const btnText = document.getElementById('captureBtnText');
+  const statusMsg = document.getElementById('captureStatusMessage');
+
+  if (statusMsg) {
+    statusMsg.style.display = 'none';
+    statusMsg.innerHTML = '';
+  }
+
+  if (captureBtn) captureBtn.disabled = true;
+  if (spinner) spinner.style.display = 'inline-block';
+  if (btnText) btnText.textContent = '🔍 Reading active tab...';
+
+  function resetCaptureBtn() {
+    if (captureBtn) captureBtn.disabled = false;
+    if (spinner) spinner.style.display = 'none';
+    if (btnText) btnText.textContent = '🔍 Capture Current URL';
+  }
+
+  function showCaptureError(html) {
+    resetCaptureBtn();
+    if (statusMsg) {
+      statusMsg.innerHTML = html;
+      statusMsg.style.display = 'block';
+    }
+  }
+
+  try {
+    const session = await getActiveCaptureSession();
+    const marker = session ? session.marker : (document.getElementById('captureMarkerDisplay')?.textContent || '').trim();
+
+    if (!marker || marker === 'holdtab_test_...') {
+      showCaptureError('⚠️ No active test keyword found. Please click <strong>Capture Search URL</strong> above to start a fresh capture session.');
+      return;
+    }
+
+    if (!chrome.tabs || !chrome.tabs.query) {
+      showCaptureError('⚠️ Browser tab access is unavailable.');
+      return;
+    }
+
+    chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
+      try {
+        if (!tabs || !tabs[0] || !tabs[0].url) {
+          showCaptureError('⚠️ Could not read the active tab URL. Please make sure the search results tab is currently selected in your browser window.');
+          return;
+        }
+
+        const tabUrl = tabs[0].url;
+
+        // Check for internal/restricted pages
+        if (!/^https?:\/\//i.test(tabUrl)) {
+          const scheme = (tabUrl.split(':')[0] || 'internal') + '://';
+          showCaptureError(`⚠️ Restricted browser page detected (<code>${escapeHtml(scheme)}</code>).<br>Please switch to the target website tab where you searched for <strong>${escapeHtml(marker)}</strong>, then click Capture again.`);
+          return;
+        }
+
+        const derived = deriveTemplateFromCapturedUrl(tabUrl, marker);
+        if (!derived) {
+          showCaptureError(`
+            <div style="font-weight: 600; margin-bottom: 4px;">⚠️ Test keyword not found in current tab's URL:</div>
+            <div style="font-family: monospace; font-size: 9.5px; color: var(--text-muted); word-break: break-all; margin-bottom: 6px;">${escapeHtml(tabUrl)}</div>
+            <div><strong>How to fix:</strong></div>
+            <ol style="margin: 4px 0 6px 16px; padding: 0;">
+              <li>Go to the website in your active tab.</li>
+              <li>Paste <code>${escapeHtml(marker)}</code> into the search box and press Enter.</li>
+              <li>Reopen this popup and click <strong>Capture Current URL</strong>.</li>
+            </ol>
+            <div style="font-size: 10px; color: var(--text-muted); margin-top: 4px;">
+              Does this website use JavaScript/POST requests without updating the address bar?
+              <a href="#" id="captureErrorManualLink" style="color: #38bdf8; text-decoration: underline;">Enter URL manually instead</a>
+            </div>
+          `);
+
+          const manualLink = document.getElementById('captureErrorManualLink');
+          if (manualLink) {
+            manualLink.addEventListener('click', (e) => {
+              e.preventDefault();
+              hideAllWebsiteCards();
+              const formCard = document.getElementById('websiteFormCard');
+              if (formCard) formCard.style.display = 'block';
+            });
+          }
+          return;
+        }
+
+        const siteName = deriveNameFromUrl(tabUrl) || 'Custom Search';
+        const sessionData = {
+          marker,
+          step: 'preview',
+          capturedUrl: tabUrl,
+          siteName,
+          template: derived.template,
+          testQuery: 'wireless headphones',
+          multipleOccurrences: Boolean(derived.multipleOccurrences)
+        };
+
+        await saveActiveCaptureSession(sessionData);
+        resetCaptureBtn();
+        showCapturePreview(sessionData);
+      } catch (err) {
+        showCaptureError(`⚠️ An error occurred while capturing: ${escapeHtml(err.message || String(err))}`);
+      }
+    });
+  } catch (err) {
+    showCaptureError(`⚠️ Could not complete capture: ${escapeHtml(err.message || String(err))}`);
+  }
+}
+
+// Resume active capture session if unexpired
+async function resumeCaptureSessionIfActive() {
+  const session = await getActiveCaptureSession();
+  if (!session) return;
+
+  // Auto-switch to tab-toolbar so the user resumes immediately
+  const tabs = document.querySelectorAll('.nav-tab');
+  const panels = document.querySelectorAll('.tab-panel');
+  tabs.forEach((t) => {
+    t.classList.remove('active');
+    t.setAttribute('aria-selected', 'false');
+  });
+  panels.forEach((p) => p.classList.remove('active'));
+
+  const toolbarTab = document.querySelector('.nav-tab[data-tab="tab-toolbar"]');
+  const toolbarPanel = document.getElementById('tab-toolbar');
+  if (toolbarTab && toolbarPanel) {
+    toolbarTab.classList.add('active');
+    toolbarTab.setAttribute('aria-selected', 'true');
+    toolbarPanel.classList.add('active');
+  }
+
+  if (session.step === 'preview') {
+    showCapturePreview(session);
+  } else {
+    showCaptureDialog(session.marker);
+  }
+}
+
 // Setup Text Selection Toolbar event listeners
 function setupToolbarEventListeners() {
   const toolbarEnabledToggle = document.getElementById('toolbarEnabledToggle');
@@ -921,7 +1358,223 @@ function setupToolbarEventListeners() {
     });
   }
 
-  // Website management buttons
+  // Capture Search URL buttons & inputs
+  const startCaptureBtn = document.getElementById('startCaptureBtn');
+  const copyMarkerBtn = document.getElementById('copyMarkerBtn');
+  const captureActiveUrlBtn = document.getElementById('captureActiveUrlBtn');
+  const cancelCaptureBtn = document.getElementById('cancelCaptureBtn');
+  const switchToManualBtn = document.getElementById('switchToManualBtn');
+
+  const testSearchBtn = document.getElementById('testSearchBtn');
+  const saveCapturedWebsiteBtn = document.getElementById('saveCapturedWebsiteBtn');
+  const cancelCapturePreviewBtn = document.getElementById('cancelCapturePreviewBtn');
+  const backToCaptureBtn = document.getElementById('backToCaptureBtn');
+
+  const captureNameInput = document.getElementById('captureNameInput');
+  const captureTemplateInput = document.getElementById('captureTemplateInput');
+  const captureTestQueryInput = document.getElementById('captureTestQueryInput');
+
+  if (startCaptureBtn) {
+    startCaptureBtn.addEventListener('click', async () => {
+      hideAllWebsiteCards();
+      const marker = generateSearchMarker();
+      await saveActiveCaptureSession({
+        marker,
+        step: 'capturing',
+        createdAt: Date.now()
+      });
+      showCaptureDialog(marker);
+    });
+  }
+
+  if (copyMarkerBtn) {
+    copyMarkerBtn.addEventListener('click', async () => {
+      const markerEl = document.getElementById('captureMarkerDisplay');
+      const marker = markerEl ? markerEl.textContent.trim() : '';
+      if (!marker) return;
+
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(marker);
+        } else {
+          const ta = document.createElement('textarea');
+          ta.value = marker;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+        }
+        copyMarkerBtn.textContent = '✓ Copied!';
+        copyMarkerBtn.classList.add('copied');
+        setTimeout(() => {
+          copyMarkerBtn.textContent = '📋 Copy Keyword';
+          copyMarkerBtn.classList.remove('copied');
+        }, 1800);
+      } catch (_) {}
+    });
+  }
+
+  if (captureActiveUrlBtn) {
+    captureActiveUrlBtn.addEventListener('click', () => {
+      captureActiveTabUrl();
+    });
+  }
+
+  if (cancelCaptureBtn) {
+    cancelCaptureBtn.addEventListener('click', async () => {
+      await clearActiveCaptureSession();
+      hideAllWebsiteCards();
+    });
+  }
+
+  if (switchToManualBtn) {
+    switchToManualBtn.addEventListener('click', () => {
+      hideAllWebsiteCards();
+      const formCard = document.getElementById('websiteFormCard');
+      if (formCard) formCard.style.display = 'block';
+      const urlInput = document.getElementById('websiteUrlInput');
+      if (urlInput) urlInput.focus();
+    });
+  }
+
+  if (captureTemplateInput) {
+    captureTemplateInput.addEventListener('input', updateCapturePreviewUi);
+    captureTemplateInput.addEventListener('blur', updateCapturePreviewUi);
+  }
+
+  if (captureTestQueryInput) {
+    captureTestQueryInput.addEventListener('input', updateCapturePreviewUi);
+    captureTestQueryInput.addEventListener('blur', updateCapturePreviewUi);
+  }
+
+  if (captureNameInput) {
+    captureNameInput.addEventListener('input', updateCapturePreviewUi);
+  }
+
+  if (testSearchBtn) {
+    testSearchBtn.addEventListener('click', () => {
+      const template = captureTemplateInput ? captureTemplateInput.value.trim() : '';
+      const query = captureTestQueryInput ? captureTestQueryInput.value.trim() : 'wireless headphones';
+      const errorBox = document.getElementById('capturePreviewError');
+      const successBox = document.getElementById('capturePreviewSuccess');
+
+      if (errorBox) errorBox.style.display = 'none';
+      if (successBox) successBox.style.display = 'none';
+
+      const res = buildSearchUrl(template, query);
+      if (!res.valid) {
+        if (errorBox) {
+          errorBox.textContent = res.error;
+          errorBox.style.display = 'block';
+        }
+        return;
+      }
+
+      try {
+        chrome.runtime.sendMessage({
+          action: 'openLink',
+          url: res.url,
+          tabFocus: 'background'
+        });
+        if (successBox) {
+          successBox.textContent = '✓ Test search opened in background tab! Switch tabs to inspect results.';
+          successBox.style.display = 'block';
+          setTimeout(() => {
+            if (successBox) successBox.style.display = 'none';
+          }, 4000);
+        }
+      } catch (err) {
+        if (errorBox) {
+          errorBox.textContent = `Could not open tab: ${err.message}`;
+          errorBox.style.display = 'block';
+        }
+      }
+    });
+  }
+
+  if (saveCapturedWebsiteBtn) {
+    saveCapturedWebsiteBtn.addEventListener('click', async () => {
+      const rawTemplate = captureTemplateInput ? captureTemplateInput.value.trim() : '';
+      let name = captureNameInput ? captureNameInput.value.trim() : '';
+      const errorBox = document.getElementById('capturePreviewError');
+
+      if (errorBox) errorBox.style.display = 'none';
+
+      if (!rawTemplate) {
+        if (errorBox) {
+          errorBox.textContent = 'Please enter a search URL template.';
+          errorBox.style.display = 'block';
+        }
+        return;
+      }
+
+      const testRes = buildSearchUrl(rawTemplate, 'test');
+      if (!testRes.valid) {
+        if (errorBox) {
+          errorBox.textContent = testRes.error;
+          errorBox.style.display = 'block';
+        }
+        return;
+      }
+
+      if (!name) {
+        name = deriveNameFromUrl(rawTemplate) || 'Custom Search';
+      }
+
+      const sites = Array.isArray(currentSettings.toolbarSearchWebsites)
+        ? [...currentSettings.toolbarSearchWebsites]
+        : [...DEFAULT_SEARCH_WEBSITES];
+
+      const id = 'custom_' + Date.now();
+      sites.push({ id, name, template: rawTemplate, enabled: true, icon: 'custom' });
+
+      currentSettings.toolbarSearchWebsites = sites;
+      saveSettings({ toolbarSearchWebsites: sites });
+
+      await clearActiveCaptureSession();
+      hideAllWebsiteCards();
+      renderToolbarWebsitesList();
+    });
+  }
+
+  if (cancelCapturePreviewBtn) {
+    cancelCapturePreviewBtn.addEventListener('click', async () => {
+      await clearActiveCaptureSession();
+      hideAllWebsiteCards();
+    });
+  }
+
+  if (backToCaptureBtn) {
+    backToCaptureBtn.addEventListener('click', async () => {
+      const session = await getActiveCaptureSession();
+      const marker = session ? session.marker : generateSearchMarker();
+      await saveActiveCaptureSession({
+        marker,
+        step: 'capturing',
+        createdAt: Date.now()
+      });
+      showCaptureDialog(marker);
+    });
+  }
+
+  // Keyboard shortcut: Escape cancels any open capture or manual card
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      const captureCard = document.getElementById('captureSearchCard');
+      const previewCard = document.getElementById('capturePreviewCard');
+      const formCard = document.getElementById('websiteFormCard');
+      if (
+        (captureCard && captureCard.style.display !== 'none') ||
+        (previewCard && previewCard.style.display !== 'none') ||
+        (formCard && formCard.style.display !== 'none')
+      ) {
+        clearActiveCaptureSession();
+        hideAllWebsiteCards();
+      }
+    }
+  });
+
+  // Manual website management buttons
   const addBtn = document.getElementById('addWebsiteBtn');
   const cancelBtn = document.getElementById('cancelWebsiteBtn');
   const saveBtn = document.getElementById('saveWebsiteBtn');
@@ -934,6 +1587,8 @@ function setupToolbarEventListeners() {
 
   if (addBtn && formCard) {
     addBtn.addEventListener('click', () => {
+      hideAllWebsiteCards();
+      clearActiveCaptureSession();
       editingWebsiteId = null;
       if (formTitle) formTitle.textContent = 'Add Custom Website';
       if (nameInput) nameInput.value = '';
@@ -967,8 +1622,7 @@ function setupToolbarEventListeners() {
 
   if (cancelBtn && formCard) {
     cancelBtn.addEventListener('click', () => {
-      editingWebsiteId = null;
-      formCard.style.display = 'none';
+      hideAllWebsiteCards();
       if (formError) formError.style.display = 'none';
     });
   }
@@ -1050,8 +1704,7 @@ function setupToolbarEventListeners() {
 
       currentSettings.toolbarSearchWebsites = sites;
       saveSettings({ toolbarSearchWebsites: sites });
-      formCard.style.display = 'none';
-      editingWebsiteId = null;
+      hideAllWebsiteCards();
       renderToolbarWebsitesList();
     });
   }
@@ -1061,8 +1714,7 @@ function setupToolbarEventListeners() {
       const restored = JSON.parse(JSON.stringify(DEFAULT_SEARCH_WEBSITES));
       currentSettings.toolbarSearchWebsites = restored;
       saveSettings({ toolbarSearchWebsites: restored });
-      if (formCard) formCard.style.display = 'none';
-      editingWebsiteId = null;
+      hideAllWebsiteCards();
       renderToolbarWebsitesList();
     });
   }
@@ -1118,6 +1770,7 @@ function setupToolbarEventListeners() {
       if (action === 'edit' && id) {
         const site = sites.find((s) => s.id === id);
         if (site && formCard) {
+          hideAllWebsiteCards();
           editingWebsiteId = id;
           if (formTitle) formTitle.textContent = `Edit "${site.name}"`;
           if (nameInput) nameInput.value = site.name;
