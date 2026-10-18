@@ -2960,12 +2960,15 @@
   let searchWrapper = null;
   let submenuEl = null;
   let submenuGridEl = null;
+  let submenuSearchInputEl = null;
+  let submenuSearchClearEl = null;
   let toolbarTimer = null;
   let submenuLeaveTimer = null;
   let isToolbarVisible = false;
   let isToolbarHovered = false;
   let isSubmenuHovered = false;
   let isSubmenuOpen = false;
+  let isSearchInputFocused = false;
   let currentSelectionText = '';
   let isShiftKeyDown = false;
   let isCtrlKeyDown = false;
@@ -2993,7 +2996,7 @@
     toolbarEl.className = 'ht-toolbar';
 
     // 1. Select Line Button
-    btnSelectAll = createToolbarButton('select-all', 'Select Line', 'Select current line', `
+    btnSelectAll = createToolbarButton('select-all', 'Select', 'Select current line', `
       <svg class="ht-tb-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <line x1="3" y1="6" x2="21" y2="6"/>
         <line x1="3" y1="12" x2="21" y2="12" stroke-width="3" stroke="#38bdf8"/>
@@ -3026,7 +3029,14 @@
     submenuEl.setAttribute('aria-label', 'Search engines');
     submenuEl.innerHTML = `
       <div class="ht-submenu-header">
-        <span>Search With...</span>
+        <div class="ht-submenu-search-box">
+          <svg class="ht-submenu-search-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input type="text" class="ht-submenu-search-input" placeholder="Search websites..." autocomplete="off" spellcheck="false" />
+          <button type="button" class="ht-submenu-search-clear" style="display: none;" title="Clear search" aria-label="Clear search">✕</button>
+        </div>
       </div>
       <div class="ht-submenu-grid" role="group"></div>
       <div class="ht-submenu-footer">
@@ -3037,6 +3047,8 @@
       </div>
     `;
     submenuGridEl = submenuEl.querySelector('.ht-submenu-grid');
+    submenuSearchInputEl = submenuEl.querySelector('.ht-submenu-search-input');
+    submenuSearchClearEl = submenuEl.querySelector('.ht-submenu-search-clear');
 
     searchWrapper.appendChild(btnSearch);
     searchWrapper.appendChild(submenuEl);
@@ -3182,6 +3194,88 @@
       });
     }
 
+    // Submenu search input & clear button listeners
+    if (submenuSearchInputEl) {
+      submenuSearchInputEl.addEventListener('mousedown', (e) => {
+        e.stopPropagation();
+      });
+
+      submenuSearchInputEl.addEventListener('input', () => {
+        const query = submenuSearchInputEl.value;
+        if (submenuSearchClearEl) {
+          submenuSearchClearEl.style.display = query.trim() ? 'inline-flex' : 'none';
+        }
+        renderSubmenuGrid(query);
+      });
+
+      submenuSearchInputEl.addEventListener('focus', () => {
+        isSearchInputFocused = true;
+        isSubmenuHovered = true;
+        if (submenuLeaveTimer) {
+          clearTimeout(submenuLeaveTimer);
+          submenuLeaveTimer = null;
+        }
+      });
+
+      submenuSearchInputEl.addEventListener('blur', () => {
+        isSearchInputFocused = false;
+        if (!isSubmenuHovered) {
+          startSubmenuLeaveTimer();
+        }
+      });
+
+      submenuSearchInputEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          e.stopPropagation();
+          const firstItem = submenuGridEl ? submenuGridEl.querySelector('.ht-submenu-item') : null;
+          if (firstItem && firstItem.dataset.siteId) {
+            const sites = Array.isArray(config.toolbarSearchWebsites) && config.toolbarSearchWebsites.length > 0
+              ? config.toolbarSearchWebsites.filter((s) => s.enabled !== false)
+              : DEFAULT_SEARCH_WEBSITES;
+            const targetSite = sites.find((s) => s.id === firstItem.dataset.siteId);
+            if (targetSite) {
+              executeSearchOnWebsite(targetSite, e.shiftKey || e.altKey);
+            }
+          }
+        } else if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          e.stopPropagation();
+          const firstItem = submenuGridEl ? submenuGridEl.querySelector('.ht-submenu-item') : null;
+          if (firstItem) firstItem.focus();
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          e.stopPropagation();
+          if (submenuSearchInputEl.value) {
+            submenuSearchInputEl.value = '';
+            if (submenuSearchClearEl) submenuSearchClearEl.style.display = 'none';
+            renderSubmenuGrid('');
+          } else {
+            closeSubmenu();
+            if (btnSearch) btnSearch.focus();
+          }
+        }
+      });
+    }
+
+    if (submenuSearchClearEl) {
+      submenuSearchClearEl.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      });
+
+      submenuSearchClearEl.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (submenuSearchInputEl) {
+          submenuSearchInputEl.value = '';
+          submenuSearchInputEl.focus();
+        }
+        submenuSearchClearEl.style.display = 'none';
+        renderSubmenuGrid('');
+      });
+    }
+
     // Hover bridging for Search button & Submenu
     searchWrapper.addEventListener('mouseenter', () => {
       isToolbarHovered = true;
@@ -3232,8 +3326,12 @@
       } else if (e.key === 'ArrowDown' && toolbarShadow.activeElement === btnSearch) {
         e.preventDefault();
         openSubmenu();
-        const firstItem = submenuGridEl.querySelector('.ht-submenu-item');
-        if (firstItem) firstItem.focus();
+        if (submenuSearchInputEl) {
+          submenuSearchInputEl.focus();
+        } else {
+          const firstItem = submenuGridEl.querySelector('.ht-submenu-item');
+          if (firstItem) firstItem.focus();
+        }
       } else if (e.key === 'Escape') {
         e.preventDefault();
         if (isSubmenuOpen) {
@@ -3255,26 +3353,39 @@
         closeSubmenu();
         btnSearch.focus();
       } else if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        const next = Math.min(items.length - 1, activeIdx + 2);
-        if (items[next]) items[next].focus();
+        if (toolbarShadow.activeElement === submenuSearchInputEl) {
+          e.preventDefault();
+          if (items[0]) items[0].focus();
+        } else if (activeIdx >= 0) {
+          e.preventDefault();
+          const next = Math.min(items.length - 1, activeIdx + 2);
+          if (items[next]) items[next].focus();
+        }
       } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        const prev = activeIdx - 2;
-        if (prev >= 0 && items[prev]) {
-          items[prev].focus();
-        } else {
-          closeSubmenu();
-          btnSearch.focus();
+        if (activeIdx >= 0) {
+          e.preventDefault();
+          const prev = activeIdx - 2;
+          if (prev >= 0 && items[prev]) {
+            items[prev].focus();
+          } else if (submenuSearchInputEl) {
+            submenuSearchInputEl.focus();
+          } else {
+            closeSubmenu();
+            btnSearch.focus();
+          }
         }
       } else if (e.key === 'ArrowRight') {
-        e.preventDefault();
-        const next = (activeIdx + 1) % items.length;
-        if (items[next]) items[next].focus();
+        if (activeIdx >= 0) {
+          e.preventDefault();
+          const next = (activeIdx + 1) % items.length;
+          if (items[next]) items[next].focus();
+        }
       } else if (e.key === 'ArrowLeft') {
-        e.preventDefault();
-        const prev = (activeIdx - 1 + items.length) % items.length;
-        if (items[prev]) items[prev].focus();
+        if (activeIdx >= 0) {
+          e.preventDefault();
+          const prev = (activeIdx - 1 + items.length) % items.length;
+          if (items[prev]) items[prev].focus();
+        }
       }
     });
   }
@@ -3282,7 +3393,7 @@
   function startSubmenuLeaveTimer() {
     if (submenuLeaveTimer) clearTimeout(submenuLeaveTimer);
     submenuLeaveTimer = setTimeout(() => {
-      if (!isSubmenuHovered && !searchWrapper.matches(':hover')) {
+      if (!isSubmenuHovered && !searchWrapper.matches(':hover') && !isSearchInputFocused) {
         closeSubmenu();
       }
     }, 220);
@@ -3295,7 +3406,14 @@
       submenuLeaveTimer = null;
     }
 
-    renderSubmenuGrid();
+    if (submenuSearchInputEl) {
+      submenuSearchInputEl.value = '';
+    }
+    if (submenuSearchClearEl) {
+      submenuSearchClearEl.style.display = 'none';
+    }
+
+    renderSubmenuGrid('');
 
     submenuEl.classList.add('ht-submenu-open');
     submenuEl.style.display = 'block';
@@ -3310,6 +3428,10 @@
     if (btnSearch) btnSearch.setAttribute('aria-expanded', 'false');
     isSubmenuOpen = false;
     isSubmenuHovered = false;
+    isSearchInputFocused = false;
+    if (submenuSearchInputEl && toolbarShadow && toolbarShadow.activeElement === submenuSearchInputEl) {
+      submenuSearchInputEl.blur();
+    }
   }
 
   function selectCurrentLine() {
@@ -3384,7 +3506,7 @@
     }
   }
 
-  function renderSubmenuGrid() {
+  function renderSubmenuGrid(filter = '') {
     if (!submenuGridEl) return;
     submenuGridEl.innerHTML = '';
 
@@ -3392,7 +3514,24 @@
       ? config.toolbarSearchWebsites.filter((s) => s.enabled !== false)
       : DEFAULT_SEARCH_WEBSITES;
 
-    sites.forEach((site) => {
+    const trimmedFilter = typeof filter === 'string' ? filter.trim().toLowerCase() : '';
+    const filteredSites = trimmedFilter
+      ? sites.filter((s) => {
+          const name = (s.name || '').toLowerCase();
+          const id = (s.id || '').toLowerCase();
+          return name.includes(trimmedFilter) || id.includes(trimmedFilter);
+        })
+      : sites;
+
+    if (filteredSites.length === 0) {
+      const emptyItem = document.createElement('div');
+      emptyItem.className = 'ht-submenu-empty';
+      emptyItem.textContent = `No websites matching "${filter.trim()}"`;
+      submenuGridEl.appendChild(emptyItem);
+      return;
+    }
+
+    filteredSites.forEach((site) => {
       const item = document.createElement('div');
       item.className = 'ht-submenu-item';
       item.setAttribute('role', 'menuitem');
@@ -3409,7 +3548,12 @@
 
       const nameSpan = document.createElement('span');
       nameSpan.className = 'ht-submenu-name';
-      nameSpan.textContent = site.name;
+
+      if (trimmedFilter) {
+        nameSpan.appendChild(createHighlightedTextFragment(site.name, trimmedFilter));
+      } else {
+        nameSpan.textContent = site.name;
+      }
 
       mainAction.appendChild(iconSpan);
       mainAction.appendChild(nameSpan);
@@ -3459,6 +3603,32 @@
 
       submenuGridEl.appendChild(item);
     });
+  }
+
+  function createHighlightedTextFragment(text, query) {
+    const frag = document.createDocumentFragment();
+    if (!query) {
+      frag.appendChild(document.createTextNode(text));
+      return frag;
+    }
+    const lowerText = text.toLowerCase();
+    const lowerQuery = query.toLowerCase();
+    const idx = lowerText.indexOf(lowerQuery);
+    if (idx === -1) {
+      frag.appendChild(document.createTextNode(text));
+      return frag;
+    }
+    if (idx > 0) {
+      frag.appendChild(document.createTextNode(text.slice(0, idx)));
+    }
+    const matchEl = document.createElement('span');
+    matchEl.className = 'ht-search-match';
+    matchEl.textContent = text.slice(idx, idx + query.length);
+    frag.appendChild(matchEl);
+    if (idx + query.length < text.length) {
+      frag.appendChild(document.createTextNode(text.slice(idx + query.length)));
+    }
+    return frag;
   }
 
   function executeSearchOnWebsite(site, isForeground = false) {
@@ -3644,7 +3814,7 @@
       return;
     }
 
-    if (isToolbarHovered || isSubmenuHovered) {
+    if (isToolbarHovered || isSubmenuHovered || isSearchInputFocused) {
       return;
     }
 
@@ -3659,7 +3829,7 @@
 
     const sel = window.getSelection ? window.getSelection() : null;
     if (!sel || sel.isCollapsed) {
-      if (isToolbarVisible && !isToolbarHovered && !isSubmenuHovered) {
+      if (isToolbarVisible && !isToolbarHovered && !isSubmenuHovered && !isSearchInputFocused) {
         hideToolbar();
       }
       return;
@@ -3668,7 +3838,7 @@
     const text = sel.toString().trim();
     const minLen = typeof config.toolbarMinLength === 'number' ? config.toolbarMinLength : 2;
     if (text.length < minLen) {
-      if (isToolbarVisible && !isToolbarHovered && !isSubmenuHovered) {
+      if (isToolbarVisible && !isToolbarHovered && !isSubmenuHovered && !isSearchInputFocused) {
         hideToolbar();
       }
       return;
@@ -3962,17 +4132,87 @@
       }
 
       .ht-submenu-header {
-        padding: 4px 6px 6px;
-        font-size: 10px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.6px;
-        color: #94a3b8;
+        padding: 2px 2px 6px;
         border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-        margin-bottom: 4px;
+        margin-bottom: 5px;
+      }
+
+      .ht-submenu-search-box {
         display: flex;
         align-items: center;
-        justify-content: space-between;
+        width: 100%;
+        background: rgba(2, 6, 23, 0.65);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 6px;
+        padding: 3px 7px;
+        gap: 6px;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+      }
+
+      .ht-submenu-search-box:focus-within {
+        background: rgba(2, 6, 23, 0.95);
+        border-color: #38bdf8;
+        box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.22);
+      }
+
+      .ht-submenu-search-icon {
+        color: #94a3b8;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .ht-submenu-search-input {
+        flex: 1;
+        min-width: 0;
+        background: transparent;
+        border: none;
+        outline: none;
+        color: #f8fafc;
+        font-size: 11px;
+        font-family: inherit;
+        padding: 1px 0;
+        line-height: 16px;
+      }
+
+      .ht-submenu-search-input::placeholder {
+        color: #64748b;
+        font-size: 11px;
+      }
+
+      .ht-submenu-search-clear {
+        display: none;
+        background: transparent;
+        border: none;
+        color: #94a3b8;
+        font-size: 11px;
+        cursor: pointer;
+        padding: 0 2px;
+        line-height: 1;
+        border-radius: 3px;
+        transition: color 0.12s ease;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .ht-submenu-search-clear:hover {
+        color: #f1f5f9;
+      }
+
+      .ht-submenu-empty {
+        grid-column: 1 / -1;
+        padding: 14px 6px;
+        text-align: center;
+        color: #94a3b8;
+        font-size: 11px;
+        font-style: italic;
+      }
+
+      .ht-search-match {
+        color: #38bdf8;
+        font-weight: 700;
+        text-decoration: underline;
       }
 
       .ht-submenu-grid {
@@ -4142,13 +4382,13 @@
   document.addEventListener('selectionchange', handleToolbarSelectionChange);
 
   window.addEventListener('mouseup', (e) => {
-    if (!isToolbarHovered && !isSubmenuHovered) {
+    if (!isToolbarHovered && !isSubmenuHovered && !isSearchInputFocused) {
       scheduleToolbarDisplay(e);
     }
   }, { passive: true });
 
   window.addEventListener('scroll', () => {
-    if (isToolbarVisible && !isToolbarHovered && !isSubmenuHovered) {
+    if (isToolbarVisible && !isToolbarHovered && !isSubmenuHovered && !isSearchInputFocused) {
       const sel = window.getSelection ? window.getSelection() : null;
       if (sel && !sel.isCollapsed && sel.rangeCount > 0) {
         const range = sel.getRangeAt(0);
