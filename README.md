@@ -5,7 +5,7 @@
 ![HoldTab Preview](icons/icon-128.png)
 
 [![Manifest V3](https://img.shields.io/badge/Manifest-V3-blue.svg?style=flat-square)](manifest.json)
-[![Version](https://img.shields.io/badge/Version-1.5.0-emerald.svg?style=flat-square)](manifest.json)
+[![Version](https://img.shields.io/badge/Version-1.5.1-emerald.svg?style=flat-square)](manifest.json)
 [![Browser Support](https://img.shields.io/badge/Browsers-Brave%20%7C%20Chrome%20%7C%20Edge%20%7C%20Firefox-orange.svg?style=flat-square)](#installation-guide)
 [![Privacy](https://img.shields.io/badge/Privacy-100%25%20Local%20%26%20Zero%20Tracking-purple.svg?style=flat-square)](#privacy--permissions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
