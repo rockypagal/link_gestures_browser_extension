@@ -15,6 +15,39 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // 1b. Toolbar Demo Text Quick Select Helper
+  const selectDemoTextBtn = document.getElementById('selectDemoTextBtn');
+  const toolbarDemoTextEl = document.getElementById('toolbarDemoText');
+  if (selectDemoTextBtn && toolbarDemoTextEl) {
+    selectDemoTextBtn.addEventListener('click', () => {
+      const selection = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(toolbarDemoTextEl);
+      selection.removeAllRanges();
+      selection.addRange(range);
+      document.dispatchEvent(new Event('selectionchange'));
+      selectDemoTextBtn.textContent = '✓ Selected!';
+      setTimeout(() => {
+        selectDemoTextBtn.textContent = '✨ Select Demo Sentence';
+      }, 1500);
+    });
+  }
+
+  // 1c. Toolbar Demo Clear Selection Helper
+  const clearDemoSelectionBtn = document.getElementById('clearDemoSelectionBtn');
+  if (clearDemoSelectionBtn) {
+    clearDemoSelectionBtn.addEventListener('click', () => {
+      if (window.getSelection) {
+        window.getSelection().removeAllRanges();
+        document.dispatchEvent(new Event('selectionchange'));
+      }
+      clearDemoSelectionBtn.textContent = '✓ Cleared!';
+      setTimeout(() => {
+        clearDemoSelectionBtn.textContent = '✕ Clear Selection';
+      }, 1500);
+    });
+  }
+
   // 2. Sample Text Quick Select Helper
   const selectSampleBtn = document.getElementById('selectSampleBtn');
   const sampleTextEl = document.getElementById('sampleText');

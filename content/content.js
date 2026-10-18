@@ -8,6 +8,15 @@
   if (window.__HOLDTAB_INITIALIZED__) return;
   window.__HOLDTAB_INITIALIZED__ = true;
 
+  const DEFAULT_SEARCH_WEBSITES = [
+    { id: 'google', name: 'Google', template: 'https://www.google.com/search?q={query}', enabled: true, icon: 'google' },
+    { id: 'youtube', name: 'YouTube', template: 'https://www.youtube.com/results?search_query={query}', enabled: true, icon: 'youtube' },
+    { id: 'wikipedia', name: 'Wikipedia', template: 'https://en.wikipedia.org/w/index.php?search={query}', enabled: true, icon: 'wikipedia' },
+    { id: 'reddit', name: 'Reddit', template: 'https://www.reddit.com/search/?q={query}', enabled: true, icon: 'reddit' },
+    { id: 'github', name: 'GitHub', template: 'https://github.com/search?q={query}', enabled: true, icon: 'github' },
+    { id: 'amazon', name: 'Amazon', template: 'https://www.amazon.com/s?k={query}', enabled: true, icon: 'amazon' }
+  ];
+
   // Default configuration
   let config = {
     enabled: true,
@@ -41,6 +50,13 @@
     animTextSearchDelay: 180,// ms grace delay for text search ring (0 - 600)
     animFlickDrag: true,     // Show/hide flick/drag dynamic arrow
     animHudBadges: true,     // Show/hide floating HUD badges (tab cycling, clipboard)
+    toolbarEnabled: true,    // Text selection floating toolbar master toggle
+    toolbarMode: 'auto',     // 'auto' | 'demand' | 'disabled'
+    toolbarModifier: 'alt',  // 'alt' | 'ctrl' | 'shift' (used when toolbarMode === 'demand')
+    toolbarDelay: 250,       // ms delay before showing toolbar on stable selection (0 - 600)
+    toolbarMinLength: 2,     // Minimum characters selected to display toolbar (default: 2)
+    toolbarSearchSubmenu: true, // Show search engine submenu on hover
+    toolbarSearchWebsites: DEFAULT_SEARCH_WEBSITES,
     excludedDomains: []
   };
 
@@ -2014,6 +2030,14 @@
   window.addEventListener('mousedown', (e) => {
     if (isCurrentSiteExcluded()) return;
 
+    // Dismiss floating selection toolbar if clicking outside
+    if (isToolbarVisible && !isToolbarHovered && !isSubmenuHovered) {
+      const path = typeof e.composedPath === 'function' ? e.composedPath() : [];
+      if (!path.includes(toolbarHost) && !path.includes(toolbarRoot)) {
+        hideToolbar();
+      }
+    }
+
     // Handle right-click
     if (e.button === 2) {
       // Rocker Gesture: Left button is physically held down + Right button clicked -> Next Tab
@@ -2854,7 +2878,16 @@
     if (e.key === 'Alt' || e.key === 'AltGraph' || e.code === 'AltLeft' || e.code === 'AltRight') {
       isAltKeyDown = true;
     }
+    if (e.key === 'Control' || e.key === 'Meta') {
+      isCtrlKeyDown = true;
+    }
+    if (e.key === 'Shift') {
+      isShiftKeyDown = true;
+    }
     if (e.key === 'Escape') {
+      if (isToolbarVisible) {
+        hideToolbar();
+      }
       cancelHold();
       lastKnownSelectedText = '';
       lastLeftClickSelectedText = '';
@@ -2892,6 +2925,12 @@
 
   // Suppress Windows Alt-key menu bar activation when Alt (Left or Right / AltGr) was used for tab cycling
   window.addEventListener('keyup', (e) => {
+    if (e.key === 'Control' || e.key === 'Meta') {
+      isCtrlKeyDown = false;
+    }
+    if (e.key === 'Shift') {
+      isShiftKeyDown = false;
+    }
     const isAltKey = e.key === 'Alt' || e.key === 'AltGraph' || e.code === 'AltLeft' || e.code === 'AltRight';
     if (isAltKey) {
       if (altGestureTriggered) {
@@ -2905,5 +2944,1053 @@
       lastAltDirection = null;
     }
   }, true);
+
+  // =========================================================================
+  // SECTION: Floating Text Selection Toolbar Implementation
+  // =========================================================================
+
+  let toolbarHost = null;
+  let toolbarShadow = null;
+  let toolbarRoot = null;
+  let toolbarEl = null;
+  let btnSelectAll = null;
+  let btnSearch = null;
+  let btnCopy = null;
+  let btnCut = null;
+  let searchWrapper = null;
+  let submenuEl = null;
+  let submenuGridEl = null;
+  let toolbarTimer = null;
+  let submenuLeaveTimer = null;
+  let isToolbarVisible = false;
+  let isToolbarHovered = false;
+  let isSubmenuHovered = false;
+  let isSubmenuOpen = false;
+  let currentSelectionText = '';
+  let isShiftKeyDown = false;
+  let isCtrlKeyDown = false;
+
+  function initToolbarHost() {
+    if (toolbarHost && toolbarShadow) return;
+
+    toolbarHost = document.createElement('div');
+    toolbarHost.id = 'holdtab-toolbar-host';
+    toolbarHost.style.cssText = 'all: initial !important; position: fixed !important; top: 0 !important; left: 0 !important; width: 0 !important; height: 0 !important; z-index: 2147483647 !important; pointer-events: none !important; user-select: none !important;';
+
+    toolbarShadow = toolbarHost.attachShadow({ mode: 'open' });
+
+    const style = document.createElement('style');
+    style.textContent = getToolbarStyles();
+    toolbarShadow.appendChild(style);
+
+    toolbarRoot = document.createElement('div');
+    toolbarRoot.className = 'ht-toolbar-root';
+    toolbarRoot.setAttribute('role', 'toolbar');
+    toolbarRoot.setAttribute('aria-label', 'Text Selection Actions');
+
+    // Inner horizontal toolbar
+    toolbarEl = document.createElement('div');
+    toolbarEl.className = 'ht-toolbar';
+
+    // 1. Select All Button
+    btnSelectAll = createToolbarButton('select-all', 'Select All', 'Select All (Ctrl+A)', `
+      <svg class="ht-tb-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="2" stroke-dasharray="3 3"/>
+        <path d="M9 9h6v6H9z" fill="currentColor" fill-opacity="0.3"/>
+      </svg>
+    `);
+
+    // 2. Search Button & Wrapper
+    searchWrapper = document.createElement('div');
+    searchWrapper.className = 'ht-search-wrapper';
+
+    btnSearch = createToolbarButton('search', 'Search', 'Search with Google (Hover for more engines)', `
+      <svg class="ht-tb-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"/>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+    `);
+    btnSearch.setAttribute('aria-haspopup', 'true');
+    btnSearch.setAttribute('aria-expanded', 'false');
+
+    const arrowIcon = document.createElement('span');
+    arrowIcon.className = 'ht-tb-arrow';
+    arrowIcon.innerHTML = `<svg width="8" height="8" viewBox="0 0 12 12" fill="currentColor"><path d="M2.5 4.5L6 8L9.5 4.5"/></svg>`;
+    btnSearch.appendChild(arrowIcon);
+
+    // Submenu
+    submenuEl = document.createElement('div');
+    submenuEl.className = 'ht-submenu';
+    submenuEl.setAttribute('role', 'menu');
+    submenuEl.setAttribute('aria-label', 'Search engines');
+    submenuEl.innerHTML = `
+      <div class="ht-submenu-header">
+        <span>Search With...</span>
+      </div>
+      <div class="ht-submenu-grid" role="group"></div>
+      <div class="ht-submenu-footer">
+        <button type="button" class="ht-submenu-manage" title="Manage search engines in HoldTab settings">
+          <svg viewBox="0 0 16 16" fill="currentColor" width="11" height="11"><path d="M8 0a8 8 0 1 0 8 8A8 8 0 0 0 8 0zm1 11H7v-2h2zm0-4H7V4h2z"/></svg>
+          <span>Manage Engines</span>
+        </button>
+      </div>
+    `;
+    submenuGridEl = submenuEl.querySelector('.ht-submenu-grid');
+
+    searchWrapper.appendChild(btnSearch);
+    searchWrapper.appendChild(submenuEl);
+
+    // 3. Copy Button
+    btnCopy = createToolbarButton('copy', 'Copy', 'Copy (Ctrl+C)', `
+      <svg class="ht-tb-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+      </svg>
+    `);
+
+    // 4. Cut Button
+    btnCut = createToolbarButton('cut', 'Cut', 'Cut selected text', `
+      <svg class="ht-tb-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="6" cy="6" r="3"/>
+        <circle cx="6" cy="18" r="3"/>
+        <line x1="20" y1="4" x2="8.12" y2="15.88"/>
+        <line x1="14.47" y1="14.48" x2="20" y2="20"/>
+        <line x1="8.12" y1="8.12" x2="12" y2="12"/>
+      </svg>
+    `);
+
+    toolbarEl.appendChild(btnSelectAll);
+    toolbarEl.appendChild(searchWrapper);
+    toolbarEl.appendChild(btnCopy);
+    toolbarEl.appendChild(btnCut);
+
+    toolbarRoot.appendChild(toolbarEl);
+    toolbarShadow.appendChild(toolbarRoot);
+
+    const targetParent = document.documentElement || document.body;
+    if (targetParent) {
+      targetParent.appendChild(toolbarHost);
+    }
+
+    setupToolbarActionListeners();
+  }
+
+  function createToolbarButton(action, label, tooltip, svgHtml) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'ht-tb-btn';
+    btn.dataset.action = action;
+    btn.setAttribute('title', tooltip);
+    btn.setAttribute('aria-label', label);
+    btn.setAttribute('tabindex', '0');
+
+    btn.innerHTML = `
+      ${svgHtml}
+      <span class="ht-tb-label">${label}</span>
+    `;
+
+    btn.addEventListener('mousedown', (e) => {
+      // Prevent native selection from collapsing
+      e.preventDefault();
+      e.stopPropagation();
+    });
+
+    return btn;
+  }
+
+  function setupToolbarActionListeners() {
+    // Select All
+    btnSelectAll.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      try {
+        const ok = document.execCommand('selectAll');
+        if (!ok) {
+          const sel = window.getSelection();
+          const range = document.createRange();
+          range.selectNodeContents(document.body);
+          sel.removeAllRanges();
+          sel.addRange(range);
+        }
+      } catch (_) {
+        try {
+          const sel = window.getSelection();
+          const range = document.createRange();
+          range.selectNodeContents(document.body);
+          sel.removeAllRanges();
+          sel.addRange(range);
+        } catch (_) {}
+      }
+      hideToolbar();
+    });
+
+    // Main Search Click -> Google Search in Background Tab
+    btnSearch.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const query = currentSelectionText.trim();
+      if (!query) return;
+      const url = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+      chrome.runtime.sendMessage({
+        action: 'openLink',
+        url,
+        tabFocus: 'background'
+      });
+      hideToolbar();
+    });
+
+    // Copy Button
+    btnCopy.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const text = currentSelectionText;
+      if (!text) return;
+      const success = await copyTextToClipboard(text);
+      if (success) {
+        showButtonFeedback(btnCopy, 'Copied!');
+        if (config.animHudBadges) {
+          showClipboardHud('📋 Copied', text);
+        }
+      }
+    });
+
+    // Cut Button
+    btnCut.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const sel = window.getSelection();
+      const isEditable = isSelectionInEditableContext(sel);
+      if (!isEditable) {
+        showToolbarToast('Cut is only available in editable fields');
+        return;
+      }
+      try {
+        const ok = document.execCommand('cut');
+        if (ok) {
+          showButtonFeedback(btnCut, 'Cut!');
+          if (config.animHudBadges) {
+            showClipboardHud('✂️ Cut', currentSelectionText);
+          }
+          hideToolbar();
+          return;
+        }
+      } catch (_) {}
+      showToolbarToast('Cannot cut in this context');
+    });
+
+    // Manage Engines button in Submenu
+    const manageBtn = submenuEl.querySelector('.ht-submenu-manage');
+    if (manageBtn) {
+      manageBtn.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      });
+      manageBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        try {
+          chrome.runtime.sendMessage({
+            action: 'openLink',
+            url: chrome.runtime.getURL('popup/popup.html'),
+            tabFocus: 'foreground'
+          });
+        } catch (_) {}
+        hideToolbar();
+      });
+    }
+
+    // Hover bridging for Search button & Submenu
+    searchWrapper.addEventListener('mouseenter', () => {
+      isToolbarHovered = true;
+      if (config.toolbarSearchSubmenu !== false) {
+        openSubmenu();
+      }
+    });
+
+    searchWrapper.addEventListener('mouseleave', () => {
+      startSubmenuLeaveTimer();
+    });
+
+    submenuEl.addEventListener('mouseenter', () => {
+      isSubmenuHovered = true;
+      if (submenuLeaveTimer) {
+        clearTimeout(submenuLeaveTimer);
+        submenuLeaveTimer = null;
+      }
+    });
+
+    submenuEl.addEventListener('mouseleave', () => {
+      isSubmenuHovered = false;
+      startSubmenuLeaveTimer();
+    });
+
+    // Toolbar root hover tracking
+    toolbarRoot.addEventListener('mouseenter', () => {
+      isToolbarHovered = true;
+    });
+
+    toolbarRoot.addEventListener('mouseleave', () => {
+      isToolbarHovered = false;
+    });
+
+    // Keyboard navigation inside toolbar
+    toolbarEl.addEventListener('keydown', (e) => {
+      const buttons = [btnSelectAll, btnSearch, btnCopy, btnCut];
+      const activeIdx = buttons.indexOf(toolbarShadow.activeElement);
+
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        const nextIdx = (activeIdx + 1) % buttons.length;
+        buttons[nextIdx].focus();
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        const prevIdx = (activeIdx - 1 + buttons.length) % buttons.length;
+        buttons[prevIdx].focus();
+      } else if (e.key === 'ArrowDown' && toolbarShadow.activeElement === btnSearch) {
+        e.preventDefault();
+        openSubmenu();
+        const firstItem = submenuGridEl.querySelector('.ht-submenu-item');
+        if (firstItem) firstItem.focus();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        if (isSubmenuOpen) {
+          closeSubmenu();
+          btnSearch.focus();
+        } else {
+          hideToolbar();
+        }
+      }
+    });
+
+    // Keyboard navigation inside submenu
+    submenuEl.addEventListener('keydown', (e) => {
+      const items = Array.from(submenuGridEl.querySelectorAll('.ht-submenu-item'));
+      const activeIdx = items.indexOf(toolbarShadow.activeElement);
+
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeSubmenu();
+        btnSearch.focus();
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        const next = Math.min(items.length - 1, activeIdx + 2);
+        if (items[next]) items[next].focus();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        const prev = activeIdx - 2;
+        if (prev >= 0 && items[prev]) {
+          items[prev].focus();
+        } else {
+          closeSubmenu();
+          btnSearch.focus();
+        }
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        const next = (activeIdx + 1) % items.length;
+        if (items[next]) items[next].focus();
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        const prev = (activeIdx - 1 + items.length) % items.length;
+        if (items[prev]) items[prev].focus();
+      }
+    });
+  }
+
+  function startSubmenuLeaveTimer() {
+    if (submenuLeaveTimer) clearTimeout(submenuLeaveTimer);
+    submenuLeaveTimer = setTimeout(() => {
+      if (!isSubmenuHovered && !searchWrapper.matches(':hover')) {
+        closeSubmenu();
+      }
+    }, 220);
+  }
+
+  function openSubmenu() {
+    if (!config.toolbarSearchSubmenu || !submenuEl || !submenuGridEl) return;
+    if (submenuLeaveTimer) {
+      clearTimeout(submenuLeaveTimer);
+      submenuLeaveTimer = null;
+    }
+
+    renderSubmenuGrid();
+
+    submenuEl.classList.add('ht-submenu-open');
+    submenuEl.style.display = 'block';
+    btnSearch.setAttribute('aria-expanded', 'true');
+    isSubmenuOpen = true;
+  }
+
+  function closeSubmenu() {
+    if (!submenuEl) return;
+    submenuEl.classList.remove('ht-submenu-open');
+    submenuEl.style.display = 'none';
+    if (btnSearch) btnSearch.setAttribute('aria-expanded', 'false');
+    isSubmenuOpen = false;
+    isSubmenuHovered = false;
+  }
+
+  function renderSubmenuGrid() {
+    if (!submenuGridEl) return;
+    submenuGridEl.innerHTML = '';
+
+    const sites = Array.isArray(config.toolbarSearchWebsites) && config.toolbarSearchWebsites.length > 0
+      ? config.toolbarSearchWebsites.filter((s) => s.enabled !== false)
+      : DEFAULT_SEARCH_WEBSITES;
+
+    sites.forEach((site) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'ht-submenu-item';
+      btn.setAttribute('role', 'menuitem');
+      btn.setAttribute('tabindex', '0');
+      btn.setAttribute('title', `Search on ${site.name}`);
+
+      const iconSpan = document.createElement('span');
+      iconSpan.className = 'ht-submenu-icon';
+      iconSpan.innerHTML = getWebsiteIconSvg(site);
+
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'ht-submenu-name';
+      nameSpan.textContent = site.name;
+
+      btn.appendChild(iconSpan);
+      btn.appendChild(nameSpan);
+
+      btn.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      });
+
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        executeSearchOnWebsite(site);
+      });
+
+      submenuGridEl.appendChild(btn);
+    });
+  }
+
+  function executeSearchOnWebsite(site) {
+    const query = currentSelectionText.trim();
+    if (!query) return;
+
+    const template = site.template || 'https://www.google.com/search?q={query}';
+    if (!/^https?:\/\//i.test(template)) return;
+
+    const finalUrl = template.replace(/\{query\}/g, encodeURIComponent(query));
+    chrome.runtime.sendMessage({
+      action: 'openLink',
+      url: finalUrl,
+      tabFocus: 'background'
+    });
+    hideToolbar();
+  }
+
+  function hideToolbar() {
+    if (toolbarTimer) {
+      clearTimeout(toolbarTimer);
+      toolbarTimer = null;
+    }
+    if (submenuLeaveTimer) {
+      clearTimeout(submenuLeaveTimer);
+      submenuLeaveTimer = null;
+    }
+    closeSubmenu();
+    if (toolbarRoot) {
+      toolbarRoot.classList.remove('ht-visible');
+      toolbarRoot.style.display = 'none';
+    }
+    isToolbarVisible = false;
+    isToolbarHovered = false;
+    isSubmenuHovered = false;
+  }
+
+  function showButtonFeedback(btn, feedbackText) {
+    const labelEl = btn.querySelector('.ht-tb-label');
+    if (!labelEl) return;
+    const origText = labelEl.textContent;
+    labelEl.textContent = feedbackText;
+    btn.classList.add('ht-btn-success');
+    setTimeout(() => {
+      labelEl.textContent = origText;
+      btn.classList.remove('ht-btn-success');
+    }, 1200);
+  }
+
+  function showToolbarToast(message) {
+    if (!toolbarShadow || !toolbarRoot) return;
+    let toast = toolbarShadow.querySelector('.ht-toolbar-toast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.className = 'ht-toolbar-toast';
+      toolbarRoot.appendChild(toast);
+    }
+    toast.textContent = message;
+    toast.classList.add('ht-toast-show');
+    setTimeout(() => {
+      toast.classList.remove('ht-toast-show');
+    }, 1600);
+  }
+
+  function isToolbarModifierActive(e) {
+    const mod = config.toolbarModifier || 'alt';
+    if (mod === 'alt') {
+      return isAltPressed(e);
+    }
+    if (mod === 'ctrl') {
+      return Boolean((e && (e.ctrlKey || e.metaKey)) || isCtrlKeyDown || isMetaKeyDown);
+    }
+    if (mod === 'shift') {
+      return Boolean((e && e.shiftKey) || isShiftKeyDown);
+    }
+    return false;
+  }
+
+  function isSelectionInExcludedContext(sel) {
+    try {
+      const active = document.activeElement;
+      if (active) {
+        if (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA') return true;
+        if (active.isContentEditable || (active.getAttribute && active.getAttribute('contenteditable') === 'true')) return true;
+      }
+
+      const anchor = sel.anchorNode;
+      const focus = sel.focusNode;
+      const anchorEl = anchor ? (anchor.nodeType === Node.ELEMENT_NODE ? anchor : anchor.parentElement) : null;
+      const focusEl = focus ? (focus.nodeType === Node.ELEMENT_NODE ? focus : focus.parentElement) : null;
+
+      if (anchorEl) {
+        if (anchorEl.closest('input, textarea, [contenteditable="true"], [contenteditable=""], #holdtab-toolbar-host, #holdtab-root-host')) {
+          return true;
+        }
+      }
+      if (focusEl) {
+        if (focusEl.closest('input, textarea, [contenteditable="true"], [contenteditable=""], #holdtab-toolbar-host, #holdtab-root-host')) {
+          return true;
+        }
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  function isSelectionInEditableContext(sel) {
+    try {
+      const active = document.activeElement;
+      if (active) {
+        if (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA') {
+          const type = (active.type || '').toLowerCase();
+          return !active.readOnly && !active.disabled && type !== 'password';
+        }
+        if (active.isContentEditable || (active.getAttribute && active.getAttribute('contenteditable') === 'true')) {
+          return true;
+        }
+      }
+      const anchor = sel.anchorNode;
+      const anchorEl = anchor ? (anchor.nodeType === Node.ELEMENT_NODE ? anchor : anchor.parentElement) : null;
+      if (anchorEl && anchorEl.closest('[contenteditable="true"]')) {
+        return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  function handleToolbarSelectionChange(e) {
+    if (!config.enabled || config.toolbarEnabled === false || config.toolbarMode === 'disabled' || isCurrentSiteExcluded()) {
+      if (isToolbarVisible) hideToolbar();
+      return;
+    }
+
+    if (isToolbarHovered || isSubmenuHovered) {
+      return;
+    }
+
+    scheduleToolbarDisplay(e);
+  }
+
+  function scheduleToolbarDisplay(e) {
+    if (toolbarTimer) {
+      clearTimeout(toolbarTimer);
+      toolbarTimer = null;
+    }
+
+    const sel = window.getSelection ? window.getSelection() : null;
+    if (!sel || sel.isCollapsed) {
+      if (isToolbarVisible && !isToolbarHovered && !isSubmenuHovered) {
+        hideToolbar();
+      }
+      return;
+    }
+
+    const text = sel.toString().trim();
+    const minLen = typeof config.toolbarMinLength === 'number' ? config.toolbarMinLength : 2;
+    if (text.length < minLen) {
+      if (isToolbarVisible && !isToolbarHovered && !isSubmenuHovered) {
+        hideToolbar();
+      }
+      return;
+    }
+
+    if (isSelectionInExcludedContext(sel)) {
+      if (isToolbarVisible) hideToolbar();
+      return;
+    }
+
+    if (config.toolbarMode === 'demand') {
+      if (!isToolbarModifierActive(e)) {
+        if (isToolbarVisible) hideToolbar();
+        return;
+      }
+    }
+
+    const delay = typeof config.toolbarDelay === 'number' ? config.toolbarDelay : 250;
+    toolbarTimer = setTimeout(() => {
+      renderAndShowToolbar(sel, text);
+    }, delay);
+  }
+
+  function renderAndShowToolbar(sel, text) {
+    initToolbarHost();
+    if (!toolbarRoot || !toolbarEl) return;
+
+    if (!sel || sel.rangeCount === 0) return;
+    const range = sel.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+    if (!rect || (rect.width === 0 && rect.height === 0)) return;
+
+    currentSelectionText = text;
+
+    // Cut availability check
+    const isEditable = isSelectionInEditableContext(sel);
+    if (!isEditable) {
+      btnCut.classList.add('ht-btn-disabled');
+      btnCut.setAttribute('aria-disabled', 'true');
+      btnCut.setAttribute('title', 'Cut is only available in editable fields');
+    } else {
+      btnCut.classList.remove('ht-btn-disabled');
+      btnCut.removeAttribute('aria-disabled');
+      btnCut.setAttribute('title', 'Cut (Ctrl+X)');
+    }
+
+    updateToolbarPosition(rect);
+
+    toolbarRoot.classList.add('ht-visible');
+    isToolbarVisible = true;
+  }
+
+  function updateToolbarPosition(rect) {
+    if (!toolbarRoot || !toolbarEl) return;
+    toolbarRoot.style.display = 'flex';
+
+    const tbWidth = toolbarEl.offsetWidth || 280;
+    const tbHeight = toolbarEl.offsetHeight || 38;
+
+    const selCenterX = (rect.left + rect.right) / 2;
+    let left = selCenterX - (tbWidth / 2);
+    left = Math.max(10, Math.min(left, window.innerWidth - tbWidth - 10));
+
+    const margin = 8;
+    let top = rect.top - tbHeight - margin;
+    let placement = 'above';
+    if (top < 10) {
+      top = rect.bottom + margin;
+      placement = 'below';
+    }
+    top = Math.max(10, Math.min(top, window.innerHeight - tbHeight - 10));
+
+    toolbarRoot.style.left = `${Math.round(left)}px`;
+    toolbarRoot.style.top = `${Math.round(top)}px`;
+    toolbarRoot.setAttribute('data-placement', placement);
+  }
+
+  async function copyTextToClipboard(text) {
+    if (!text) return false;
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch (_) {}
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position: fixed; left: -9999px; top: -9999px; opacity: 0; pointer-events: none;';
+      document.body.appendChild(ta);
+      ta.select();
+      const res = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return res;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function getWebsiteIconSvg(site) {
+    const id = (site.icon || site.id || '').toLowerCase();
+    if (id === 'google') {
+      return `<svg viewBox="0 0 24 24" width="16" height="16"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.65v3.05h3.9c2.28-2.1 3.645-5.2 3.645-9.14z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.9-3.05c-1.08.72-2.45 1.16-4.03 1.16-3.1 0-5.73-2.1-6.67-4.93H1.28v3.15C3.26 21.3 7.33 24 12 24z"/><path fill="#FBBC05" d="M5.33 14.27c-.24-.72-.38-1.49-.38-2.27s.14-1.55.38-2.27V6.58H1.28C.46 8.2 0 10.04 0 12s.46 3.8 1.28 5.42l4.05-3.15z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.7 1.28 6.58l4.05 3.15c.94-2.83 3.57-4.98 6.67-4.98z"/></svg>`;
+    }
+    if (id === 'youtube') {
+      return `<svg viewBox="0 0 24 24" width="16" height="16"><path fill="#FF0000" d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814z"/><path fill="#FFFFFF" d="M9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>`;
+    }
+    if (id === 'wikipedia') {
+      return `<svg viewBox="0 0 24 24" width="16" height="16" fill="#FFFFFF"><path d="M12.09 13.002l3.05-7.05h2.46l-5.01 11.025-4.5-9.975-4.5 9.975L-1.5 5.952h2.46l3.05 7.05 2.5-5.55h1.98l2.5 5.55z"/><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg>`;
+    }
+    if (id === 'reddit') {
+      return `<svg viewBox="0 0 24 24" width="16" height="16"><circle cx="12" cy="12" r="11" fill="#FF4500"/><path fill="#FFF" d="M19.5 12c0-.8-.7-1.5-1.5-1.5-.4 0-.8.2-1.1.5-1.1-.8-2.6-1.3-4.3-1.4l.7-3.4 2.4.5c0 .7.6 1.3 1.4 1.3.8 0 1.4-.6 1.4-1.4s-.6-1.4-1.4-1.4c-.6 0-1.1.4-1.3.9l-2.7-.6c-.2 0-.3.1-.4.3l-.9 4.1c-1.8.1-3.3.6-4.4 1.4-.3-.3-.7-.5-1.1-.5-.8 0-1.5.7-1.5 1.5 0 .6.4 1.1.9 1.3-.1.4-.1.8-.1 1.2 0 2.5 2.9 4.5 6.5 4.5s6.5-2 6.5-4.5c0-.4 0-.8-.1-1.2.5-.2.9-.7.9-1.3zm-10.5 1c.6 0 1 .4 1 1s-.4 1-1 1-1-.4-1-1 .4-1 1-1zm6 4c-.9.9-2.6.9-3 0-.1-.1 0-.3.1-.4.1-.1.3 0 .4.1.3.6 1.8.6 2.1 0 .1-.1.3-.1.4 0 .1.1.1.2 0 .3zm-.5-3c-.6 0-1-.4-1-1s.4-1 1-1 1 .4 1 1-.4 1-1 1z"/></svg>`;
+    }
+    if (id === 'github') {
+      return `<svg viewBox="0 0 24 24" width="16" height="16" fill="#FFFFFF"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>`;
+    }
+    if (id === 'amazon') {
+      return `<svg viewBox="0 0 24 24" width="16" height="16" fill="#FF9900"><path d="M13.88 15.63c-2.36 1.83-5.8 2.8-8.8 2.8-4.22 0-8.02-1.62-10.88-4.33-.23-.22-.03-.52.24-.35 3.1 1.9 6.94 3.05 10.9 3.05 2.65 0 5.61-.71 8.28-2.19.41-.23.67.24.26 1.02zM15.42 14.18c-.3-.39-1.99-.18-2.75-.09-.23.03-.27-.15-.06-.29 1.37-.97 3.63-.69 3.9-.34.27.35-.07 2.63-1.37 3.69-.2.16-.38.07-.3-.14.28-.73.88-2.44.58-2.83z"/><path d="M14.6 9.87c0-1.74-.88-2.76-2.5-2.76-1.57 0-2.46.97-2.72 1.92-.05.18.06.33.24.35l1.64.12c.15.01.29-.09.33-.23.13-.44.47-.73.96-.73.65 0 1.03.38 1.03 1.15v.42c-.88.08-2.1.23-3.08.63-1.28.53-1.95 1.55-1.95 2.8 0 1.74 1.2 2.67 2.68 2.67 1.25 0 2.05-.6 2.5-1.33h.06v1.07c0 .16.1.28.25.29l1.45.02c.16 0 .28-.13.28-.29V11.5c0-.52-.04-1.07-.08-1.63zm-2.02 4.12c-.38.45-.94.75-1.55.75-.7 0-1.12-.46-1.12-1.2 0-.96.65-1.5 1.8-1.65.37-.05.65-.05.87-.03v2.13z" fill="#FFFFFF"/></svg>`;
+    }
+    let domain = '';
+    try {
+      const u = new URL(site.template.replace(/\{query\}/g, 'test'));
+      domain = u.hostname;
+    } catch (_) {}
+    if (domain) {
+      return `<img src="https://${domain}/favicon.ico" alt="${site.name}" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='inline-flex';"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" style="display: none;"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`;
+    }
+    return `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1 4-10z"/></svg>`;
+  }
+
+  function getToolbarStyles() {
+    return `
+      :host, :host * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      }
+
+      .ht-toolbar-root {
+        position: fixed;
+        display: none;
+        opacity: 0;
+        transform: translateY(-4px) scale(0.96);
+        transition: opacity 0.16s ease, transform 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+        pointer-events: auto !important;
+        z-index: 2147483647;
+        user-select: none;
+      }
+
+      .ht-toolbar-root.ht-visible {
+        display: flex;
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+
+      .ht-toolbar {
+        display: inline-flex;
+        align-items: center;
+        background: rgba(15, 23, 42, 0.94);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 9px;
+        padding: 3px 5px;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.4);
+        gap: 3px;
+      }
+
+      .ht-tb-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        height: 28px;
+        padding: 0 9px;
+        background: transparent;
+        border: none;
+        border-radius: 6px;
+        color: #f1f5f9;
+        font-size: 11.5px;
+        font-weight: 600;
+        cursor: pointer;
+        user-select: none;
+        transition: background 0.12s ease, color 0.12s ease, transform 0.08s ease;
+        outline: none;
+        white-space: nowrap;
+      }
+
+      .ht-tb-btn:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: #38bdf8;
+      }
+
+      .ht-tb-btn:focus-visible {
+        outline: 2px solid #38bdf8;
+        outline-offset: 1px;
+      }
+
+      .ht-tb-btn:active {
+        transform: scale(0.96);
+      }
+
+      .ht-tb-btn.ht-btn-disabled {
+        opacity: 0.38;
+        cursor: not-allowed;
+      }
+
+      .ht-tb-btn.ht-btn-disabled:hover {
+        background: transparent;
+        color: #f1f5f9;
+      }
+
+      .ht-tb-btn.ht-btn-success {
+        background: rgba(16, 185, 129, 0.22) !important;
+        color: #34d399 !important;
+        border: 1px solid rgba(16, 185, 129, 0.4);
+      }
+
+      .ht-tb-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+
+      .ht-tb-label {
+        line-height: 1;
+      }
+
+      .ht-tb-arrow {
+        display: inline-flex;
+        align-items: center;
+        opacity: 0.7;
+        margin-left: -1px;
+        transition: transform 0.15s ease;
+      }
+
+      .ht-search-wrapper {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+      }
+
+      /* Invisible hover bridge */
+      .ht-search-wrapper::after {
+        content: '';
+        position: absolute;
+        left: -8px;
+        right: -8px;
+        top: 100%;
+        height: 10px;
+        pointer-events: auto;
+      }
+
+      .ht-toolbar-root[data-placement="below"] .ht-search-wrapper::after {
+        top: auto;
+        bottom: 100%;
+      }
+
+      /* Submenu */
+      .ht-submenu {
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%) translateY(4px);
+        top: calc(100% + 6px);
+        width: 260px;
+        background: rgba(15, 23, 42, 0.96);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 10px;
+        box-shadow: 0 14px 35px rgba(0, 0, 0, 0.6);
+        padding: 6px;
+        display: none;
+        opacity: 0;
+        pointer-events: auto;
+        transition: opacity 0.15s ease, transform 0.15s ease;
+        z-index: 100;
+      }
+
+      .ht-toolbar-root[data-placement="below"] .ht-submenu {
+        top: auto;
+        bottom: calc(100% + 6px);
+        transform: translateX(-50%) translateY(-4px);
+      }
+
+      .ht-submenu.ht-submenu-open {
+        display: block;
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
+
+      .ht-submenu-header {
+        padding: 4px 6px 6px;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        color: #94a3b8;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        margin-bottom: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .ht-submenu-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 3px;
+        max-height: 220px;
+        overflow-y: auto;
+        padding: 1px;
+      }
+
+      .ht-submenu-item {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 6px 8px;
+        border-radius: 6px;
+        background: transparent;
+        border: none;
+        color: #f1f5f9;
+        font-size: 11.5px;
+        font-weight: 500;
+        cursor: pointer;
+        text-align: left;
+        width: 100%;
+        transition: background 0.12s ease, color 0.12s ease;
+        outline: none;
+        white-space: nowrap;
+      }
+
+      .ht-submenu-item:hover,
+      .ht-submenu-item:focus-visible {
+        background: rgba(56, 189, 248, 0.16);
+        color: #38bdf8;
+      }
+
+      .ht-submenu-icon {
+        width: 16px;
+        height: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+
+      .ht-submenu-icon img {
+        width: 16px;
+        height: 16px;
+        border-radius: 2px;
+      }
+
+      .ht-submenu-name {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .ht-submenu-footer {
+        margin-top: 4px;
+        padding-top: 4px;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        display: flex;
+        justify-content: flex-end;
+      }
+
+      .ht-submenu-manage {
+        background: transparent;
+        border: none;
+        color: #94a3b8;
+        font-size: 10.5px;
+        cursor: pointer;
+        padding: 3px 6px;
+        border-radius: 4px;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        transition: color 0.14s ease;
+      }
+
+      .ht-submenu-manage:hover {
+        color: #38bdf8;
+        text-decoration: underline;
+      }
+
+      /* Floating Toast Bubble for feedback */
+      .ht-toolbar-toast {
+        position: absolute;
+        bottom: calc(100% + 7px);
+        left: 50%;
+        transform: translateX(-50%) translateY(4px);
+        background: rgba(30, 41, 59, 0.95);
+        backdrop-filter: blur(8px);
+        color: #f8fafc;
+        font-size: 11px;
+        font-weight: 500;
+        padding: 5px 10px;
+        border-radius: 6px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+        white-space: nowrap;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.15s ease, transform 0.15s ease;
+        z-index: 200;
+      }
+
+      .ht-toolbar-root[data-placement="below"] .ht-toolbar-toast {
+        bottom: auto;
+        top: calc(100% + 7px);
+        transform: translateX(-50%) translateY(-4px);
+      }
+
+      .ht-toolbar-toast.ht-toast-show {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
+    `;
+  }
+
+  // Attach Selection Toolbar global events
+  document.addEventListener('selectionchange', handleToolbarSelectionChange);
+
+  window.addEventListener('mouseup', (e) => {
+    if (!isToolbarHovered && !isSubmenuHovered) {
+      scheduleToolbarDisplay(e);
+    }
+  }, { passive: true });
+
+  window.addEventListener('scroll', () => {
+    if (isToolbarVisible && !isToolbarHovered && !isSubmenuHovered) {
+      const sel = window.getSelection ? window.getSelection() : null;
+      if (sel && !sel.isCollapsed && sel.rangeCount > 0) {
+        const range = sel.getRangeAt(0);
+        const rect = range.getBoundingClientRect();
+        if (rect.bottom < 0 || rect.top > window.innerHeight) {
+          hideToolbar();
+        } else {
+          updateToolbarPosition(rect);
+        }
+      } else {
+        hideToolbar();
+      }
+    }
+  }, { passive: true });
+
+  window.addEventListener('resize', () => {
+    if (isToolbarVisible) {
+      const sel = window.getSelection ? window.getSelection() : null;
+      if (sel && !sel.isCollapsed && sel.rangeCount > 0) {
+        updateToolbarPosition(sel.getRangeAt(0).getBoundingClientRect());
+      } else {
+        hideToolbar();
+      }
+    }
+  }, { passive: true });
+
+  // Initialize toolbar when DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initToolbarHost);
+  } else {
+    initToolbarHost();
+  }
 
 })();

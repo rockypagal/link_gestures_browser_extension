@@ -654,6 +654,9 @@
             <span class="stat-dot dot-blue"></span> 🔗 Link Gestures
           </div>
           <div class="stat-pill">
+            <span class="stat-dot dot-purple"></span> 🪄 Selection Toolbar
+          </div>
+          <div class="stat-pill">
             <span class="stat-dot dot-indigo"></span> 🔄 Tab Cycling
           </div>
           <div class="stat-pill">
@@ -805,10 +808,70 @@
         </div>
       </section>
 
-      <!-- SECTION 2: 📋 Selected Text Gestures (Organized Feature-First!) -->
+      <!-- SECTION 2: 🪄 Floating Text Selection Toolbar (New Feature!) -->
       <section class="card">
         <div class="card-header">
-          <h2 class="card-title">🔍 2. Selected Text Gestures & Shortcuts</h2>
+          <h2 class="card-title">🪄 2. Floating Text Selection Toolbar</h2>
+          <span class="badge badge-indigo">Contextual Actions</span>
+        </div>
+        <p class="card-lead">
+          Whenever you select text, HoldTab presents an elegant floating toolbar positioned directly near your selection with 4 core actions:
+        </p>
+
+        <div class="feature-category-block" style="margin-top: 0;">
+          <div class="feature-grid">
+            <div class="feature-row-card">
+              <div class="feature-top">
+                <span class="feature-name">🪄 Interactive Toolbar Showcase</span>
+                <span class="badge badge-blue">Try Selecting Below</span>
+              </div>
+              <div class="action-highlight-box highlight-blue" style="margin-top: 6px;">
+                <div class="action-instruction-row">
+                  <span class="action-badge-cue">👉 HOW TO TEST:</span>
+                  <span>Select any words in the sentence below &amp; wait ~250ms</span>
+                </div>
+                <div class="action-result-text">
+                  <strong>🎯 Result:</strong> The floating toolbar appears with <strong>Select All</strong>, <strong>Search</strong> (hover for website submenu), <strong>Copy</strong>, and <strong>Cut</strong>.
+                </div>
+              </div>
+
+              <div id="toolbarDemoText" class="sample-text-area" style="margin-top: 12px; font-size: 14.5px; line-height: 1.6; padding: 14px; border: 1.5px dashed rgba(56, 189, 248, 0.4); border-radius: 8px; background: rgba(15, 23, 42, 0.6);">
+                "HoldTab's floating selection toolbar lets you quickly copy, search websites in the background, or select all text without ever reaching for menus."
+              </div>
+
+              <div style="display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap;">
+                <button id="selectDemoTextBtn" class="btn-action-sm">✨ Select Demo Sentence</button>
+                <button id="clearDemoSelectionBtn" class="btn-reset-sm">✕ Clear Selection</button>
+              </div>
+            </div>
+
+            <!-- Excluded Contexts Verification -->
+            <div class="feature-row-card">
+              <div class="feature-top">
+                <span class="feature-name">🛡️ Excluded Inputs Verification</span>
+                <span class="badge badge-amber">Safety Checked</span>
+              </div>
+              <p style="font-size: 12.5px; color: var(--text-muted); margin: 6px 0 10px;">
+                To prevent obstructing form data, the toolbar is automatically suppressed inside password fields and regular text inputs:
+              </p>
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <input type="password" value="SuperSecretPassword123" class="text-input-field" placeholder="Password field..." title="Toolbar will NOT appear here" readonly>
+                <input type="text" value="Regular input field text" class="text-input-field" placeholder="Regular input..." title="Toolbar will NOT appear here" readonly>
+              </div>
+              <div class="action-highlight-box highlight-amber" style="margin-top: 8px;">
+                <div class="action-result-text" style="font-size: 11.5px;">
+                  🔒 <strong>Safety rule:</strong> Try selecting text inside these inputs &mdash; the toolbar safely remains hidden so form controls function normally!
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION 3: 📋 Selected Text Gestures (Organized Feature-First!) -->
+      <section class="card">
+        <div class="card-header">
+          <h2 class="card-title">🔍 3. Selected Text Gestures & Shortcuts</h2>
           <span class="badge badge-green">Feature-First Guide</span>
         </div>
         <p class="card-lead">
@@ -1072,10 +1135,10 @@
         </div>
       </section>
 
-      <!-- SECTION 3: 🔄 Tab Cycling Gestures (Feature-First!) -->
+      <!-- SECTION 4: 🔄 Tab Cycling Gestures (Feature-First!) -->
       <section class="card">
         <div class="card-header">
-          <h2 class="card-title">🔄 3. Tab Cycling & Quick Tab Actions</h2>
+          <h2 class="card-title">🔄 4. Tab Cycling & Quick Tab Actions</h2>
           <span class="badge badge-indigo">Multi-Tab Gestures</span>
         </div>
         <p class="card-lead">
@@ -1180,10 +1243,10 @@
         </div>
       </section>
 
-      <!-- SECTION 4: 🛡️ Non-Link Elements (Safety Verification) -->
+      <!-- SECTION 5: 🛡️ Non-Link Elements (Safety Verification) -->
       <section class="card">
         <div class="card-header">
-          <h2 class="card-title">🛡️ 4. Normal UI Safety Verification</h2>
+          <h2 class="card-title">🛡️ 5. Normal UI Safety Verification</h2>
           <span
             class="badge"
             style="background: rgba(148, 163, 184, 0.15); color: #94a3b8"

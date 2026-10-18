@@ -5,7 +5,7 @@
 ![HoldTab Preview](icons/icon-128.png)
 
 [![Manifest V3](https://img.shields.io/badge/Manifest-V3-blue.svg?style=flat-square)](manifest.json)
-[![Version](https://img.shields.io/badge/Version-1.4.5-emerald.svg?style=flat-square)](manifest.json)
+[![Version](https://img.shields.io/badge/Version-1.5.0-emerald.svg?style=flat-square)](manifest.json)
 [![Browser Support](https://img.shields.io/badge/Browsers-Brave%20%7C%20Chrome%20%7C%20Edge%20%7C%20Firefox-orange.svg?style=flat-square)](#installation-guide)
 [![Privacy](https://img.shields.io/badge/Privacy-100%25%20Local%20%26%20Zero%20Tracking-purple.svg?style=flat-square)](#privacy--permissions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
@@ -22,8 +22,9 @@ When researching, reading articles, or browsing forums (Reddit, Hacker News, Git
 
 **HoldTab** solves all of this with intuitive, non-intrusive gestures:
 1. **Press and hold on any link** for a brief moment (default: 450ms) &mdash; an animated radial ring fills around your cursor and opens the link in a background tab without leaving your current page.
-2. **Cycle tabs effortlessly** using <kbd>Alt</kbd> + <kbd>&lt;</kbd> / <kbd>&gt;</kbd>, two-finger trackpad scroll, mouse wheel, or rocker clicks.
-3. **Supercharge text selections** with instant double-click copy/cut, smart spaced paste, and direct site or Google search hold gestures.
+2. **Contextual Floating Text Selection Toolbar** &mdash; whenever you highlight text, an elegant floating toolbar appears with **Select All**, **Search** (with multi-engine hover submenu), **Copy**, and **Cut**.
+3. **Cycle tabs effortlessly** using <kbd>Alt</kbd> + <kbd>&lt;</kbd> / <kbd>&gt;</kbd>, two-finger trackpad scroll, mouse wheel, or rocker clicks.
+4. **Supercharge text selections** with instant double-click copy/cut, smart spaced paste, and direct site or Google search hold gestures.
 
 ---
 
@@ -31,6 +32,8 @@ When researching, reading articles, or browsing forums (Reddit, Hacker News, Git
 
 | Gesture | Action | Visual Feedback | Target Tab |
 | :--- | :--- | :--- | :--- |
+| **Highlight Text (Toolbar)** | Floating contextual action toolbar | 🪄 **Floating Toolbar** (Select All, Search, Copy, Cut) | In-page / Background |
+| **Hover "Search" on Toolbar**| Multi-engine search submenu | 🌐 **Submenu Grid** (Google, YT, Wiki, Reddit, etc.) | Background (Stay) |
 | **Hold Left-Click on Link** | Open link in background | 🔵 **Sky Blue Ring** + Checkmark | Background (Stay) |
 | **Hold Right-Click on Link** | Open link & switch immediately | 🟣 **Indigo Ring** + Checkmark | Active Foreground |
 | **Flick / Drag Link** | Fast flick link in any direction | 🧭 **Directional Arrow** | Background (Stay) |
@@ -62,7 +65,32 @@ When researching, reading articles, or browsing forums (Reddit, Hacker News, Git
 
 ---
 
-### 2. 🔍 Selected Text Gestures & Instant Clipboard Suite
+### 2. 🪄 Floating Text Selection Toolbar & Search Submenu
+- **Automatic Contextual Presence**: Whenever you select text across webpages, a compact, frosted-glass floating toolbar automatically appears above (or below) your selection after a calibrated debounce (~250ms).
+- **Core Action Suite**:
+  - **Select All**: Selects the entire document without deselecting or colliding with the toolbar.
+  - **Search**: Clicking Search directly executes a Google search in a background tab without leaving your reading position.
+  - **Multi-Engine Search Submenu**: Hovering over the Search button opens a smooth secondary floating submenu with instant access to:
+    - 🔍 **Google**
+    - 📺 **YouTube**
+    - 📚 **Wikipedia**
+    - 👾 **Reddit**
+    - 🐙 **GitHub**
+    - 🛒 **Amazon**
+    - ➕ **Custom Search Engines** (fully configurable in popup settings).
+  - **Copy**: Copies the highlighted text to your clipboard with immediate "Copied!" feedback and HUD confirmation.
+  - **Cut**: Intelligently handles cut operations. In editable inputs or textareas, cuts text natively. On standard read-only web content, Cut is visually dimmed with an accessible explanatory toast (`"Cut is only available in editable fields"`).
+- **Complete Display Control**:
+  - **Automatic Mode**: Appears automatically on selection after configurable delay (0&ndash;600ms, default 250ms) and minimum text length (default: 2 characters).
+  - **On Demand Mode**: Displays only when holding your preferred modifier key (<kbd>Alt</kbd>, <kbd>Ctrl</kbd>, or <kbd>Shift</kbd>).
+  - **Disabled Mode**: Completely disables toolbar without affecting mouse gestures.
+- **Zero Obstruction & Safety Rules**: Automatically suppressed inside password fields, standard input boxes, and textareas so it never blocks web forms or native editing.
+- **Shadow DOM Style Isolation**: Rendered inside an isolated Shadow DOM host (`#holdtab-toolbar-host`) to ensure zero CSS contamination with host website styles.
+- **Keyboard Accessible**: Full support for <kbd>Tab</kbd>, Arrow keys, <kbd>Enter</kbd> / <kbd>Space</kbd> activation, and <kbd>Escape</kbd> dismissal.
+
+---
+
+### 3. 🔍 Selected Text Gestures & Instant Clipboard Suite
 - **Double Left-Click to Copy**: Highlight text on any page and double left-click on it to instantly copy it to your clipboard. Shows a sleek floating green `📋 Copied` HUD badge. *(Triple-clicking smoothly selects full paragraphs without triggering copy).*
 - **Double Right-Click to Cut**: Highlight text inside any editable input field or textarea and double right-click (or triple left-click) to cut it to the clipboard with an instant `✂️ Cut` notification.
 - **Smart Paste with Word Spacing**: Double left-click inside an empty input field, between words, or at field boundaries to paste clipboard content with intelligent spacing. Native double-click word selection inside words is preserved.
@@ -77,7 +105,7 @@ When researching, reading articles, or browsing forums (Reddit, Hacker News, Git
 
 ---
 
-### 3. 🔄 Tab Cycling & Multi-Tab Navigation
+### 4. 🔄 Tab Cycling & Multi-Tab Navigation
 - **Keyboard Tab Hopping (<kbd>Alt</kbd> + <kbd>&lt;</kbd> and <kbd>Alt</kbd> + <kbd>&gt;</kbd>)**:
   - Press <kbd>Alt</kbd> + <kbd>&lt;</kbd> (Comma / `<`) to jump to the **Previous Tab** (`◀`).
   - Press <kbd>Alt</kbd> + <kbd>&gt;</kbd> (Period / `>`) to jump to the **Next Tab** (`▶`).
@@ -102,11 +130,12 @@ When researching, reading articles, or browsing forums (Reddit, Hacker News, Git
 
 ---
 
-### 4. ✨ Visuals & Customization Suite
-The extension settings popup provides granular control across 5 dedicated panels:
+### 5. ✨ Visuals & Customization Suite
+The extension settings popup provides granular control across 6 dedicated panels:
 - **Links Tab**: Trigger mode (Hold, Flick, Both), Flick distance (15px&ndash;100px), Activation key, Tab placement, Default focus, and the Live Test Arena.
 - **Tabs Tab**: Toggles for Alt scroll, Alt + &lt; / &gt; keys, Rocker gestures, Right-Click wheel, Right-Click swipe (with Mouse vs. Mousepad mode), and Tab HUD.
 - **Shortcuts Tab**: Toggles for Double-Click copy/cut, Smart paste, Alt double-click fill search, Alt hold site search, Text hold Google search, and Double right-click tab close.
+- **Toolbar Tab (`🪄`)**: Master toolbar toggle, Display mode (Automatic, On Demand with modifier key, Disabled), Appearance delay slider (0&ndash;600ms), Minimum selection length slider (1&ndash;10 chars), Search submenu toggle, and complete **Search Engines Manager** (add custom engine with `{query}` URL template, reorder, edit, enable/disable, and restore defaults).
 - **Visuals Tab**:
   - **Link Hold Ring**: Independent toggle, Hold duration slider (200ms&ndash;1200ms), Grace delay slider (0ms&ndash;600ms).
   - **Site Search Ring**: Independent toggle, Hold duration slider, Grace delay slider.
@@ -123,10 +152,11 @@ HoldTab includes a built-in, playful **Practice Playground** to test every gestu
   1. Click the HoldTab icon in your browser toolbar to open settings.
   2. Click **"📖 Open Interactive Practice Guide"** at the bottom of the Links tab, or open `test.html` directly in your browser (`file:///path/to/test.html`).
 - **Interactive Practice Sandbox**:
-  - **Interactive Test Links**: Try background hold (Sky Blue), foreground hold (Indigo), and flick/drag (Cyan) with clear instruction pills below each button.
-  - **Interactive Text Sandbox**: Highlight sample text with **Quick Select Sample Text**, test **Deselect / Unselect Text**, cut/copy text in live input boxes, test smart paste in empty fields, and execute live search queries in an embedded test form.
-  - **Tab Cycling Practice**: Practice trackpad scroll, keyboard keybinds, wheel scroll, and rocker gestures with on-screen HUD feedback.
-  - **Safety Check**: Verify standard buttons and UI elements operate normally without HoldTab interference.
+  - **1. Interactive Test Links**: Try background hold (Sky Blue), foreground hold (Indigo), and flick/drag (Cyan) with clear instruction pills below each button.
+  - **2. Floating Selection Toolbar**: Highlight demo sentences to test the floating toolbar, hover over Search to explore the search engine grid, test Copy and Cut, and verify excluded password/input contexts.
+  - **3. Interactive Text Sandbox**: Highlight sample text with **Quick Select Sample Text**, test **Deselect / Unselect Text**, cut/copy text in live input boxes, test smart paste in empty fields, and execute live search queries in an embedded test form.
+  - **4. Tab Cycling Practice**: Practice trackpad scroll, keyboard keybinds (<kbd>Alt</kbd> + <kbd>&lt;</kbd> / <kbd>&gt;</kbd>), wheel scroll, and rocker gestures with on-screen HUD feedback.
+  - **5. Safety Check**: Verify standard buttons and UI elements operate normally without HoldTab interference.
 
 ---
 

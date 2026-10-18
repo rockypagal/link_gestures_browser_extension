@@ -37,6 +37,10 @@
         <span class="nav-icon">⚡</span>
         <span>Shortcuts</span>
       </button>
+      <button class="nav-tab" data-tab="tab-toolbar" role="tab" aria-selected="false">
+        <span class="nav-icon">🪄</span>
+        <span>Toolbar</span>
+      </button>
       <button class="nav-tab" data-tab="tab-visuals" role="tab" aria-selected="false">
         <span class="nav-icon">✨</span>
         <span>Visuals</span>
@@ -371,7 +375,134 @@
       </section>
     </main>
 
-    <!-- Tab 4: Animations & Visual Controls -->
+    <!-- Tab 4: Text Selection Toolbar -->
+    <main id="tab-toolbar" class="tab-panel">
+      <!-- Toolbar Settings Card -->
+      <section class="card">
+        <div class="card-header">
+          <span class="card-title">Selection Toolbar</span>
+          <label class="switch switch-sm" title="Toggle Floating Selection Toolbar">
+            <input type="checkbox" id="toolbarEnabledToggle" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+        <p class="card-desc">Floating toolbar appearing on text selection with Select All, Search, Copy, and Cut actions.</p>
+
+        <!-- Display Mode -->
+        <div class="setting-group">
+          <label class="setting-label">Display Mode</label>
+          <div class="segmented-control">
+            <label class="segment">
+              <input type="radio" name="toolbarMode" value="auto" checked>
+              <span>Automatic</span>
+            </label>
+            <label class="segment">
+              <input type="radio" name="toolbarMode" value="demand">
+              <span>On Demand</span>
+            </label>
+            <label class="segment">
+              <input type="radio" name="toolbarMode" value="disabled">
+              <span>Disabled</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- On-Demand Modifier Key -->
+        <div class="setting-group" id="toolbarModifierGroup" style="display: none;">
+          <div class="setting-label-row">
+            <label for="toolbarModifier" class="setting-label">Activation Key</label>
+            <select id="toolbarModifier" class="select-dropdown">
+              <option value="alt">Alt + Select</option>
+              <option value="ctrl">Ctrl / Cmd + Select</option>
+              <option value="shift">Shift + Select</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Appearance Delay -->
+        <div class="setting-group" id="toolbarDelayGroup">
+          <div class="setting-label-row">
+            <label for="toolbarDelay" class="setting-label">Appearance Delay</label>
+            <span id="toolbarDelayValue" class="value-chip">250 ms</span>
+          </div>
+          <input type="range" id="toolbarDelay" min="0" max="600" step="25" value="250" class="range-slider">
+          <div class="range-marks">
+            <span>Instant (0ms)</span>
+            <span>Default (250ms)</span>
+            <span>Slow (600ms)</span>
+          </div>
+        </div>
+
+        <!-- Minimum Selection Length -->
+        <div class="setting-group" id="toolbarMinLengthGroup">
+          <div class="setting-label-row">
+            <label for="toolbarMinLength" class="setting-label">Min Selection Length</label>
+            <span id="toolbarMinLengthValue" class="value-chip">2 chars</span>
+          </div>
+          <input type="range" id="toolbarMinLength" min="1" max="10" step="1" value="2" class="range-slider">
+          <div class="range-marks">
+            <span>1 char</span>
+            <span>2 chars (Default)</span>
+            <span>10 chars</span>
+          </div>
+        </div>
+
+        <!-- Search Submenu Toggle -->
+        <div class="toggle-row" style="margin-bottom: 0;">
+          <div class="toggle-info">
+            <div class="toggle-title">Search Websites Submenu</div>
+            <div class="toggle-desc">Show search engines grid on hovering Search button</div>
+          </div>
+          <label class="switch switch-sm" title="Toggle Search Submenu">
+            <input type="checkbox" id="toolbarSearchSubmenuToggle" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+      </section>
+
+      <!-- Search Websites Management Card -->
+      <section class="card">
+        <div class="card-header">
+          <span class="card-title">Search Engines</span>
+          <span class="badge">Submenu</span>
+        </div>
+        <p class="card-desc">Configure search websites available in the Search hover submenu:</p>
+
+        <!-- Dynamic Website List -->
+        <div id="toolbarWebsitesList" class="website-list"></div>
+
+        <!-- Website Action Buttons -->
+        <div class="website-btn-row">
+          <button id="addWebsiteBtn" class="btn-secondary" style="flex: 1; padding: 7px 10px; font-size: 11.5px; display: flex; align-items: center; justify-content: center; gap: 5px;">
+            <span>➕</span> Add Custom Website
+          </button>
+          <button id="restoreWebsitesBtn" class="btn-subtle" style="padding: 7px 10px; font-size: 11.5px;" title="Reset to default websites">
+            ↺ Defaults
+          </button>
+        </div>
+
+        <!-- Inline Add / Edit Website Form Modal/Card -->
+        <div id="websiteFormCard" class="website-form-card" style="display: none;">
+          <div class="website-form-title" id="websiteFormTitle">Add Custom Website</div>
+          <div class="setting-group" style="margin-bottom: 8px;">
+            <label class="setting-label" style="font-size: 11px;">Website Name</label>
+            <input type="text" id="websiteNameInput" placeholder="e.g. DuckDuckGo" class="text-input" style="width: 100%; margin-top: 4px;">
+          </div>
+          <div class="setting-group" style="margin-bottom: 6px;">
+            <label class="setting-label" style="font-size: 11px;">Search URL Template</label>
+            <input type="url" id="websiteUrlInput" placeholder="e.g. https://duckduckgo.com/?q={query}" class="text-input" style="width: 100%; margin-top: 4px;">
+            <span class="form-hint">Use <code>{query}</code> as placeholder for selected text.</span>
+          </div>
+          <div id="websiteFormError" class="form-error" style="display: none;"></div>
+          <div style="display: flex; gap: 8px; margin-top: 10px;">
+            <button id="saveWebsiteBtn" class="btn-primary" style="flex: 1; padding: 6px 12px; font-size: 11.5px;">Save Website</button>
+            <button id="cancelWebsiteBtn" class="btn-secondary" style="padding: 6px 12px; font-size: 11.5px;">Cancel</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Tab 5: Animations & Visual Controls -->
     <main id="tab-visuals" class="tab-panel">
       <!-- Section 1: Link Hold Animation -->
       <section class="card">
@@ -549,7 +680,7 @@
     <!-- Footer -->
     <footer class="footer">
       <div class="footer-meta">
-        <span>v1.4.5 &bull; Auto-saved</span>
+        <span>v1.5.0 &bull; Auto-saved</span>
       </div>
       <button id="resetDefaultsBtn" class="btn-reset" title="Reset all settings to recommended defaults">
         ↺ Reset Defaults

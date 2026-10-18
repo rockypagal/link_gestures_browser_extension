@@ -1,5 +1,14 @@
 // HoldTab - Service Worker (Manifest V3)
 
+const DEFAULT_SEARCH_WEBSITES = [
+  { id: 'google', name: 'Google', template: 'https://www.google.com/search?q={query}', enabled: true, icon: 'google' },
+  { id: 'youtube', name: 'YouTube', template: 'https://www.youtube.com/results?search_query={query}', enabled: true, icon: 'youtube' },
+  { id: 'wikipedia', name: 'Wikipedia', template: 'https://en.wikipedia.org/w/index.php?search={query}', enabled: true, icon: 'wikipedia' },
+  { id: 'reddit', name: 'Reddit', template: 'https://www.reddit.com/search/?q={query}', enabled: true, icon: 'reddit' },
+  { id: 'github', name: 'GitHub', template: 'https://github.com/search?q={query}', enabled: true, icon: 'github' },
+  { id: 'amazon', name: 'Amazon', template: 'https://www.amazon.com/s?k={query}', enabled: true, icon: 'amazon' }
+];
+
 const DEFAULT_SETTINGS = {
   enabled: true,
   holdDuration: 450,       // Duration in milliseconds (200 - 1200)
@@ -32,6 +41,13 @@ const DEFAULT_SETTINGS = {
   animTextSearchDelay: 180,// ms grace delay for text search ring (0 - 600)
   animFlickDrag: true,     // Show/hide flick/drag dynamic arrow
   animHudBadges: true,     // Show/hide floating HUD badges (tab cycling, clipboard)
+  toolbarEnabled: true,    // Text selection floating toolbar master toggle
+  toolbarMode: 'auto',     // 'auto' | 'demand' | 'disabled'
+  toolbarModifier: 'alt',  // 'alt' | 'ctrl' | 'shift' (used when toolbarMode === 'demand')
+  toolbarDelay: 250,       // ms delay before showing toolbar on stable selection (0 - 600)
+  toolbarMinLength: 2,     // Minimum characters selected to display toolbar (default: 2)
+  toolbarSearchSubmenu: true, // Show search engine submenu on hover
+  toolbarSearchWebsites: DEFAULT_SEARCH_WEBSITES,
   excludedDomains: []
 };
 
@@ -41,6 +57,9 @@ chrome.runtime.onInstalled.addListener(async (details) => {
     const existing = await chrome.storage.sync.get(DEFAULT_SETTINGS);
     // Merge existing with defaults in case of new fields
     const updated = { ...DEFAULT_SETTINGS, ...existing };
+    if (!Array.isArray(updated.toolbarSearchWebsites) || updated.toolbarSearchWebsites.length === 0) {
+      updated.toolbarSearchWebsites = DEFAULT_SEARCH_WEBSITES;
+    }
     await chrome.storage.sync.set(updated);
   } catch (error) {
     console.error('HoldTab: Failed to initialize settings:', error);

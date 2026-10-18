@@ -1,5 +1,14 @@
 // HoldTab - Popup Controller
 
+const DEFAULT_SEARCH_WEBSITES = [
+  { id: 'google', name: 'Google', template: 'https://www.google.com/search?q={query}', enabled: true, icon: 'google' },
+  { id: 'youtube', name: 'YouTube', template: 'https://www.youtube.com/results?search_query={query}', enabled: true, icon: 'youtube' },
+  { id: 'wikipedia', name: 'Wikipedia', template: 'https://en.wikipedia.org/w/index.php?search={query}', enabled: true, icon: 'wikipedia' },
+  { id: 'reddit', name: 'Reddit', template: 'https://www.reddit.com/search/?q={query}', enabled: true, icon: 'reddit' },
+  { id: 'github', name: 'GitHub', template: 'https://github.com/search?q={query}', enabled: true, icon: 'github' },
+  { id: 'amazon', name: 'Amazon', template: 'https://www.amazon.com/s?k={query}', enabled: true, icon: 'amazon' }
+];
+
 const DEFAULT_SETTINGS = {
   enabled: true,
   holdDuration: 450,
@@ -32,6 +41,13 @@ const DEFAULT_SETTINGS = {
   animTextSearchDelay: 180,
   animFlickDrag: true,
   animHudBadges: true,
+  toolbarEnabled: true,
+  toolbarMode: 'auto',
+  toolbarModifier: 'alt',
+  toolbarDelay: 250,
+  toolbarMinLength: 2,
+  toolbarSearchSubmenu: true,
+  toolbarSearchWebsites: DEFAULT_SEARCH_WEBSITES,
   excludedDomains: []
 };
 
@@ -267,6 +283,41 @@ function renderUI() {
 
   const animHudBadgesToggle = document.getElementById('animHudBadgesToggle');
   if (animHudBadgesToggle) animHudBadgesToggle.checked = currentSettings.animHudBadges !== false;
+
+  // Text selection toolbar
+  const toolbarEnabledToggle = document.getElementById('toolbarEnabledToggle');
+  if (toolbarEnabledToggle) toolbarEnabledToggle.checked = currentSettings.toolbarEnabled !== false;
+
+  const tbMode = currentSettings.toolbarMode || 'auto';
+  const tbModeRadio = document.querySelector(`input[name="toolbarMode"][value="${tbMode}"]`);
+  if (tbModeRadio) tbModeRadio.checked = true;
+
+  const tbModGroup = document.getElementById('toolbarModifierGroup');
+  if (tbModGroup) {
+    tbModGroup.style.display = (tbMode === 'demand') ? 'block' : 'none';
+  }
+
+  const tbModSelect = document.getElementById('toolbarModifier');
+  if (tbModSelect) tbModSelect.value = currentSettings.toolbarModifier || 'alt';
+
+  const tbDelaySlider = document.getElementById('toolbarDelay');
+  const tbDelayVal = document.getElementById('toolbarDelayValue');
+  if (tbDelaySlider && tbDelayVal) {
+    tbDelaySlider.value = currentSettings.toolbarDelay ?? 250;
+    tbDelayVal.textContent = `${currentSettings.toolbarDelay ?? 250} ms`;
+  }
+
+  const tbMinLenSlider = document.getElementById('toolbarMinLength');
+  const tbMinLenVal = document.getElementById('toolbarMinLengthValue');
+  if (tbMinLenSlider && tbMinLenVal) {
+    tbMinLenSlider.value = currentSettings.toolbarMinLength ?? 2;
+    tbMinLenVal.textContent = `${currentSettings.toolbarMinLength ?? 2} chars`;
+  }
+
+  const tbSubmenuToggle = document.getElementById('toolbarSearchSubmenuToggle');
+  if (tbSubmenuToggle) tbSubmenuToggle.checked = currentSettings.toolbarSearchSubmenu !== false;
+
+  renderToolbarWebsitesList();
 
   // Excluded domains
   renderExcludedTags();
@@ -631,6 +682,320 @@ function setupEventListeners() {
       }
     });
   }
+
+  // Setup Text Selection Toolbar listeners
+  setupToolbarEventListeners();
+}
+
+let editingWebsiteId = null;
+
+// Setup Text Selection Toolbar event listeners
+function setupToolbarEventListeners() {
+  const toolbarEnabledToggle = document.getElementById('toolbarEnabledToggle');
+  if (toolbarEnabledToggle) {
+    toolbarEnabledToggle.addEventListener('change', (e) => {
+      saveSettings({ toolbarEnabled: e.target.checked });
+    });
+  }
+
+  // Display mode
+  document.querySelectorAll('input[name="toolbarMode"]').forEach((el) => {
+    el.addEventListener('change', (e) => {
+      const mode = e.target.value;
+      const modGroup = document.getElementById('toolbarModifierGroup');
+      if (modGroup) {
+        modGroup.style.display = (mode === 'demand') ? 'block' : 'none';
+      }
+      saveSettings({ toolbarMode: mode });
+    });
+  });
+
+  // Activation key
+  const modifierSelect = document.getElementById('toolbarModifier');
+  if (modifierSelect) {
+    modifierSelect.addEventListener('change', (e) => {
+      saveSettings({ toolbarModifier: e.target.value });
+    });
+  }
+
+  // Appearance delay
+  const delaySlider = document.getElementById('toolbarDelay');
+  const delayVal = document.getElementById('toolbarDelayValue');
+  if (delaySlider && delayVal) {
+    delaySlider.addEventListener('input', (e) => {
+      delayVal.textContent = `${e.target.value} ms`;
+    });
+    delaySlider.addEventListener('change', (e) => {
+      saveSettings({ toolbarDelay: parseInt(e.target.value, 10) });
+    });
+  }
+
+  // Minimum length
+  const minLenSlider = document.getElementById('toolbarMinLength');
+  const minLenVal = document.getElementById('toolbarMinLengthValue');
+  if (minLenSlider && minLenVal) {
+    minLenSlider.addEventListener('input', (e) => {
+      minLenVal.textContent = `${e.target.value} chars`;
+    });
+    minLenSlider.addEventListener('change', (e) => {
+      saveSettings({ toolbarMinLength: parseInt(e.target.value, 10) });
+    });
+  }
+
+  // Submenu toggle
+  const submenuToggle = document.getElementById('toolbarSearchSubmenuToggle');
+  if (submenuToggle) {
+    submenuToggle.addEventListener('change', (e) => {
+      saveSettings({ toolbarSearchSubmenu: e.target.checked });
+    });
+  }
+
+  // Website management buttons
+  const addBtn = document.getElementById('addWebsiteBtn');
+  const cancelBtn = document.getElementById('cancelWebsiteBtn');
+  const saveBtn = document.getElementById('saveWebsiteBtn');
+  const restoreBtn = document.getElementById('restoreWebsitesBtn');
+  const formCard = document.getElementById('websiteFormCard');
+  const formTitle = document.getElementById('websiteFormTitle');
+  const nameInput = document.getElementById('websiteNameInput');
+  const urlInput = document.getElementById('websiteUrlInput');
+  const formError = document.getElementById('websiteFormError');
+
+  if (addBtn && formCard) {
+    addBtn.addEventListener('click', () => {
+      editingWebsiteId = null;
+      if (formTitle) formTitle.textContent = 'Add Custom Website';
+      if (nameInput) nameInput.value = '';
+      if (urlInput) urlInput.value = '';
+      if (formError) formError.style.display = 'none';
+      formCard.style.display = 'block';
+      if (nameInput) nameInput.focus();
+    });
+  }
+
+  if (cancelBtn && formCard) {
+    cancelBtn.addEventListener('click', () => {
+      editingWebsiteId = null;
+      formCard.style.display = 'none';
+      if (formError) formError.style.display = 'none';
+    });
+  }
+
+  if (saveBtn && formCard) {
+    saveBtn.addEventListener('click', () => {
+      const name = nameInput ? nameInput.value.trim() : '';
+      const template = urlInput ? urlInput.value.trim() : '';
+
+      if (!name) {
+        showWebsiteFormError('Please enter a website name.');
+        return;
+      }
+
+      if (!template) {
+        showWebsiteFormError('Please enter a search URL template.');
+        return;
+      }
+
+      if (!/^https?:\/\//i.test(template)) {
+        showWebsiteFormError('URL template must start with http:// or https://');
+        return;
+      }
+
+      if (!template.includes('{query}')) {
+        showWebsiteFormError('URL template must include the {query} placeholder.');
+        return;
+      }
+
+      const sites = Array.isArray(currentSettings.toolbarSearchWebsites)
+        ? [...currentSettings.toolbarSearchWebsites]
+        : [...DEFAULT_SEARCH_WEBSITES];
+
+      if (editingWebsiteId) {
+        const idx = sites.findIndex((s) => s.id === editingWebsiteId);
+        if (idx !== -1) {
+          sites[idx] = { ...sites[idx], name, template };
+        }
+      } else {
+        const id = 'custom_' + Date.now();
+        sites.push({ id, name, template, enabled: true, icon: 'custom' });
+      }
+
+      currentSettings.toolbarSearchWebsites = sites;
+      saveSettings({ toolbarSearchWebsites: sites });
+      formCard.style.display = 'none';
+      editingWebsiteId = null;
+      renderToolbarWebsitesList();
+    });
+  }
+
+  if (restoreBtn) {
+    restoreBtn.addEventListener('click', () => {
+      const restored = JSON.parse(JSON.stringify(DEFAULT_SEARCH_WEBSITES));
+      currentSettings.toolbarSearchWebsites = restored;
+      saveSettings({ toolbarSearchWebsites: restored });
+      if (formCard) formCard.style.display = 'none';
+      editingWebsiteId = null;
+      renderToolbarWebsitesList();
+    });
+  }
+
+  // Delegated clicks for website list items (reorder, edit, delete, toggle)
+  const listContainer = document.getElementById('toolbarWebsitesList');
+  if (listContainer) {
+    listContainer.addEventListener('click', (e) => {
+      const btn = e.target.closest('button');
+      const toggle = e.target.closest('.site-toggle');
+
+      const sites = Array.isArray(currentSettings.toolbarSearchWebsites)
+        ? [...currentSettings.toolbarSearchWebsites]
+        : [...DEFAULT_SEARCH_WEBSITES];
+
+      if (toggle) {
+        const id = toggle.dataset.id;
+        const site = sites.find((s) => s.id === id);
+        if (site) {
+          site.enabled = toggle.checked;
+          currentSettings.toolbarSearchWebsites = sites;
+          saveSettings({ toolbarSearchWebsites: sites });
+          renderToolbarWebsitesList();
+        }
+        return;
+      }
+
+      if (!btn) return;
+      const action = btn.dataset.action;
+      const id = btn.dataset.id;
+      const index = parseInt(btn.dataset.index, 10);
+
+      if (action === 'up' && index > 0) {
+        const temp = sites[index];
+        sites[index] = sites[index - 1];
+        sites[index - 1] = temp;
+        currentSettings.toolbarSearchWebsites = sites;
+        saveSettings({ toolbarSearchWebsites: sites });
+        renderToolbarWebsitesList();
+        return;
+      }
+
+      if (action === 'down' && index < sites.length - 1) {
+        const temp = sites[index];
+        sites[index] = sites[index + 1];
+        sites[index + 1] = temp;
+        currentSettings.toolbarSearchWebsites = sites;
+        saveSettings({ toolbarSearchWebsites: sites });
+        renderToolbarWebsitesList();
+        return;
+      }
+
+      if (action === 'edit' && id) {
+        const site = sites.find((s) => s.id === id);
+        if (site && formCard) {
+          editingWebsiteId = id;
+          if (formTitle) formTitle.textContent = `Edit "${site.name}"`;
+          if (nameInput) nameInput.value = site.name;
+          if (urlInput) urlInput.value = site.template;
+          if (formError) formError.style.display = 'none';
+          formCard.style.display = 'block';
+          if (nameInput) nameInput.focus();
+        }
+        return;
+      }
+
+      if (action === 'delete' && id) {
+        const filtered = sites.filter((s) => s.id !== id);
+        currentSettings.toolbarSearchWebsites = filtered;
+        saveSettings({ toolbarSearchWebsites: filtered });
+        if (editingWebsiteId === id && formCard) {
+          formCard.style.display = 'none';
+          editingWebsiteId = null;
+        }
+        renderToolbarWebsitesList();
+      }
+    });
+  }
+}
+
+function showWebsiteFormError(msg) {
+  const formError = document.getElementById('websiteFormError');
+  if (formError) {
+    formError.textContent = msg;
+    formError.style.display = 'block';
+  }
+}
+
+// Render the list of configurable search engines in the popup
+function renderToolbarWebsitesList() {
+  const container = document.getElementById('toolbarWebsitesList');
+  if (!container) return;
+  container.innerHTML = '';
+
+  const sites = Array.isArray(currentSettings.toolbarSearchWebsites)
+    ? currentSettings.toolbarSearchWebsites
+    : DEFAULT_SEARCH_WEBSITES;
+
+  if (sites.length === 0) {
+    container.innerHTML = '<div style="padding: 8px; font-size: 11px; color: var(--text-muted); text-align: center;">No search engines configured. Click Defaults to restore.</div>';
+    return;
+  }
+
+  sites.forEach((site, index) => {
+    const item = document.createElement('div');
+    item.className = `website-item ${site.enabled === false ? 'website-disabled' : ''}`;
+    item.innerHTML = `
+      <div class="website-reorder">
+        <button type="button" class="btn-reorder" data-action="up" data-index="${index}" ${index === 0 ? 'disabled' : ''} title="Move Up">▲</button>
+        <button type="button" class="btn-reorder" data-action="down" data-index="${index}" ${index === sites.length - 1 ? 'disabled' : ''} title="Move Down">▼</button>
+      </div>
+      <div class="website-icon-preview">
+        ${getWebsiteIconHtml(site)}
+      </div>
+      <div class="website-info">
+        <div class="website-name">${escapeHtml(site.name)}</div>
+        <div class="website-template" title="${escapeHtml(site.template)}">${escapeHtml(site.template)}</div>
+      </div>
+      <div class="website-actions">
+        <label class="switch switch-sm" title="Enable or disable this search engine">
+          <input type="checkbox" class="site-toggle" data-id="${escapeHtml(site.id)}" ${site.enabled !== false ? 'checked' : ''}>
+          <span class="slider"></span>
+        </label>
+        <button type="button" class="btn-icon-action" data-action="edit" data-id="${escapeHtml(site.id)}" title="Edit Search Engine">✏️</button>
+        <button type="button" class="btn-icon-action btn-delete" data-action="delete" data-id="${escapeHtml(site.id)}" title="Delete Search Engine">🗑️</button>
+      </div>
+    `;
+    container.appendChild(item);
+  });
+}
+
+// Inline SVG icons for standard search engines with high contrast
+function getWebsiteIconHtml(site) {
+  const id = (site.icon || site.id || '').toLowerCase();
+  if (id === 'google') {
+    return `<svg viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.65v3.05h3.9c2.28-2.1 3.645-5.2 3.645-9.14z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.9-3.05c-1.08.72-2.45 1.16-4.03 1.16-3.1 0-5.73-2.1-6.67-4.93H1.28v3.15C3.26 21.3 7.33 24 12 24z"/><path fill="#FBBC05" d="M5.33 14.27c-.24-.72-.38-1.49-.38-2.27s.14-1.55.38-2.27V6.58H1.28C.46 8.2 0 10.04 0 12s.46 3.8 1.28 5.42l4.05-3.15z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.7 1.28 6.58l4.05 3.15c.94-2.83 3.57-4.98 6.67-4.98z"/></svg>`;
+  }
+  if (id === 'youtube') {
+    return `<svg viewBox="0 0 24 24"><path fill="#FF0000" d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814z"/><path fill="#FFFFFF" d="M9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>`;
+  }
+  if (id === 'wikipedia') {
+    return `<svg viewBox="0 0 24 24" fill="#FFFFFF"><path d="M12.09 13.002l3.05-7.05h2.46l-5.01 11.025-4.5-9.975-4.5 9.975L-1.5 5.952h2.46l3.05 7.05 2.5-5.55h1.98l2.5 5.55z"/><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg>`;
+  }
+  if (id === 'reddit') {
+    return `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="#FF4500"/><path fill="#FFF" d="M19.5 12c0-.8-.7-1.5-1.5-1.5-.4 0-.8.2-1.1.5-1.1-.8-2.6-1.3-4.3-1.4l.7-3.4 2.4.5c0 .7.6 1.3 1.4 1.3.8 0 1.4-.6 1.4-1.4s-.6-1.4-1.4-1.4c-.6 0-1.1.4-1.3.9l-2.7-.6c-.2 0-.3.1-.4.3l-.9 4.1c-1.8.1-3.3.6-4.4 1.4-.3-.3-.7-.5-1.1-.5-.8 0-1.5.7-1.5 1.5 0 .6.4 1.1.9 1.3-.1.4-.1.8-.1 1.2 0 2.5 2.9 4.5 6.5 4.5s6.5-2 6.5-4.5c0-.4 0-.8-.1-1.2.5-.2.9-.7.9-1.3zm-10.5 1c.6 0 1 .4 1 1s-.4 1-1 1-1-.4-1-1 .4-1 1-1zm6 4c-.9.9-2.6.9-3 0-.1-.1 0-.3.1-.4.1-.1.3 0 .4.1.3.6 1.8.6 2.1 0 .1-.1.3-.1.4 0 .1.1.1.2 0 .3zm-.5-3c-.6 0-1-.4-1-1s.4-1 1-1 1 .4 1 1-.4 1-1 1z"/></svg>`;
+  }
+  if (id === 'github') {
+    return `<svg viewBox="0 0 24 24" fill="#FFFFFF"><path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>`;
+  }
+  if (id === 'amazon') {
+    return `<svg viewBox="0 0 24 24" fill="#FF9900"><path d="M13.88 15.63c-2.36 1.83-5.8 2.8-8.8 2.8-4.22 0-8.02-1.62-10.88-4.33-.23-.22-.03-.52.24-.35 3.1 1.9 6.94 3.05 10.9 3.05 2.65 0 5.61-.71 8.28-2.19.41-.23.67.24.26 1.02zM15.42 14.18c-.3-.39-1.99-.18-2.75-.09-.23.03-.27-.15-.06-.29 1.37-.97 3.63-.69 3.9-.34.27.35-.07 2.63-1.37 3.69-.2.16-.38.07-.3-.14.28-.73.88-2.44.58-2.83z"/><path d="M14.6 9.87c0-1.74-.88-2.76-2.5-2.76-1.57 0-2.46.97-2.72 1.92-.05.18.06.33.24.35l1.64.12c.15.01.29-.09.33-.23.13-.44.47-.73.96-.73.65 0 1.03.38 1.03 1.15v.42c-.88.08-2.1.23-3.08.63-1.28.53-1.95 1.55-1.95 2.8 0 1.74 1.2 2.67 2.68 2.67 1.25 0 2.05-.6 2.5-1.33h.06v1.07c0 .16.1.28.25.29l1.45.02c.16 0 .28-.13.28-.29V11.5c0-.52-.04-1.07-.08-1.63zm-2.02 4.12c-.38.45-.94.75-1.55.75-.7 0-1.12-.46-1.12-1.2 0-.96.65-1.5 1.8-1.65.37-.05.65-.05.87-.03v2.13z" fill="#FFFFFF"/></svg>`;
+  }
+  let domain = '';
+  try {
+    const u = new URL(site.template.replace(/\{query\}/g, 'test'));
+    domain = u.hostname;
+  } catch (_) {}
+  if (domain) {
+    return `<img src="https://${escapeHtml(domain)}/favicon.ico" alt="${escapeHtml(site.name)}" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='inline-flex';"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`;
+  }
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`;
 }
 
 // Helper to bind animation toggle with delay slider
