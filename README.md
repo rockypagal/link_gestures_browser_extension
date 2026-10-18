@@ -22,7 +22,7 @@ When researching, reading articles, or browsing forums (Reddit, Hacker News, Git
 
 **HoldTab** solves all of this with intuitive, non-intrusive gestures:
 1. **Press and hold on any link** for a brief moment (default: 450ms) &mdash; an animated radial ring fills around your cursor and opens the link in a background tab without leaving your current page.
-2. **Contextual Floating Text Selection Toolbar** &mdash; whenever you highlight text, an elegant floating toolbar appears with **Select All**, **Search** (with multi-engine hover submenu), **Copy**, and **Cut**.
+2. **Contextual Floating Text Selection Toolbar** &mdash; whenever you highlight text, an elegant floating toolbar appears with **Select Line**, **Search** (with multi-engine hover submenu for background and foreground tabs), **Copy**, and **Cut**.
 3. **Cycle tabs effortlessly** using <kbd>Alt</kbd> + <kbd>&lt;</kbd> / <kbd>&gt;</kbd>, two-finger trackpad scroll, mouse wheel, or rocker clicks.
 4. **Supercharge text selections** with instant double-click copy/cut, smart spaced paste, and direct site or Google search hold gestures.
 
@@ -32,8 +32,9 @@ When researching, reading articles, or browsing forums (Reddit, Hacker News, Git
 
 | Gesture | Action | Visual Feedback | Target Tab |
 | :--- | :--- | :--- | :--- |
-| **Highlight Text (Toolbar)** | Floating contextual action toolbar | 🪄 **Floating Toolbar** (Select All, Search, Copy, Cut) | In-page / Background |
-| **Hover "Search" on Toolbar**| Multi-engine search submenu | 🌐 **Submenu Grid** (Google, YT, Wiki, Reddit, etc.) | Background (Stay) |
+| **Highlight Text (Toolbar)** | Floating contextual action toolbar | 🪄 **Floating Toolbar** (Select Line, Search, Copy, Cut) | In-page / Background |
+| **Click Website on Submenu** | Search query in background (keeps menu open) | 🌐 **Submenu Grid**: `✓ Opened` badge | Background (Stay) |
+| **Click `↗` Icon on Website**| Search query & switch immediately | 🚀 Immediate tab switch | Active Foreground |
 | **Hold Left-Click on Link** | Open link in background | 🔵 **Sky Blue Ring** + Checkmark | Background (Stay) |
 | **Hold Right-Click on Link** | Open link & switch immediately | 🟣 **Indigo Ring** + Checkmark | Active Foreground |
 | **Flick / Drag Link** | Fast flick link in any direction | 🧭 **Directional Arrow** | Background (Stay) |
@@ -68,7 +69,7 @@ When researching, reading articles, or browsing forums (Reddit, Hacker News, Git
 ### 2. 🪄 Floating Text Selection Toolbar & Search Submenu
 - **Automatic Contextual Presence**: Whenever you select text across webpages, a compact, frosted-glass floating toolbar automatically appears above (or below) your selection after a calibrated debounce (~250ms).
 - **Core Action Suite**:
-  - **Select All**: Selects the entire document without deselecting or colliding with the toolbar.
+  - **Select Line**: Selects the full line / sentence containing the selected word (rather than the entire document), and repositions the toolbar on the newly selected line for quick follow-up copying or searching.
   - **Search**: Clicking Search directly executes a Google search in a background tab without leaving your reading position.
   - **Multi-Engine Search Submenu**: Hovering over the Search button opens a smooth secondary floating submenu with instant access to:
     - 🔍 **Google**
@@ -77,7 +78,9 @@ When researching, reading articles, or browsing forums (Reddit, Hacker News, Git
     - 👾 **Reddit**
     - 🐙 **GitHub**
     - 🛒 **Amazon**
-    - ➕ **Custom Search Engines** (fully configurable in popup settings).
+    - ➕ **Custom Search Engines** (SteamDB, Steam, Nexus Mods, GOG, or any custom URL).
+    - **Consecutive Background Searching**: Clicking any website button opens the search in a **background tab** while **keeping the toolbar and menu open**, so you can search the query on multiple websites back-to-back!
+    - **Instant Foreground Switch**: Each website button features a dedicated **`↗` icon** on the right side &mdash; clicking it opens the search in an **active foreground tab** and immediately switches to it.
   - **Copy**: Copies the highlighted text to your clipboard with immediate "Copied!" feedback and HUD confirmation.
   - **Cut**: Intelligently handles cut operations. In editable inputs or textareas, cuts text natively. On standard read-only web content, Cut is visually dimmed with an accessible explanatory toast (`"Cut is only available in editable fields"`).
 - **Complete Display Control**:

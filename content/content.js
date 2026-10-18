@@ -2992,11 +2992,12 @@
     toolbarEl = document.createElement('div');
     toolbarEl.className = 'ht-toolbar';
 
-    // 1. Select All Button
-    btnSelectAll = createToolbarButton('select-all', 'Select All', 'Select All (Ctrl+A)', `
+    // 1. Select Line Button
+    btnSelectAll = createToolbarButton('select-all', 'Select Line', 'Select current line', `
       <svg class="ht-tb-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="3" y="3" width="18" height="18" rx="2" stroke-dasharray="3 3"/>
-        <path d="M9 9h6v6H9z" fill="currentColor" fill-opacity="0.3"/>
+        <line x1="3" y1="6" x2="21" y2="6"/>
+        <line x1="3" y1="12" x2="21" y2="12" stroke-width="3" stroke="#38bdf8"/>
+        <line x1="3" y1="18" x2="21" y2="18"/>
       </svg>
     `);
 
@@ -3099,29 +3100,11 @@
   }
 
   function setupToolbarActionListeners() {
-    // Select All
+    // Select Line
     btnSelectAll.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      try {
-        const ok = document.execCommand('selectAll');
-        if (!ok) {
-          const sel = window.getSelection();
-          const range = document.createRange();
-          range.selectNodeContents(document.body);
-          sel.removeAllRanges();
-          sel.addRange(range);
-        }
-      } catch (_) {
-        try {
-          const sel = window.getSelection();
-          const range = document.createRange();
-          range.selectNodeContents(document.body);
-          sel.removeAllRanges();
-          sel.addRange(range);
-        } catch (_) {}
-      }
-      hideToolbar();
+      selectCurrentLine();
     });
 
     // Main Search Click -> Google Search in Background Tab
@@ -3329,6 +3312,78 @@
     isSubmenuHovered = false;
   }
 
+  function selectCurrentLine() {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return;
+
+    const origRange = sel.getRangeAt(0);
+
+    // 1. Use native browser Selection.modify with line boundaries (Chromium, Firefox, WebKit)
+    let selectedLineText = '';
+    if (typeof sel.modify === 'function') {
+      try {
+        sel.collapseToStart();
+        sel.modify('move', 'backward', 'lineboundary');
+        sel.modify('extend', 'forward', 'lineboundary');
+        selectedLineText = sel.toString().trim();
+      } catch (_) {}
+    }
+
+    // 2. DOM-based fallback if lineboundary didn't capture or returned empty
+    if (!selectedLineText || selectedLineText.length === 0) {
+      try {
+        let node = origRange.commonAncestorContainer;
+        if (node.nodeType === Node.TEXT_NODE) {
+          const text = node.textContent || '';
+          const offset = origRange.startOffset;
+
+          let lineStart = text.lastIndexOf('\n', offset);
+          lineStart = lineStart === -1 ? 0 : lineStart + 1;
+
+          let lineEnd = text.indexOf('\n', offset);
+          lineEnd = lineEnd === -1 ? text.length : lineEnd;
+
+          if (lineEnd > lineStart) {
+            const range = document.createRange();
+            range.setStart(node, lineStart);
+            range.setEnd(node, lineEnd);
+            sel.removeAllRanges();
+            sel.addRange(range);
+            selectedLineText = sel.toString().trim();
+          }
+        }
+
+        if (!selectedLineText || selectedLineText.length === 0) {
+          let blockEl = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+          const blockTags = ['P', 'LI', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'BLOCKQUOTE', 'PRE', 'DIV', 'TR', 'TD', 'TH', 'ARTICLE', 'SECTION'];
+          while (blockEl && blockEl !== document.body && !blockTags.includes(blockEl.tagName)) {
+            const style = window.getComputedStyle(blockEl);
+            if (style.display === 'block' || style.display === 'flex' || style.display === 'list-item') {
+              break;
+            }
+            blockEl = blockEl.parentElement;
+          }
+
+          if (blockEl && blockEl !== document.body) {
+            const range = document.createRange();
+            range.selectNodeContents(blockEl);
+            sel.removeAllRanges();
+            sel.addRange(range);
+            selectedLineText = sel.toString().trim();
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (sel.rangeCount > 0) {
+      currentSelectionText = sel.toString().trim();
+      // Reposition toolbar to fit the newly selected line without hiding
+      requestAnimationFrame(() => {
+        updateToolbarPosition();
+      });
+    }
+  }
+
   function renderSubmenuGrid() {
     if (!submenuGridEl) return;
     submenuGridEl.innerHTML = '';
@@ -3338,12 +3393,15 @@
       : DEFAULT_SEARCH_WEBSITES;
 
     sites.forEach((site) => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'ht-submenu-item';
-      btn.setAttribute('role', 'menuitem');
-      btn.setAttribute('tabindex', '0');
-      btn.setAttribute('title', `Search on ${site.name}`);
+      const item = document.createElement('div');
+      item.className = 'ht-submenu-item';
+      item.setAttribute('role', 'menuitem');
+      item.setAttribute('tabindex', '0');
+      item.dataset.siteId = site.id;
+      item.title = `Search on ${site.name} (Background Tab, keeps menu open)`;
+
+      const mainAction = document.createElement('div');
+      mainAction.className = 'ht-submenu-main-action';
 
       const iconSpan = document.createElement('span');
       iconSpan.className = 'ht-submenu-icon';
@@ -3353,25 +3411,57 @@
       nameSpan.className = 'ht-submenu-name';
       nameSpan.textContent = site.name;
 
-      btn.appendChild(iconSpan);
-      btn.appendChild(nameSpan);
+      mainAction.appendChild(iconSpan);
+      mainAction.appendChild(nameSpan);
 
-      btn.addEventListener('mousedown', (e) => {
+      // Right-side open-in-foreground action icon (switches immediately to new tab)
+      const openBtn = document.createElement('button');
+      openBtn.type = 'button';
+      openBtn.className = 'ht-submenu-open-action';
+      openBtn.title = `Search on ${site.name} & switch to tab (Foreground)`;
+      openBtn.setAttribute('aria-label', `Search on ${site.name} and switch to tab`);
+      openBtn.innerHTML = `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>`;
+
+      item.appendChild(mainAction);
+      item.appendChild(openBtn);
+
+      // Foreground click on right-side icon
+      openBtn.addEventListener('mousedown', (e) => {
         e.preventDefault();
         e.stopPropagation();
       });
 
-      btn.addEventListener('click', (e) => {
+      openBtn.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        executeSearchOnWebsite(site);
+        executeSearchOnWebsite(site, true);
       });
 
-      submenuGridEl.appendChild(btn);
+      // Background click on main item
+      item.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      });
+
+      item.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        executeSearchOnWebsite(site, false);
+      });
+
+      // Keyboard support
+      item.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          executeSearchOnWebsite(site, e.shiftKey || e.altKey);
+        }
+      });
+
+      submenuGridEl.appendChild(item);
     });
   }
 
-  function executeSearchOnWebsite(site) {
+  function executeSearchOnWebsite(site, isForeground = false) {
     const query = currentSelectionText.trim();
     if (!query) return;
 
@@ -3380,22 +3470,57 @@
       template = 'https://' + template;
     }
 
+    // Auto-fix steamdb if legacy or missing /search/
+    if (template.includes('steamdb.info/?q=')) {
+      template = template.replace('steamdb.info/?q=', 'steamdb.info/search/?q=');
+    }
+
+    // Form-compatible search query encoding: spaces as '+'
+    const encodedQuery = encodeURIComponent(query).replace(/%20/g, '+');
+
     let finalUrl;
     if (template.includes('{query}')) {
-      finalUrl = template.replace(/\{query\}/g, encodeURIComponent(query));
+      finalUrl = template.replace(/\{query\}/g, encodedQuery);
     } else {
       const joiner = template.includes('?')
         ? (template.endsWith('?') || template.endsWith('&') ? '' : '&')
         : '?';
-      finalUrl = `${template}${joiner}q=${encodeURIComponent(query)}`;
+      finalUrl = `${template}${joiner}q=${encodedQuery}`;
     }
 
     chrome.runtime.sendMessage({
       action: 'openLink',
       url: finalUrl,
-      tabFocus: 'background'
+      tabFocus: isForeground ? 'foreground' : 'background'
     });
-    hideToolbar();
+
+    if (isForeground) {
+      hideToolbar();
+    } else {
+      showSubmenuItemFeedback(site.id);
+    }
+  }
+
+  function showSubmenuItemFeedback(siteId) {
+    if (!submenuGridEl) return;
+    const item = submenuGridEl.querySelector(`[data-site-id="${siteId}"]`);
+    if (item) {
+      item.classList.add('ht-item-opened');
+      const nameEl = item.querySelector('.ht-submenu-name');
+      const origText = nameEl ? nameEl.textContent : '';
+      if (nameEl) {
+        nameEl.textContent = '✓ Opened';
+        nameEl.style.color = '#38bdf8';
+      }
+      setTimeout(() => {
+        item.classList.remove('ht-item-opened');
+        if (nameEl) {
+          nameEl.textContent = origText;
+          nameEl.style.color = '';
+        }
+      }, 1200);
+    }
+    showClipboardHud('✓ Search Opened (Background)', currentSelectionText);
   }
 
   function hideToolbar() {
@@ -3802,7 +3927,7 @@
         left: 50%;
         transform: translateX(-50%) translateY(4px);
         top: calc(100% + 6px);
-        width: 260px;
+        width: 290px;
         background: rgba(15, 23, 42, 0.96);
         backdrop-filter: blur(14px);
         -webkit-backdrop-filter: blur(14px);
@@ -3855,26 +3980,44 @@
       .ht-submenu-item {
         display: flex;
         align-items: center;
-        gap: 7px;
-        padding: 6px 8px;
+        justify-content: space-between;
+        gap: 4px;
+        padding: 5px 6px;
         border-radius: 6px;
-        background: transparent;
-        border: none;
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid transparent;
         color: #f1f5f9;
         font-size: 11.5px;
         font-weight: 500;
         cursor: pointer;
         text-align: left;
         width: 100%;
-        transition: background 0.12s ease, color 0.12s ease;
+        transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
         outline: none;
         white-space: nowrap;
+        position: relative;
+        box-sizing: border-box;
       }
 
       .ht-submenu-item:hover,
       .ht-submenu-item:focus-visible {
-        background: rgba(56, 189, 248, 0.16);
-        color: #38bdf8;
+        background: rgba(56, 189, 248, 0.14);
+        border-color: rgba(56, 189, 248, 0.25);
+        color: #f8fafc;
+      }
+
+      .ht-submenu-item.ht-item-opened {
+        background: rgba(56, 189, 248, 0.22) !important;
+        border-color: rgba(56, 189, 248, 0.45) !important;
+      }
+
+      .ht-submenu-main-action {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
       }
 
       .ht-submenu-icon {
@@ -3896,6 +4039,34 @@
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+        transition: color 0.15s ease;
+      }
+
+      .ht-submenu-open-action {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 20px;
+        height: 20px;
+        border-radius: 4px;
+        background: transparent;
+        border: none;
+        color: #64748b;
+        cursor: pointer;
+        padding: 0;
+        flex-shrink: 0;
+        transition: color 0.12s ease, background 0.12s ease, transform 0.1s ease;
+        outline: none;
+      }
+
+      .ht-submenu-open-action:hover {
+        background: rgba(56, 189, 248, 0.25);
+        color: #38bdf8;
+        transform: scale(1.15);
+      }
+
+      .ht-submenu-open-action:active {
+        transform: scale(0.92);
       }
 
       .ht-submenu-footer {

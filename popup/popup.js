@@ -714,6 +714,11 @@ const KNOWN_DOMAIN_NAMES = {
   'wikipedia.org': 'Wikipedia',
   'amazon.com': 'Amazon',
   'google.com': 'Google',
+  'steamdb.info': 'SteamDB',
+  'steampowered.com': 'Steam',
+  'nexusmods.com': 'Nexus Mods',
+  'gog.com': 'GOG',
+  'epicgames.com': 'Epic Games',
   'ycombinator.com': 'Hacker News'
 };
 
@@ -762,7 +767,7 @@ function normalizeSearchTemplate(rawUrl) {
     return url.replace(/\{query\}/gi, '{query}');
   }
 
-  // 3. Known popular search engines
+  // 3. Known popular search engines & platforms
   try {
     const parsed = new URL(url);
     const host = parsed.hostname.toLowerCase().replace(/^www\./i, '');
@@ -786,7 +791,12 @@ function normalizeSearchTemplate(rawUrl) {
       { pattern: /(^|\.)youtube\.com$/i, template: 'https://www.youtube.com/results?search_query={query}' },
       { pattern: /(^|\.)wikipedia\.org$/i, template: 'https://en.wikipedia.org/w/index.php?search={query}' },
       { pattern: /(^|\.)amazon\.com$/i, template: 'https://www.amazon.com/s?k={query}' },
-      { pattern: /(^|\.)google\.com$/i, template: 'https://www.google.com/search?q={query}' }
+      { pattern: /(^|\.)google\.com$/i, template: 'https://www.google.com/search?q={query}' },
+      { pattern: /(^|\.)steamdb\.info$/i, template: 'https://steamdb.info/search/?q={query}' },
+      { pattern: /(^|\.)steampowered\.com$/i, template: 'https://store.steampowered.com/search/?term={query}' },
+      { pattern: /(^|\.)nexusmods\.com$/i, template: 'https://www.nexusmods.com/search/?gsearch={query}' },
+      { pattern: /(^|\.)gog\.com$/i, template: 'https://www.gog.com/en/games?query={query}' },
+      { pattern: /(^|\.)imdb\.com$/i, template: 'https://www.imdb.com/find/?q={query}' }
     ];
 
     if ((parsed.pathname === '/' || !parsed.pathname) && !parsed.search) {
@@ -836,9 +846,9 @@ function normalizeSearchTemplate(rawUrl) {
       return parsed.toString().replace(/%7Bquery%7D/gi, '{query}');
     }
 
-    // Otherwise, append ?q={query}
+    // Otherwise, for standard websites, search is located on /search/?q={query}
     if (parsed.pathname === '/' || !parsed.pathname) {
-      return `${parsed.origin}/?q={query}`;
+      return `${parsed.origin}/search/?q={query}`;
     }
     return `${parsed.origin}${parsed.pathname}?q={query}`;
   } catch (_) {
@@ -930,6 +940,27 @@ function setupToolbarEventListeners() {
       if (urlInput) urlInput.value = '';
       if (formError) formError.style.display = 'none';
       formCard.style.display = 'block';
+
+      try {
+        if (chrome.tabs && chrome.tabs.query) {
+          chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            if (tabs && tabs[0] && tabs[0].url && !editingWebsiteId) {
+              const currentUrl = tabs[0].url;
+              if (/^https?:\/\//i.test(currentUrl)) {
+                const detectedName = deriveNameFromUrl(currentUrl);
+                const detectedTemplate = normalizeSearchTemplate(currentUrl);
+                if (urlInput && !urlInput.value && detectedTemplate) {
+                  urlInput.value = detectedTemplate;
+                }
+                if (nameInput && !nameInput.value && detectedName) {
+                  nameInput.value = detectedName;
+                }
+              }
+            }
+          });
+        }
+      } catch (_) {}
+
       if (urlInput) urlInput.focus();
     });
   }
@@ -1129,6 +1160,19 @@ function renderToolbarWebsitesList() {
   const sites = Array.isArray(currentSettings.toolbarSearchWebsites)
     ? currentSettings.toolbarSearchWebsites
     : DEFAULT_SEARCH_WEBSITES;
+
+  // Auto-heal legacy or misformatted templates (e.g. steamdb.info without /search/)
+  let sitesUpdated = false;
+  sites.forEach((site) => {
+    if (site.template && site.template.includes('steamdb.info/?q=')) {
+      site.template = site.template.replace('steamdb.info/?q=', 'steamdb.info/search/?q=');
+      sitesUpdated = true;
+    }
+  });
+  if (sitesUpdated) {
+    currentSettings.toolbarSearchWebsites = sites;
+    saveSettings({ toolbarSearchWebsites: sites });
+  }
 
   if (sites.length === 0) {
     container.innerHTML = '<div style="padding: 8px; font-size: 11px; color: var(--text-muted); text-align: center;">No search engines configured. Click Defaults to restore.</div>';
