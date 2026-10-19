@@ -616,14 +616,16 @@ function isRestrictedUrl(url) {
   assert(css.includes('.ht-submenu-search-box:focus-within'), 'Submenu search box has focus styling');
   assert(css.includes('#38bdf8'), 'Contains Mode A cyan theme');
 
-  // Quick Search uses distinct electric indigo / violet (#818cf8, #a5b4fc)
+  // Quick Search uses distinct electric indigo / violet (#818cf8, #a5b4fc, #c7d2fe)
   assert(css.includes('.ht-quick-query-box {'), 'Contains quick query box styling');
+  assert(css.includes('background: #231c53;'), 'Quick Search query box uses distinct indigo background');
+  assert(css.includes('linear-gradient(135deg, #2e266d 0%, #1e1744 100%)'), 'Quick Search query box uses distinct indigo gradient');
   assert(css.includes('border: 1.5px solid #818cf8;'), 'Quick Search query box uses distinct electric indigo border');
   assert(css.includes('rgba(129, 140, 248, 0.28)'), 'Quick Search uses electric indigo shadow/glow');
-  assert(css.includes('.ht-quick-query-icon {') && css.includes('color: #a5b4fc;'), 'Quick Search icon uses indigo');
+  assert(css.includes('.ht-quick-query-icon {') && css.includes('color: #c7d2fe;'), 'Quick Search icon uses lavender');
   assert(css.includes('.ht-default-badge {') && css.includes('color: #a5b4fc;'), 'Default badge uses indigo accent');
 
-  console.log('  ✓ Scenario 23: Quick Search input and badges have distinct electric indigo theme vs Mode A');
+  console.log('  ✓ Scenario 23: Quick Search input has distinct indigo background and colors vs Mode A');
 }
 
 console.log('\nResults: 23 / 23 Quick Search tests passed.');

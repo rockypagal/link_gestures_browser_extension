@@ -4950,7 +4950,9 @@
         position: static !important;
         transform: none !important;
         width: 330px !important;
-        box-shadow: 0 20px 45px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.12) !important;
+        background: rgba(15, 19, 39, 0.97) !important;
+        border: 1px solid rgba(129, 140, 248, 0.25) !important;
+        box-shadow: 0 20px 45px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(129, 140, 248, 0.25) !important;
         padding: 10px !important;
         animation: htQuickFadeIn 0.15s cubic-bezier(0.16, 1, 0.3, 1);
       }
@@ -4970,9 +4972,10 @@
         display: flex;
         align-items: center;
         width: 100%;
-        background: rgba(17, 24, 39, 0.95);
+        background: #231c53;
+        background: linear-gradient(135deg, #2e266d 0%, #1e1744 100%);
         border: 1.5px solid #818cf8;
-        box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.28);
+        box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.28), inset 0 1px 3px rgba(0, 0, 0, 0.3);
         border-radius: 8px;
         padding: 7px 10px;
         gap: 8px;
@@ -4981,13 +4984,14 @@
       }
 
       .ht-quick-query-box:focus-within {
-        border-color: #a5b4fc;
-        box-shadow: 0 0 0 4px rgba(165, 180, 252, 0.35);
-        background: rgba(15, 23, 42, 0.98);
+        border-color: #c7d2fe;
+        box-shadow: 0 0 0 4px rgba(165, 180, 252, 0.4), inset 0 1px 3px rgba(0, 0, 0, 0.2);
+        background: #2f2575;
+        background: linear-gradient(135deg, #3730a3 0%, #251c5a 100%);
       }
 
       .ht-quick-query-icon {
-        color: #a5b4fc;
+        color: #c7d2fe;
         flex-shrink: 0;
       }
 
@@ -5005,16 +5009,16 @@
       }
 
       .ht-quick-query-input::placeholder {
-        color: #a5b4fc;
-        opacity: 0.65;
+        color: #c7d2fe;
+        opacity: 0.7;
         font-size: 13px;
         font-weight: 400;
       }
 
       .ht-quick-query-clear {
-        background: rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.14);
         border: none;
-        color: #cbd5e1;
+        color: #e0e7ff;
         font-size: 11px;
         width: 18px;
         height: 18px;
@@ -5028,7 +5032,7 @@
       }
 
       .ht-quick-query-clear:hover {
-        background: rgba(129, 140, 248, 0.25);
+        background: rgba(129, 140, 248, 0.35);
         color: #ffffff;
       }
 
