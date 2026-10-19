@@ -66,8 +66,12 @@ function createPng(width, height, rgbaBuffer) {
 }
 
 // Generate icon image data
-// Design: Modern vibrant blue/indigo gradient rounded squircle with a link tab symbol & gesture pulse ring
-function generateIconImage(size) {
+// Design: Modern vibrant rounded squircle with a browser tab card & plus gesture badge
+// Supports three visual states:
+// - 'active': Original vibrant blue/cyan gradient with emerald plus badge
+// - 'custom': Vibrant orange gradient with emerald plus badge
+// - 'disabled': Neutral grey gradient with desaturated card and slate plus badge
+function generateIconImage(size, variant = 'active') {
   const buffer = Buffer.alloc(size * size * 4);
 
   function setPixel(x, y, r, g, b, a) {
@@ -107,16 +111,35 @@ function generateIconImage(size) {
       }
 
       if (dist <= 0) {
-        // Linear gradient from cyan (#00D2FF) at top-left to indigo (#3A7BD5) at bottom-right
         const factor = (x + y) / (size * 2);
-        const r = Math.round(30 + (10 - 30) * factor);
-        const g = Math.round(144 + (100 - 144) * factor);
-        const b = Math.round(255 + (220 - 255) * factor);
+        let r, g, b;
+        if (variant === 'custom') {
+          // Vibrant Orange gradient (#FF9800 to #E65100)
+          r = Math.round(255 + (230 - 255) * factor);
+          g = Math.round(152 + (81 - 152) * factor);
+          b = 0;
+        } else if (variant === 'disabled') {
+          // Neutral grey gradient (#8E98A5 to #4E5664)
+          r = Math.round(142 + (78 - 142) * factor);
+          g = Math.round(152 + (86 - 152) * factor);
+          b = Math.round(165 + (100 - 165) * factor);
+        } else {
+          // Original vibrant cyan/indigo gradient (#00D2FF to #3A7BD5)
+          r = Math.round(30 + (10 - 30) * factor);
+          g = Math.round(144 + (100 - 144) * factor);
+          b = Math.round(255 + (220 - 255) * factor);
+        }
         setPixel(x, y, r, g, b, 255);
       } else if (dist < 1) {
         // Anti-aliased edge
         const alpha = Math.round((1 - dist) * 255);
-        setPixel(x, y, 20, 120, 240, alpha);
+        if (variant === 'custom') {
+          setPixel(x, y, 245, 120, 0, alpha);
+        } else if (variant === 'disabled') {
+          setPixel(x, y, 110, 118, 130, alpha);
+        } else {
+          setPixel(x, y, 20, 120, 240, alpha);
+        }
       }
     }
   }
@@ -140,9 +163,18 @@ function generateIconImage(size) {
       let dist = (qx > 0 && qy > 0) ? Math.hypot(qx, qy) - tabR : Math.max(dx - tabW / 2, dy - tabH / 2);
 
       if (dist <= 0) {
-        setPixel(x, y, 255, 255, 255, 250);
+        if (variant === 'disabled') {
+          setPixel(x, y, 222, 228, 235, 250);
+        } else {
+          setPixel(x, y, 255, 255, 255, 250);
+        }
       } else if (dist < 1) {
-        setPixel(x, y, 255, 255, 255, Math.round((1 - dist) * 250));
+        const cardAlpha = Math.round((1 - dist) * 250);
+        if (variant === 'disabled') {
+          setPixel(x, y, 222, 228, 235, cardAlpha);
+        } else {
+          setPixel(x, y, 255, 255, 255, cardAlpha);
+        }
       }
     }
   }
@@ -153,7 +185,13 @@ function generateIconImage(size) {
     for (let x = Math.floor(tabX); x <= Math.ceil(tabX + tabW); x++) {
       const idx = (y * size + x) * 4;
       if (buffer[idx + 3] > 200) {
-        setPixel(x, y, 210, 230, 255, 255);
+        if (variant === 'custom') {
+          setPixel(x, y, 255, 232, 204, 255);
+        } else if (variant === 'disabled') {
+          setPixel(x, y, 175, 183, 194, 255);
+        } else {
+          setPixel(x, y, 210, 230, 255, 255);
+        }
       }
     }
   }
@@ -167,10 +205,20 @@ function generateIconImage(size) {
     for (let x = 0; x < size; x++) {
       const d = Math.hypot(x - pulseX + 0.5, y - pulseY + 0.5);
       if (d <= pulseR) {
-        // Emerald / Teal badge (#10B981)
-        setPixel(x, y, 16, 185, 129, 255);
+        if (variant === 'disabled') {
+          // Desaturated steel slate badge (#64748B)
+          setPixel(x, y, 100, 116, 139, 255);
+        } else {
+          // Emerald / Teal badge (#10B981)
+          setPixel(x, y, 16, 185, 129, 255);
+        }
       } else if (d < pulseR + 1) {
-        setPixel(x, y, 16, 185, 129, Math.round((pulseR + 1 - d) * 255));
+        const badgeAlpha = Math.round((pulseR + 1 - d) * 255);
+        if (variant === 'disabled') {
+          setPixel(x, y, 100, 116, 139, badgeAlpha);
+        } else {
+          setPixel(x, y, 16, 185, 129, badgeAlpha);
+        }
       }
     }
   }
@@ -196,10 +244,18 @@ const iconsDir = path.join(__dirname, '..', 'icons');
 fs.mkdirSync(iconsDir, { recursive: true });
 
 const sizes = [16, 48, 128];
-for (const size of sizes) {
-  const rgba = generateIconImage(size);
-  const pngBuffer = createPng(size, size, rgba);
-  const outPath = path.join(iconsDir, `icon-${size}.png`);
-  fs.writeFileSync(outPath, pngBuffer);
-  console.log(`Generated ${outPath} (${size}x${size}, ${pngBuffer.length} bytes)`);
+const variants = [
+  { name: 'active', prefix: '' },
+  { name: 'custom', prefix: '-custom' },
+  { name: 'disabled', prefix: '-disabled' }
+];
+
+for (const variant of variants) {
+  for (const size of sizes) {
+    const rgba = generateIconImage(size, variant.name);
+    const pngBuffer = createPng(size, size, rgba);
+    const outPath = path.join(iconsDir, `icon${variant.prefix}-${size}.png`);
+    fs.writeFileSync(outPath, pngBuffer);
+    console.log(`Generated ${outPath} (${size}x${size}, ${pngBuffer.length} bytes, variant: ${variant.name})`);
+  }
 }

@@ -57,7 +57,8 @@
     toolbarMinLength: 2,     // Minimum characters selected to display toolbar (default: 2)
     toolbarSearchSubmenu: true, // Show search engine submenu on hover
     toolbarSearchWebsites: DEFAULT_SEARCH_WEBSITES,
-    excludedDomains: []
+    excludedDomains: [],
+    siteOverrides: {}
   };
 
   // State management
@@ -195,7 +196,7 @@
               hideToolbar();
             }
           }
-          if (!config.enabled || isCurrentSiteExcluded()) {
+          if (!config.enabled || (isCurrentSiteExcluded() && !isAnyFeatureAllowed())) {
             if (typeof cancelHold === 'function') cancelHold();
             if (typeof hideIndicator === 'function') hideIndicator();
           }
@@ -237,9 +238,46 @@
     }
   } catch (e) {}
 
+  // Helper to normalize domain
+  function normalizeSiteDomain(raw) {
+    if (!raw || typeof raw !== 'string') return '';
+    let domain = raw.trim().toLowerCase();
+    domain = domain.replace(/^[a-z0-9+.-]+:\/\//i, '');
+    domain = domain.replace(/^[^/@]+@/, '');
+    domain = domain.replace(/[/?#].*$/, '');
+    domain = domain.split(':')[0];
+    domain = domain.replace(/^\.+|\.+$/g, '').replace(/^www\./, '');
+    return domain;
+  }
+
+  // Get per-site feature overrides for the current domain
+  function getCurrentSiteOverrides() {
+    if (typeof getSiteOverrides === 'function') {
+      return getSiteOverrides(config, window.location.href);
+    }
+    if (!config || typeof config.siteOverrides !== 'object' || !config.siteOverrides) {
+      return {};
+    }
+    const host = normalizeSiteDomain(window.location.hostname || window.location.href);
+    if (!host) return {};
+
+    if (config.siteOverrides[host]) {
+      return config.siteOverrides[host];
+    }
+    for (const [key, val] of Object.entries(config.siteOverrides)) {
+      const normKey = normalizeSiteDomain(key);
+      if (normKey && (host === normKey || host.endsWith('.' + normKey))) {
+        return val || {};
+      }
+    }
+    return {};
+  }
+
   // Check if current site is excluded
   function isCurrentSiteExcluded() {
-    if (!config || !config.enabled) return true;
+    if (typeof isSiteExcluded === 'function') {
+      return isSiteExcluded(config, window.location.hostname || window.location.href);
+    }
     let currentHost = (window.location.hostname || '').toLowerCase();
     if (!currentHost) {
       const href = (window.location.href || '').toLowerCase();
@@ -265,12 +303,38 @@
     });
   }
 
+  // Check if a specific feature is permitted on current site
+  function isFeatureAllowed(featureId) {
+    if (!config || config.enabled === false) return false;
+
+    // If site is not excluded, it's allowed
+    if (!isCurrentSiteExcluded()) {
+      return true;
+    }
+
+    // Site is excluded: check per-site overrides
+    const overrides = getCurrentSiteOverrides();
+    return overrides && overrides[featureId] === true;
+  }
+
+  // Check if ANY feature is allowed on current site
+  function isAnyFeatureAllowed() {
+    if (!config || config.enabled === false) return false;
+    if (!isCurrentSiteExcluded()) return true;
+    return (
+      isFeatureAllowed('toolbar') ||
+      isFeatureAllowed('linkHold') ||
+      isFeatureAllowed('tabCycle') ||
+      isFeatureAllowed('textActions')
+    );
+  }
+
   // Check if floating text selection toolbar is permitted in current context
   function isToolbarAllowed() {
     if (!config || config.enabled === false) return false;
     if (config.toolbarEnabled === false) return false;
     if (config.toolbarMode === 'disabled') return false;
-    if (isCurrentSiteExcluded()) return false;
+    if (!isFeatureAllowed('toolbar')) return false;
     return true;
   }
 
@@ -2095,12 +2159,12 @@
       hideToolbar();
     }
 
-    if (isCurrentSiteExcluded()) return;
+    if (!isAnyFeatureAllowed()) return;
 
     // Handle right-click
     if (e.button === 2) {
       // Rocker Gesture: Left button is physically held down + Right button clicked -> Next Tab
-      if (config.enabled && config.tabCycleRocker && (e.buttons & 1) !== 0) {
+      if (config.enabled && isFeatureAllowed('tabCycle') && config.tabCycleRocker && (e.buttons & 1) !== 0) {
         rockerTriggered = true;
         tabCycleDidExecute = true;
         lastRightClickTime = 0;
@@ -2124,7 +2188,7 @@
 
       // 1. Double Right-Click on Pre-existing Selected Text -> CUT text
       // (Only cuts if text was already selected before the double-click started)
-      if (config.enabled && config.textDoubleClickCopyCut !== false && timeDiff > 40 && timeDiff < DOUBLE_CLICK_INTERVAL && dist < DOUBLE_CLICK_MAX_DISTANCE && lastRightClickSelectedText) {
+      if (config.enabled && isFeatureAllowed('textActions') && config.textDoubleClickCopyCut !== false && timeDiff > 40 && timeDiff < DOUBLE_CLICK_INTERVAL && dist < DOUBLE_CLICK_MAX_DISTANCE && lastRightClickSelectedText) {
         const textToCut = lastRightClickSelectedText || selectedText;
         cancelHold();
         lastRightClickTime = 0;
@@ -2142,7 +2206,7 @@
       }
 
       // 2. Double Right-Click anywhere else -> Close Active Tab
-      if (config.enabled && config.closeTabOnDoubleRightClick && timeDiff > 40 && timeDiff < DOUBLE_RIGHT_CLICK_INTERVAL && dist < DOUBLE_RIGHT_CLICK_MAX_DISTANCE) {
+      if (config.enabled && isFeatureAllowed('tabCycle') && config.closeTabOnDoubleRightClick && timeDiff > 40 && timeDiff < DOUBLE_RIGHT_CLICK_INTERVAL && dist < DOUBLE_RIGHT_CLICK_MAX_DISTANCE) {
         // Double right-click detected!
         cancelHold();
         lastRightClickTime = 0;
@@ -2184,7 +2248,7 @@
       // 1a. Alt + Right Click Hold on Selected Text: Search current website in a NEW TAB (Teal ring)
       // Must strictly require that the user clicked directly on an active text selection!
       const altRightSearchQuery = isTargetingText ? (selectedText || lastRightClickSelectedText) : '';
-      if (config.enabled && config.altHoldSearchSite !== false && isAltPressed(e) && altRightSearchQuery) {
+      if (config.enabled && isFeatureAllowed('textActions') && config.altHoldSearchSite !== false && isAltPressed(e) && altRightSearchQuery) {
         cancelHold();
         isHoldingText = true;
         textSearchType = 'site-new-tab';
@@ -2206,7 +2270,7 @@
 
       // 1b. Text Search Hold (Right Click): Open new foreground tab, move to it (Active Search - Purple)
       // Must strictly require that the user clicked directly on an active text selection!
-      if (config.enabled && config.textSearchHold !== false && !isAltPressed(e) && isTargetingText && selectedText) {
+      if (config.enabled && isFeatureAllowed('textActions') && config.textSearchHold !== false && !isAltPressed(e) && isTargetingText && selectedText) {
         cancelHold();
         isHoldingText = true;
         textSearchType = 'foreground';
@@ -2226,7 +2290,7 @@
       }
 
       // 2. Link Hold (Right Click): Open link in a new tab and move to that tab (Indigo circle UI)
-      if (config.enabled && linkInfo && checkModifier(e)) {
+      if (config.enabled && isFeatureAllowed('linkHold') && linkInfo && checkModifier(e)) {
         cancelHold();
         targetLinkUrl = linkInfo.url;
         targetElement = linkInfo.element;
@@ -2252,7 +2316,7 @@
     // Handle left-click
     if (e.button === 0) {
       // Rocker Gesture: Right button is physically held down + Left button clicked -> Previous Tab
-      if (config.enabled && config.tabCycleRocker && (e.buttons & 2) !== 0) {
+      if (config.enabled && isFeatureAllowed('tabCycle') && config.tabCycleRocker && (e.buttons & 2) !== 0) {
         rockerTriggered = true;
         tabCycleDidExecute = true;
         lastRightClickTime = 0;
@@ -2281,7 +2345,7 @@
       if (leftTimeDiff > 40 && leftTimeDiff < DOUBLE_CLICK_INTERVAL && leftDist < DOUBLE_CLICK_MAX_DISTANCE) {
         // 1. Alt + Double Left-Click -> FILL CURRENT SITE'S SEARCH BAR with selected text
         const isAlt = isAltPressed(e) || lastLeftClickWithAlt;
-        if (isAlt && config.enabled && config.altDoubleClickFillSearch !== false) {
+        if (isAlt && config.enabled && isFeatureAllowed('textActions') && config.altDoubleClickFillSearch !== false) {
           const textToFill = (isTargetingText ? selectedText : '') || lastLeftClickSelectedText;
           if (textToFill) {
             cancelHold();
@@ -2303,7 +2367,7 @@
         }
 
         // 2a. Triple Left-Click on Pre-existing Selected Text in an Editable Input -> CUT text
-        if (config.enabled && config.textDoubleClickCopyCut !== false && isMultiClick && targetIsInput && (lastLeftClickSelectedText || selectedText)) {
+        if (config.enabled && isFeatureAllowed('textActions') && config.textDoubleClickCopyCut !== false && isMultiClick && targetIsInput && (lastLeftClickSelectedText || selectedText)) {
           const textToCut = lastLeftClickSelectedText || selectedText;
           cancelHold();
           lastLeftClickTime = 0;
@@ -2324,7 +2388,7 @@
 
         // 2b. Double Left-Click on Pre-existing Selected Text -> COPY text
         // (Triggers when text was already selected on Click 1)
-        if (config.enabled && config.textDoubleClickCopyCut !== false && lastLeftClickSelectedText) {
+        if (config.enabled && isFeatureAllowed('textActions') && config.textDoubleClickCopyCut !== false && lastLeftClickSelectedText) {
           const textToCopy = lastLeftClickSelectedText || selectedText;
           cancelHold();
           lastLeftClickTime = 0;
@@ -2361,7 +2425,7 @@
 
         // 3. Double Left-Click with cursor in Input Field -> PASTE text
         // (Allows pasting at boundaries or between words with smart spacing; inside words preserves native selection)
-        if (!isMultiClick && config.enabled && config.inputDoubleClickPaste !== false && (targetIsInput || lastLeftClickIsInput)) {
+        if (!isMultiClick && config.enabled && isFeatureAllowed('textActions') && config.inputDoubleClickPaste !== false && (targetIsInput || lastLeftClickIsInput)) {
           const inputToPaste = targetInputElement || lastLeftClickTargetInput;
           const isBetweenText = isCursorInOrBetweenText(inputToPaste);
 
@@ -2425,7 +2489,7 @@
       // 1. Alt + Left Hold on Selected Text: Search current site in Current Tab (Cyan ring)
       // Must strictly require that the user clicked directly on an active text selection!
       const altLeftSearchQuery = isTargetingText ? (selectedText || lastLeftClickSelectedText) : '';
-      if (config.enabled && config.altHoldSearchSite !== false && isAltPressed(e) && altLeftSearchQuery) {
+      if (config.enabled && isFeatureAllowed('textActions') && config.altHoldSearchSite !== false && isAltPressed(e) && altLeftSearchQuery) {
         cancelHold();
         startX = e.clientX;
         startY = e.clientY;
@@ -2447,7 +2511,7 @@
 
       // 2. Text Search Hold (Left Click): Open new background tab and search selected text (Search in BG - Amber)
       // Must strictly require that the user clicked directly on an active text selection!
-      if (config.enabled && config.textSearchHold !== false && isTargetingText && selectedText && !isAltPressed(e)) {
+      if (config.enabled && isFeatureAllowed('textActions') && config.textSearchHold !== false && isTargetingText && selectedText && !isAltPressed(e)) {
         cancelHold();
         startX = e.clientX;
         startY = e.clientY;
@@ -2468,6 +2532,7 @@
 
       if (!checkModifier(e)) return;
       if (!linkInfo) return;
+      if (!isFeatureAllowed('linkHold')) return;
 
       // Force clear any pending timers or prior states
       if (holdTimer) {
@@ -2533,7 +2598,7 @@
     }
 
     // Tab cycling via right-click swipe (requires right button physically held down)
-    if (isRightMouseDown && (e.buttons & 2) !== 0 && config.enabled && config.tabCycleSwipe && !rightSwipeTriggered && !isCurrentSiteExcluded()) {
+    if (isRightMouseDown && (e.buttons & 2) !== 0 && config.enabled && isFeatureAllowed('tabCycle') && config.tabCycleSwipe && !rightSwipeTriggered) {
       const rdx = e.clientX - rightStartX;
       const rdy = e.clientY - rightStartY;
       const absRdx = Math.abs(rdx);
@@ -2684,7 +2749,7 @@
       cancelHold();
     }
 
-    if (!config.enabled || isCurrentSiteExcluded()) return;
+    if (!config.enabled || !isFeatureAllowed('tabCycle')) return;
 
     const isAltScroll = config.tabCycleAltScroll !== false && isAltPressed(e);
     const isRightPressed = config.tabCycleWheel !== false && (e.buttons & 2) !== 0;
@@ -2904,7 +2969,7 @@
     const selectedText = getSelectedText();
     const isTextTarget = Boolean(selectedText && isSelectionTarget(e, selectedText));
 
-    if (config.enabled && !isTextTarget && config.closeTabOnDoubleRightClick && !isCurrentSiteExcluded() &&
+    if (config.enabled && !isTextTarget && isFeatureAllowed('tabCycle') && config.closeTabOnDoubleRightClick &&
         timeDiff > 40 && timeDiff < DOUBLE_RIGHT_CLICK_INTERVAL && dist < DOUBLE_RIGHT_CLICK_MAX_DISTANCE) {
       e.preventDefault();
       e.stopPropagation();
@@ -2954,7 +3019,7 @@
     }
 
     // Alt + < (Prev Tab) and Alt + > (Next Tab) keybinds
-    if (config.enabled && config.tabCycleAltKeys !== false && !isCurrentSiteExcluded()) {
+    if (config.enabled && isFeatureAllowed('tabCycle') && config.tabCycleAltKeys !== false) {
       const isAlt = isAltPressed(e);
       if (isAlt && !e.ctrlKey && !e.metaKey) {
         // Detect < (Prev Tab): e.key '<' or ',' or code 'Comma'

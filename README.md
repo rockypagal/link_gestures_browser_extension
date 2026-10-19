@@ -5,7 +5,7 @@
 ![HoldTab Preview](icons/icon-128.png)
 
 [![Manifest V3](https://img.shields.io/badge/Manifest-V3-blue.svg?style=flat-square)](manifest.json)
-[![Version](https://img.shields.io/badge/Version-1.5.2-emerald.svg?style=flat-square)](manifest.json)
+[![Version](https://img.shields.io/badge/Version-1.6.0-emerald.svg?style=flat-square)](manifest.json)
 [![Browser Support](https://img.shields.io/badge/Browsers-Brave%20%7C%20Chrome%20%7C%20Edge%20%7C%20Firefox-orange.svg?style=flat-square)](#installation-guide)
 [![Privacy](https://img.shields.io/badge/Privacy-100%25%20Local%20%26%20Zero%20Tracking-purple.svg?style=flat-square)](#privacy--permissions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
@@ -147,9 +147,25 @@ The extension settings popup provides granular control across 6 dedicated panels
   - **Site Search Ring**: Independent toggle, Hold duration slider, Grace delay slider.
   - **Web Search Ring**: Independent toggle, Hold duration slider, Grace delay slider.
   - **Other Visuals**: Toggles for flick directional arrow and floating HUD badges.
-- **Sites Tab**: Domain blacklist with 1-click **+ Exclude This Site** button and custom domain management.
+- **Sites Tab**: Domain exclusions with real-time site status, 1-click **+ Exclude This Site** button, and granular **Per-Site Feature Overrides**.
 
 ---
+
+### 6. 🛡️ Dynamic Toolbar Icon & Per-Site Feature Overrides
+HoldTab features an intelligent, dynamic toolbar icon that visually reflects the extension's operational status on your current browser tab in real time:
+
+- 🔵 **Active State (Original Blue Icon)**: Normal HoldTab behavior. The current website is not excluded and follows your normal global settings.
+- 🟠 **Custom State (Orange Icon)**: The website is excluded by default, but has one or more explicitly enabled **Per-Site Feature Overrides**. HoldTab runs only the capabilities you explicitly enabled on this domain.
+- ⚪ **Disabled State (Grey Icon)**: All HoldTab features are disabled on the tab (website is excluded with zero overrides, the global master toggle is switched off, or you are on an internal/restricted browser page such as `chrome://`, `about:`, or the Web Store).
+
+#### Granular Per-Site Overrides
+When you exclude a website (or choose any excluded domain in the Sites tab), HoldTab unlocks a dedicated **Custom Overrides** panel with independent controls for each core capability:
+- 🪄 **Selection Toolbar** (`toolbar`): Floating contextual toolbar and search engines when highlighting text.
+- 🔗 **Link Hold Gestures** (`linkHold`): Background/foreground link hold and flick/drag.
+- 🔄 **Tab Navigation** (`tabCycle`): Trackpad scroll, wheel, rocker, and <kbd>Alt</kbd> tab cycling.
+- ⚡ **Text & Clipboard Actions** (`textActions`): Double-click copy, cut, paste, and text search hold.
+
+Icon states and tooltips update automatically as you switch tabs, navigate between websites, or modify site settings.
 
 ## Interactive Practice Playground (`test.html`)
 

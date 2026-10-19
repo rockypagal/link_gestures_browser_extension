@@ -1,5 +1,13 @@
 // HoldTab - Service Worker (Manifest V3)
 
+try {
+  if (typeof importScripts === 'function') {
+    importScripts('/utils/site-status.js');
+  }
+} catch (e) {
+  console.warn('HoldTab: Failed to importScripts site-status.js', e);
+}
+
 const DEFAULT_SEARCH_WEBSITES = [
   { id: 'google', name: 'Google', template: 'https://www.google.com/search?q={query}', enabled: true, icon: 'google' },
   { id: 'youtube', name: 'YouTube', template: 'https://www.youtube.com/results?search_query={query}', enabled: true, icon: 'youtube' },
@@ -48,7 +56,8 @@ const DEFAULT_SETTINGS = {
   toolbarMinLength: 2,     // Minimum characters selected to display toolbar (default: 2)
   toolbarSearchSubmenu: true, // Show search engine submenu on hover
   toolbarSearchWebsites: DEFAULT_SEARCH_WEBSITES,
-  excludedDomains: []
+  excludedDomains: [],
+  siteOverrides: {}
 };
 
 // Initialize settings on install or update
@@ -60,7 +69,11 @@ chrome.runtime.onInstalled.addListener(async (details) => {
     if (!Array.isArray(updated.toolbarSearchWebsites) || updated.toolbarSearchWebsites.length === 0) {
       updated.toolbarSearchWebsites = DEFAULT_SEARCH_WEBSITES;
     }
+    if (typeof updated.siteOverrides !== 'object' || !updated.siteOverrides) {
+      updated.siteOverrides = {};
+    }
     await chrome.storage.sync.set(updated);
+    await updateAllTabIcons();
   } catch (error) {
     console.error('HoldTab: Failed to initialize settings:', error);
   }
@@ -111,6 +124,34 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'getSettings') {
     chrome.storage.sync.get(DEFAULT_SETTINGS)
       .then((settings) => sendResponse({ success: true, settings }))
+      .catch((err) => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
+  if (message.action === 'getSiteStatus') {
+    const targetUrl = message.url || sender?.tab?.url || '';
+    chrome.storage.sync.get(DEFAULT_SETTINGS)
+      .then((settings) => {
+        const statusRes = (typeof calculateSiteStatus === 'function')
+          ? calculateSiteStatus(settings, targetUrl)
+          : { status: 'active', icon: 'active', title: 'HoldTab — Active' };
+        sendResponse({ success: true, status: statusRes });
+      })
+      .catch((err) => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
+  if (message.action === 'updateTabIcon') {
+    const targetTabId = message.tabId || sender?.tab?.id;
+    updateTabStatusIcon(targetTabId, message.url)
+      .then(() => sendResponse({ success: true }))
+      .catch((err) => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
+  if (message.action === 'updateAllIcons') {
+    updateAllTabIcons()
+      .then(() => sendResponse({ success: true }))
       .catch((err) => sendResponse({ success: false, error: err.message }));
     return true;
   }
@@ -434,3 +475,141 @@ async function handleSearchText(message, sender) {
     query
   };
 }
+
+// ==========================================
+// DYNAMIC EXTENSION ICON MANAGEMENT
+// Active (Blue) | Custom (Orange) | Disabled (Grey)
+// ==========================================
+
+function getActionApi() {
+  if (typeof chrome !== 'undefined' && chrome.action) {
+    return chrome.action;
+  }
+  if (typeof browser !== 'undefined') {
+    if (browser.action) return browser.action;
+    if (browser.browserAction) return browser.browserAction;
+  }
+  if (typeof chrome !== 'undefined' && chrome.browserAction) {
+    return chrome.browserAction;
+  }
+  return null;
+}
+
+/**
+ * Updates the extension toolbar icon and tooltip for a specific tab based on site status.
+ */
+async function updateTabStatusIcon(tabId, urlHint) {
+  const action = getActionApi();
+  if (!action) return;
+
+  try {
+    let url = urlHint;
+    if (!url && typeof tabId === 'number') {
+      try {
+        const tab = await chrome.tabs.get(tabId);
+        url = tab?.url || '';
+      } catch (_) {
+        return; // Tab closed or invalid
+      }
+    }
+
+    const settings = await chrome.storage.sync.get(DEFAULT_SETTINGS);
+    const statusCalc = (typeof calculateSiteStatus === 'function')
+      ? calculateSiteStatus(settings, url)
+      : { status: 'active', icon: 'active', title: 'HoldTab — Active' };
+
+    const iconPaths = (typeof getIconPaths === 'function')
+      ? getIconPaths(statusCalc.icon)
+      : {
+          16: 'icons/icon-16.png',
+          48: 'icons/icon-48.png',
+          128: 'icons/icon-128.png'
+        };
+
+    const details = { path: iconPaths };
+    const titleDetails = { title: statusCalc.title };
+
+    if (typeof tabId === 'number') {
+      details.tabId = tabId;
+      titleDetails.tabId = tabId;
+    }
+
+    if (action.setIcon) {
+      await action.setIcon(details);
+    }
+    if (action.setTitle) {
+      await action.setTitle(titleDetails);
+    }
+  } catch (err) {
+    // Gracefully ignore closed tabs or sandbox errors
+  }
+}
+
+/**
+ * Updates icons for all tabs across all windows and updates global default icon.
+ */
+async function updateAllTabIcons() {
+  const action = getActionApi();
+  if (!action) return;
+
+  try {
+    const settings = await chrome.storage.sync.get(DEFAULT_SETTINGS);
+    const defaultIconState = (settings.enabled === false) ? 'disabled' : 'active';
+    const defaultPaths = (typeof getIconPaths === 'function')
+      ? getIconPaths(defaultIconState)
+      : { 16: 'icons/icon-16.png', 48: 'icons/icon-48.png', 128: 'icons/icon-128.png' };
+
+    if (action.setIcon) {
+      try {
+        await action.setIcon({ path: defaultPaths });
+      } catch (_) {}
+    }
+    if (action.setTitle) {
+      try {
+        await action.setTitle({ title: (settings.enabled === false) ? 'HoldTab — Disabled' : 'HoldTab Settings' });
+      } catch (_) {}
+    }
+
+    const tabs = await chrome.tabs.query({});
+    if (Array.isArray(tabs)) {
+      for (const tab of tabs) {
+        if (typeof tab.id === 'number') {
+          await updateTabStatusIcon(tab.id, tab.url);
+        }
+      }
+    }
+  } catch (err) {
+    console.debug('HoldTab: Failed to update all tab icons:', err);
+  }
+}
+
+// Tab activation listener (tab switch)
+chrome.tabs.onActivated.addListener(async (activeInfo) => {
+  try {
+    await updateTabStatusIcon(activeInfo.tabId);
+  } catch (_) {}
+});
+
+// Tab update listener (navigation, reload, redirect)
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+  try {
+    if (changeInfo.url || tab?.url || changeInfo.status === 'complete') {
+      await updateTabStatusIcon(tabId, tab?.url || changeInfo.url);
+    }
+  } catch (_) {}
+});
+
+// Storage changes listener (master toggle, exclusions, per-site overrides)
+chrome.storage.onChanged.addListener(async (changes, area) => {
+  if (area === 'sync' || area === 'local') {
+    if (changes.enabled || changes.excludedDomains || changes.siteOverrides) {
+      await updateAllTabIcons();
+    }
+  }
+});
+
+// Initialize icons on worker launch
+try {
+  updateAllTabIcons();
+} catch (_) {}
+

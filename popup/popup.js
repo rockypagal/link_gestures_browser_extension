@@ -48,11 +48,14 @@ const DEFAULT_SETTINGS = {
   toolbarMinLength: 2,
   toolbarSearchSubmenu: true,
   toolbarSearchWebsites: DEFAULT_SEARCH_WEBSITES,
-  excludedDomains: []
+  excludedDomains: [],
+  siteOverrides: {}
 };
 
 let currentSettings = { ...DEFAULT_SETTINGS };
 let currentTabHostname = '';
+let currentTabUrl = '';
+let selectedOverrideDomain = '';
 
 document.addEventListener('DOMContentLoaded', async () => {
   setupTabNavigation();
@@ -103,11 +106,12 @@ function setupTabNavigation() {
   });
 }
 
-// Detect current active tab hostname
+// Detect current active tab hostname and full URL
 async function loadCurrentTabInfo() {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (tab && tab.url) {
+      currentTabUrl = tab.url;
       const url = new URL(tab.url);
       if (url.protocol === 'http:' || url.protocol === 'https:') {
         currentTabHostname = url.hostname;
@@ -115,15 +119,6 @@ async function loadCurrentTabInfo() {
     }
   } catch (err) {
     console.debug('Could not determine active tab domain:', err);
-  }
-
-  const toggleBtn = document.getElementById('toggleCurrentDomainBtn');
-  if (toggleBtn) {
-    if (currentTabHostname) {
-      toggleBtn.textContent = `+ Exclude ${currentTabHostname}`;
-    } else {
-      toggleBtn.style.display = 'none';
-    }
   }
 }
 
@@ -322,6 +317,135 @@ function renderUI() {
 
   // Excluded domains
   renderExcludedTags();
+
+  // Update site status indicator and overrides card
+  updateSiteStatusUI();
+}
+
+// Update real-time site status banner and per-site overrides card
+function updateSiteStatusUI() {
+  const dot = document.getElementById('siteStatusDot');
+  const title = document.getElementById('siteStatusTitle');
+  const subtitle = document.getElementById('siteStatusSubtitle');
+  const quickBtn = document.getElementById('quickSiteActionBtn');
+  const toggleBtn = document.getElementById('toggleCurrentDomainBtn');
+  const overridesCard = document.getElementById('siteOverridesCard');
+  const overrideDomainPill = document.getElementById('overrideDomainName');
+  const overrideBadge = document.getElementById('overrideBadge');
+
+  const statusCalc = (typeof calculateSiteStatus === 'function')
+    ? calculateSiteStatus(currentSettings, currentTabUrl || currentTabHostname)
+    : { status: 'active', icon: 'active', title: 'HoldTab — Active' };
+
+  if (dot) {
+    dot.className = `site-status-dot status-${statusCalc.status}`;
+  }
+  if (title) {
+    title.textContent = statusCalc.title;
+  }
+  if (subtitle) {
+    if (!currentSettings.enabled) {
+      subtitle.textContent = 'HoldTab is disabled globally';
+    } else if (statusCalc.isRestricted) {
+      subtitle.textContent = 'Internal browser page';
+    } else if (statusCalc.status === 'custom') {
+      subtitle.textContent = `Custom settings for ${statusCalc.domain || currentTabHostname} (${statusCalc.enabledOverridesCount} active)`;
+    } else if (statusCalc.status === 'disabled') {
+      subtitle.textContent = `Excluded on ${statusCalc.domain || currentTabHostname}`;
+    } else {
+      subtitle.textContent = `Active on ${statusCalc.domain || currentTabHostname || 'current site'}`;
+    }
+  }
+
+  // Quick Action Button in Banner
+  if (quickBtn) {
+    if (statusCalc.isRestricted || !currentTabHostname) {
+      quickBtn.style.display = 'none';
+    } else {
+      quickBtn.style.display = 'block';
+      const isExcluded = (typeof isSiteExcluded === 'function')
+        ? isSiteExcluded(currentSettings, currentTabHostname)
+        : (currentSettings.excludedDomains || []).includes(currentTabHostname);
+
+      if (isExcluded) {
+        quickBtn.textContent = 'Include Site';
+        quickBtn.className = 'btn-site-action btn-action-include';
+        quickBtn.title = `Remove ${currentTabHostname} from exclusions`;
+      } else {
+        quickBtn.textContent = 'Exclude Site';
+        quickBtn.className = 'btn-site-action';
+        quickBtn.title = `Add ${currentTabHostname} to exclusions`;
+      }
+    }
+  }
+
+  // Toggle button on Sites tab
+  if (toggleBtn) {
+    if (currentTabHostname) {
+      toggleBtn.style.display = 'inline-block';
+      const isExcluded = (typeof isSiteExcluded === 'function')
+        ? isSiteExcluded(currentSettings, currentTabHostname)
+        : (currentSettings.excludedDomains || []).includes(currentTabHostname);
+
+      if (isExcluded) {
+        toggleBtn.textContent = `✓ Remove ${currentTabHostname} from Exclusions`;
+        toggleBtn.classList.add('btn-subtle-remove');
+      } else {
+        toggleBtn.textContent = `+ Exclude ${currentTabHostname}`;
+        toggleBtn.classList.remove('btn-subtle-remove');
+      }
+    } else {
+      toggleBtn.style.display = 'none';
+    }
+  }
+
+  // Per-Site Feature Overrides Card
+  const targetOverrideDomain = (typeof normalizeDomain === 'function')
+    ? normalizeDomain(selectedOverrideDomain || currentTabHostname)
+    : (selectedOverrideDomain || currentTabHostname);
+
+  const isTargetExcluded = targetOverrideDomain && (typeof isSiteExcluded === 'function')
+    ? isSiteExcluded(currentSettings, targetOverrideDomain)
+    : (currentSettings.excludedDomains || []).includes(targetOverrideDomain);
+
+  if (overridesCard) {
+    if (isTargetExcluded && targetOverrideDomain) {
+      overridesCard.style.display = 'block';
+      if (overrideDomainPill) {
+        overrideDomainPill.textContent = targetOverrideDomain;
+      }
+
+      const overrides = (typeof getSiteOverrides === 'function')
+        ? getSiteOverrides(currentSettings, targetOverrideDomain)
+        : (currentSettings.siteOverrides?.[targetOverrideDomain] || {});
+
+      const tbToggle = document.getElementById('overrideToolbarToggle');
+      const lhToggle = document.getElementById('overrideLinkHoldToggle');
+      const tcToggle = document.getElementById('overrideTabCycleToggle');
+      const taToggle = document.getElementById('overrideTextActionsToggle');
+
+      if (tbToggle) tbToggle.checked = overrides.toolbar === true;
+      if (lhToggle) lhToggle.checked = overrides.linkHold === true;
+      if (tcToggle) tcToggle.checked = overrides.tabCycle === true;
+      if (taToggle) taToggle.checked = overrides.textActions === true;
+
+      const count = (typeof countEnabledOverrides === 'function')
+        ? countEnabledOverrides(overrides)
+        : [overrides.toolbar, overrides.linkHold, overrides.tabCycle, overrides.textActions].filter(Boolean).length;
+
+      if (overrideBadge) {
+        if (count > 0) {
+          overrideBadge.textContent = `Custom (${count})`;
+          overrideBadge.className = 'badge badge-custom';
+        } else {
+          overrideBadge.textContent = 'All Disabled';
+          overrideBadge.className = 'badge badge-disabled';
+        }
+      }
+    } else {
+      overridesCard.style.display = 'none';
+    }
+  }
 }
 
 // Show/hide sliders according to active gesture mode
@@ -354,13 +478,35 @@ function renderExcludedTags() {
     return;
   }
 
+  const activeNorm = (typeof normalizeDomain === 'function')
+    ? normalizeDomain(selectedOverrideDomain || currentTabHostname)
+    : (selectedOverrideDomain || currentTabHostname);
+
   list.forEach((domain) => {
+    const norm = (typeof normalizeDomain === 'function') ? normalizeDomain(domain) : domain;
+    const overrides = (typeof getSiteOverrides === 'function') ? getSiteOverrides(currentSettings, norm) : {};
+    const count = (typeof countEnabledOverrides === 'function') ? countEnabledOverrides(overrides) : 0;
+
     const tag = document.createElement('span');
-    tag.className = 'tag';
+    const isSelected = activeNorm === norm;
+    tag.className = `tag ${isSelected ? 'tag-selected' : ''}`;
+    tag.style.cursor = 'pointer';
+
+    const customBadge = count > 0 ? `<span style="color:#FF9800;font-weight:700;margin-left:3px;" title="${count} override(s) enabled">(${count})</span>` : '';
+
     tag.innerHTML = `
-      ${escapeHtml(domain)}
-      <span class="tag-remove" data-domain="${escapeHtml(domain)}" title="Remove">&times;</span>
+      <span class="tag-domain-name" title="Click to view/edit custom overrides">${escapeHtml(domain)}${customBadge}</span>
+      <span class="tag-remove" data-domain="${escapeHtml(domain)}" title="Remove exclusion">&times;</span>
     `;
+
+    // Click tag to select for overrides
+    tag.querySelector('.tag-domain-name')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      selectedOverrideDomain = norm;
+      renderExcludedTags();
+      updateSiteStatusUI();
+    });
+
     container.appendChild(tag);
   });
 }
@@ -390,8 +536,12 @@ function setupEventListeners() {
   // Master switch
   const masterToggle = document.getElementById('masterToggle');
   if (masterToggle) {
-    masterToggle.addEventListener('change', (e) => {
-      saveSettings({ enabled: e.target.checked });
+    masterToggle.addEventListener('change', async (e) => {
+      await saveSettings({ enabled: e.target.checked });
+      updateSiteStatusUI();
+      try {
+        chrome.runtime.sendMessage({ action: 'updateAllIcons' });
+      } catch (_) {}
     });
   }
 
@@ -604,14 +754,22 @@ function setupEventListeners() {
 
   function handleAddDomain() {
     if (!input) return;
-    const raw = input.value.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+    const raw = (typeof normalizeDomain === 'function')
+      ? normalizeDomain(input.value)
+      : input.value.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
     if (!raw) return;
 
     const list = currentSettings.excludedDomains || [];
     if (!list.includes(raw)) {
       list.push(raw);
-      saveSettings({ excludedDomains: list });
-      renderExcludedTags();
+      selectedOverrideDomain = raw;
+      saveSettings({ excludedDomains: list }).then(() => {
+        renderExcludedTags();
+        updateSiteStatusUI();
+        try {
+          chrome.runtime.sendMessage({ action: 'updateAllIcons' });
+        } catch (_) {}
+      });
     }
     input.value = '';
   }
@@ -626,32 +784,91 @@ function setupEventListeners() {
   // Remove domain tag
   const excludedList = document.getElementById('excludedList');
   if (excludedList) {
-    excludedList.addEventListener('click', (e) => {
+    excludedList.addEventListener('click', async (e) => {
       if (e.target.classList.contains('tag-remove')) {
         const domainToRemove = e.target.getAttribute('data-domain');
         const list = (currentSettings.excludedDomains || []).filter((d) => d !== domainToRemove);
-        saveSettings({ excludedDomains: list });
+        if (selectedOverrideDomain === domainToRemove) {
+          selectedOverrideDomain = '';
+        }
+        await saveSettings({ excludedDomains: list });
         renderExcludedTags();
+        updateSiteStatusUI();
+        try {
+          chrome.runtime.sendMessage({ action: 'updateAllIcons' });
+        } catch (_) {}
       }
     });
   }
 
-  // Quick toggle current domain
+  // Toggle active tab exclusion (shared between Sites tab and Header banner)
+  async function toggleActiveTabExclusion() {
+    if (!currentTabHostname) return;
+    const norm = (typeof normalizeDomain === 'function') ? normalizeDomain(currentTabHostname) : currentTabHostname;
+    const list = [...(currentSettings.excludedDomains || [])];
+    const index = list.findIndex((d) => {
+      const nd = (typeof normalizeDomain === 'function') ? normalizeDomain(d) : d;
+      return nd === norm;
+    });
+
+    if (index === -1) {
+      list.push(norm || currentTabHostname);
+      selectedOverrideDomain = norm || currentTabHostname;
+    } else {
+      list.splice(index, 1);
+      if (selectedOverrideDomain === norm) {
+        selectedOverrideDomain = '';
+      }
+    }
+
+    await saveSettings({ excludedDomains: list });
+    renderExcludedTags();
+    updateSiteStatusUI();
+    try {
+      chrome.runtime.sendMessage({ action: 'updateAllIcons' });
+    } catch (_) {}
+  }
+
   const toggleDomainBtn = document.getElementById('toggleCurrentDomainBtn');
   if (toggleDomainBtn) {
-    toggleDomainBtn.addEventListener('click', () => {
-      if (!currentTabHostname) return;
-      const list = currentSettings.excludedDomains || [];
-      const index = list.indexOf(currentTabHostname);
-      if (index === -1) {
-        list.push(currentTabHostname);
-      } else {
-        list.splice(index, 1);
-      }
-      saveSettings({ excludedDomains: list });
-      renderExcludedTags();
-    });
+    toggleDomainBtn.addEventListener('click', toggleActiveTabExclusion);
   }
+
+  const quickSiteActionBtn = document.getElementById('quickSiteActionBtn');
+  if (quickSiteActionBtn) {
+    quickSiteActionBtn.addEventListener('click', toggleActiveTabExclusion);
+  }
+
+  // Per-site override feature checkboxes
+  const overrideFeatureMap = [
+    { id: 'overrideToolbarToggle', feat: 'toolbar' },
+    { id: 'overrideLinkHoldToggle', feat: 'linkHold' },
+    { id: 'overrideTabCycleToggle', feat: 'tabCycle' },
+    { id: 'overrideTextActionsToggle', feat: 'textActions' }
+  ];
+
+  overrideFeatureMap.forEach(({ id, feat }) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('change', async (e) => {
+        const domain = (typeof normalizeDomain === 'function')
+          ? normalizeDomain(selectedOverrideDomain || currentTabHostname)
+          : (selectedOverrideDomain || currentTabHostname);
+        if (!domain) return;
+
+        const siteOverrides = { ...(currentSettings.siteOverrides || {}) };
+        if (!siteOverrides[domain]) siteOverrides[domain] = {};
+        siteOverrides[domain] = { ...siteOverrides[domain], [feat]: e.target.checked };
+
+        await saveSettings({ siteOverrides });
+        updateSiteStatusUI();
+        renderExcludedTags();
+        try {
+          chrome.runtime.sendMessage({ action: 'updateAllIcons' });
+        } catch (_) {}
+      });
+    }
+  });
 
   // Reset to Defaults Button with safe inline confirmation
   let resetConfirmTimeout = null;

@@ -27,6 +27,18 @@
         </label>
       </header>
 
+      <!-- Current Site Status Banner -->
+      <div id="siteStatusBanner" class="site-status-banner">
+        <div class="site-status-left">
+          <span id="siteStatusDot" class="site-status-dot status-active"></span>
+          <div class="site-status-text">
+            <span id="siteStatusTitle" class="site-status-title">HoldTab — Active</span>
+            <span id="siteStatusSubtitle" class="site-status-subtitle">Active on this site</span>
+          </div>
+        </div>
+        <button id="quickSiteActionBtn" class="btn-site-action" title="Toggle exclusion for current website">Exclude</button>
+      </div>
+
       <!-- Organized Navigation Tabs -->
       <nav class="nav-tabs" role="tablist">
         <button
@@ -1187,12 +1199,72 @@
             <button id="addDomainBtn" class="btn-secondary">Add</button>
           </div>
         </section>
+
+        <!-- Per-Site Custom Feature Overrides Section -->
+        <section id="siteOverridesCard" class="card site-overrides-card" style="display: none;">
+          <div class="card-header">
+            <div>
+              <span class="card-title">⚙️ Custom Overrides</span>
+              <span id="overrideDomainName" class="override-domain-pill">example.com</span>
+            </div>
+            <span id="overrideBadge" class="badge badge-custom">Custom</span>
+          </div>
+          <p class="card-desc">
+            This site is excluded by default. Enable specific features below to run selected capabilities here:
+          </p>
+
+          <div class="override-toggles-list">
+            <div class="toggle-row">
+              <div class="toggle-info">
+                <div class="toggle-title">🪄 Selection Toolbar</div>
+                <div class="toggle-desc">Contextual search toolbar when selecting text</div>
+              </div>
+              <label class="switch switch-sm" title="Toggle Floating Toolbar Override">
+                <input type="checkbox" id="overrideToolbarToggle" />
+                <span class="slider"></span>
+              </label>
+            </div>
+
+            <div class="toggle-row">
+              <div class="toggle-info">
+                <div class="toggle-title">🔗 Link Hold Gestures</div>
+                <div class="toggle-desc">Hold links to open in background or foreground tabs</div>
+              </div>
+              <label class="switch switch-sm" title="Toggle Link Hold Override">
+                <input type="checkbox" id="overrideLinkHoldToggle" />
+                <span class="slider"></span>
+              </label>
+            </div>
+
+            <div class="toggle-row">
+              <div class="toggle-info">
+                <div class="toggle-title">🔄 Tab Navigation</div>
+                <div class="toggle-desc">Swipe, wheel, rocker, and Alt-scroll tab cycling</div>
+              </div>
+              <label class="switch switch-sm" title="Toggle Tab Cycling Override">
+                <input type="checkbox" id="overrideTabCycleToggle" />
+                <span class="slider"></span>
+              </label>
+            </div>
+
+            <div class="toggle-row">
+              <div class="toggle-info">
+                <div class="toggle-title">⚡ Text & Clipboard</div>
+                <div class="toggle-desc">Double-click copy, cut, paste, and text search hold</div>
+              </div>
+              <label class="switch switch-sm" title="Toggle Text Actions Override">
+                <input type="checkbox" id="overrideTextActionsToggle" />
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+        </section>
       </main>
 
       <!-- Footer -->
       <footer class="footer">
         <div class="footer-meta">
-          <span>v1.5.2 &bull; Auto-saved</span>
+          <span>v1.6.0 &bull; Auto-saved</span>
         </div>
         <button
           id="resetDefaultsBtn"
@@ -1204,6 +1276,7 @@
       </footer>
     </div>
 
+    <script src="../utils/site-status.js"></script>
     <script src="popup.js"></script>
   </body>
 </html>

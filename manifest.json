@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "HoldTab - Background Link Opener",
-  "version": "1.5.2",
+  "version": "1.6.0",
   "description": "Open links in background tabs without leaving your current tab using mouse gestures, tab cycling, and floating text selection toolbar.",
   "permissions": [
     "storage",
@@ -24,12 +24,12 @@
   },
   "background": {
     "service_worker": "background/service-worker.js",
-    "scripts": ["background/service-worker.js"]
+    "scripts": ["utils/site-status.js", "background/service-worker.js"]
   },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content/content.js"],
+      "js": ["utils/site-status.js", "content/content.js"],
       "css": ["content/content.css"],
       "run_at": "document_idle"
     }
