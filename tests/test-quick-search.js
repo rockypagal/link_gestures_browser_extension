@@ -505,5 +505,127 @@ function isRestrictedUrl(url) {
   console.log('  ✓ Scenario 19: Hovering Quick Search popup does NOT switch back to Mode A');
 }
 
-console.log('\nResults: 19 / 19 Quick Search tests passed.');
+// ---------------------------------------------------------------------------
+// Scenario 20: Clicking site button in Quick Search keeps popup open for subsequent searches
+// ---------------------------------------------------------------------------
+{
+  let isQuickSearchOpen = true;
+  let searchMode = 'quick';
+  let hudFeedback = null;
+  let openedTabs = [];
+
+  const executeSearchOnWebsite = (site, isForeground, query) => {
+    const isQuick = (searchMode === 'quick');
+    const effectiveFocus = isForeground ? 'foreground' : 'background';
+
+    openedTabs.push({ url: buildSearchUrl(site.template, query), focus: effectiveFocus });
+
+    if (isForeground) {
+      if (isQuick) isQuickSearchOpen = false;
+    } else {
+      hudFeedback = { siteId: site.id, query };
+    }
+  };
+
+  // User clicks YouTube button (background)
+  executeSearchOnWebsite(DEFAULT_SEARCH_WEBSITES[1], false, 'test query');
+
+  assert.strictEqual(isQuickSearchOpen, true, 'Quick Search popup stays OPEN on background site click');
+  assert.strictEqual(openedTabs.length, 1);
+  assert.strictEqual(openedTabs[0].focus, 'background', 'Site click opens tab in background');
+  assert.strictEqual(hudFeedback.siteId, 'youtube');
+
+  // User then clicks Wikipedia button with the same query (still open!)
+  executeSearchOnWebsite(DEFAULT_SEARCH_WEBSITES[2], false, 'test query');
+  assert.strictEqual(isQuickSearchOpen, true, 'Quick Search popup remains open for multi-engine search');
+  assert.strictEqual(openedTabs.length, 2);
+  assert.strictEqual(openedTabs[1].focus, 'background');
+
+  console.log('  ✓ Scenario 20: Clicking site button keeps Quick Search open and records background tab');
+}
+
+// ---------------------------------------------------------------------------
+// Scenario 21: Pressing Enter launches default search in foreground and moves to new tab
+// ---------------------------------------------------------------------------
+{
+  let isQuickSearchOpen = true;
+  let searchMode = 'quick';
+  let openedTabs = [];
+
+  const onEnterPressed = (query, defaultEngine) => {
+    const isForeground = true; // Enter key searches default engine in foreground
+    const isQuick = (searchMode === 'quick');
+    const effectiveFocus = isForeground ? 'foreground' : 'background';
+
+    openedTabs.push({ url: buildSearchUrl(defaultEngine.template, query), focus: effectiveFocus });
+
+    if (isForeground) {
+      if (isQuick) isQuickSearchOpen = false;
+    }
+  };
+
+  onEnterPressed('hello world', DEFAULT_SEARCH_WEBSITES[0]);
+
+  assert.strictEqual(isQuickSearchOpen, false, 'Quick Search popup closes when Enter is pressed');
+  assert.strictEqual(openedTabs.length, 1);
+  assert.strictEqual(openedTabs[0].focus, 'foreground', 'Enter key opens new tab in foreground (moves user to it)');
+  assert.strictEqual(openedTabs[0].url, 'https://www.google.com/search?q=hello+world');
+  console.log('  ✓ Scenario 21: Enter key launches foreground search, closes Quick Search, and focuses new tab');
+}
+
+// ---------------------------------------------------------------------------
+// Scenario 22: Opening Quick Search with NO active selection does not use stale selection
+// ---------------------------------------------------------------------------
+{
+  // Simulate stale selection from previous page actions
+  const staleCurrentSelectionText = 'old previously selected words';
+
+  const computeInitialQuery = (mockSelection) => {
+    let initialQuery = '';
+    try {
+      if (mockSelection && !mockSelection.isCollapsed) {
+        const text = mockSelection.toString().trim();
+        if (text.length > 0) {
+          initialQuery = text;
+        }
+      }
+    } catch (_) {}
+    return initialQuery;
+  };
+
+  // Case A: User has nothing currently selected (collapsed selection)
+  const collapsedSelection = { isCollapsed: true, toString: () => '' };
+  const queryNoSel = computeInitialQuery(collapsedSelection);
+  assert.strictEqual(queryNoSel, '', 'Query is empty when no text is currently selected (stale text ignored)');
+
+  // Case B: User has active non-empty text selected
+  const activeSelection = { isCollapsed: false, toString: () => 'active text' };
+  const queryActiveSel = computeInitialQuery(activeSelection);
+  assert.strictEqual(queryActiveSel, 'active text', 'Query prefills active text selection');
+
+  console.log('  ✓ Scenario 22: Quick Search only prefills active selection and does NOT use stale text');
+}
+
+// ---------------------------------------------------------------------------
+// Scenario 23: Quick Search styling colors are distinct from Mode A
+// ---------------------------------------------------------------------------
+{
+  const css = fs.readFileSync(path.join(__dirname, '../content/content.js'), 'utf8');
+
+  // Mode A uses cyan / sky (#38bdf8)
+  assert(css.includes('.ht-submenu-search-box:focus-within'), 'Submenu search box has focus styling');
+  assert(css.includes('#38bdf8'), 'Contains Mode A cyan theme');
+
+  // Quick Search uses distinct electric indigo / violet (#818cf8, #a5b4fc)
+  assert(css.includes('.ht-quick-query-box {'), 'Contains quick query box styling');
+  assert(css.includes('border: 1.5px solid #818cf8;'), 'Quick Search query box uses distinct electric indigo border');
+  assert(css.includes('rgba(129, 140, 248, 0.28)'), 'Quick Search uses electric indigo shadow/glow');
+  assert(css.includes('.ht-quick-query-icon {') && css.includes('color: #a5b4fc;'), 'Quick Search icon uses indigo');
+  assert(css.includes('.ht-default-badge {') && css.includes('color: #a5b4fc;'), 'Default badge uses indigo accent');
+
+  console.log('  ✓ Scenario 23: Quick Search input and badges have distinct electric indigo theme vs Mode A');
+}
+
+console.log('\nResults: 23 / 23 Quick Search tests passed.');
 console.log('🎉 ALL QUICK SEARCH TESTS COMPLETED SUCCESSFULLY!\n');
+

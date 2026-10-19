@@ -3410,7 +3410,7 @@
           }
           const defaultEngine = getDefaultSearchEngine();
           if (defaultEngine) {
-            executeSearchOnWebsite(defaultEngine, false, query);
+            executeSearchOnWebsite(defaultEngine, true, query);
           }
         } else if (e.key === 'ArrowDown') {
           e.preventDefault();
@@ -3825,17 +3825,17 @@
       quickDefaultTagEl.title = `Press Enter to search with ${defEngine.name}`;
     }
 
-    // Prefill query if user has text selected
+    // Only prefill if user currently has active selected text on the webpage
     let initialQuery = '';
     try {
       const sel = window.getSelection ? window.getSelection() : null;
       if (sel && !sel.isCollapsed) {
-        initialQuery = sel.toString().trim();
+        const text = sel.toString().trim();
+        if (text.length > 0) {
+          initialQuery = text;
+        }
       }
     } catch (_) {}
-    if (!initialQuery && currentSelectionText) {
-      initialQuery = currentSelectionText.trim();
-    }
 
     if (quickQueryInputEl) {
       quickQueryInputEl.value = initialQuery;
@@ -4179,11 +4179,7 @@
     }
 
     const isQuick = (searchMode === 'quick');
-    if (isQuick) {
-      closeQuickSearch();
-    }
-
-    const effectiveFocus = isForeground ? 'foreground' : (isQuick ? (config.tabFocus || 'foreground') : 'background');
+    const effectiveFocus = isForeground ? 'foreground' : 'background';
 
     chrome.runtime.sendMessage({
       action: 'openLink',
@@ -4191,16 +4187,18 @@
       tabFocus: effectiveFocus
     });
 
-    if (!isQuick) {
-      if (isForeground) {
-        hideToolbar();
+    if (isForeground) {
+      if (isQuick) {
+        closeQuickSearch();
       } else {
-        showSubmenuItemFeedback(site.id);
+        hideToolbar();
       }
+    } else {
+      showSubmenuItemFeedback(site.id, query);
     }
   }
 
-  function showSubmenuItemFeedback(siteId) {
+  function showSubmenuItemFeedback(siteId, feedbackQuery = '') {
     if (!submenuGridEl) return;
     const item = submenuGridEl.querySelector(`[data-site-id="${siteId}"]`);
     if (item) {
@@ -4219,7 +4217,10 @@
         }
       }, 1200);
     }
-    showClipboardHud('✓ Search Opened (Background)', currentSelectionText);
+    const q = feedbackQuery || currentSelectionText;
+    if (config.animHudBadges && q) {
+      showClipboardHud('✓ Search Opened (Background)', q);
+    }
   }
 
   function hideToolbar() {
@@ -4969,18 +4970,24 @@
         display: flex;
         align-items: center;
         width: 100%;
-        background: rgba(2, 6, 23, 0.85);
-        border: 1.5px solid #38bdf8;
-        box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.22);
+        background: rgba(17, 24, 39, 0.95);
+        border: 1.5px solid #818cf8;
+        box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.28);
         border-radius: 8px;
         padding: 7px 10px;
         gap: 8px;
         margin-bottom: 8px;
-        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+      }
+
+      .ht-quick-query-box:focus-within {
+        border-color: #a5b4fc;
+        box-shadow: 0 0 0 4px rgba(165, 180, 252, 0.35);
+        background: rgba(15, 23, 42, 0.98);
       }
 
       .ht-quick-query-icon {
-        color: #38bdf8;
+        color: #a5b4fc;
         flex-shrink: 0;
       }
 
@@ -4998,7 +5005,8 @@
       }
 
       .ht-quick-query-input::placeholder {
-        color: #94a3b8;
+        color: #a5b4fc;
+        opacity: 0.65;
         font-size: 13px;
         font-weight: 400;
       }
@@ -5020,7 +5028,7 @@
       }
 
       .ht-quick-query-clear:hover {
-        background: rgba(255, 255, 255, 0.22);
+        background: rgba(129, 140, 248, 0.25);
         color: #ffffff;
       }
 
@@ -5050,9 +5058,9 @@
       .ht-quick-default-tag {
         font-size: 9.5px;
         font-weight: 600;
-        color: #38bdf8;
-        background: rgba(56, 189, 248, 0.12);
-        border: 1px solid rgba(56, 189, 248, 0.25);
+        color: #c7d2fe;
+        background: rgba(129, 140, 248, 0.18);
+        border: 1px solid rgba(129, 140, 248, 0.35);
         border-radius: 4px;
         padding: 1px 5px;
       }
@@ -5074,9 +5082,9 @@
 
       .ht-quick-filter-toggle:hover,
       .ht-quick-filter-toggle.active {
-        background: rgba(56, 189, 248, 0.15);
-        color: #38bdf8;
-        border-color: rgba(56, 189, 248, 0.35);
+        background: rgba(129, 140, 248, 0.18);
+        color: #c7d2fe;
+        border-color: rgba(129, 140, 248, 0.4);
       }
 
       .ht-quick-empty-warning {
@@ -5102,9 +5110,9 @@
         font-size: 9px;
         font-weight: 700;
         text-transform: uppercase;
-        color: #38bdf8;
-        background: rgba(56, 189, 248, 0.14);
-        border: 1px solid rgba(56, 189, 248, 0.3);
+        color: #a5b4fc;
+        background: rgba(129, 140, 248, 0.16);
+        border: 1px solid rgba(129, 140, 248, 0.35);
         border-radius: 3px;
         padding: 0 4px;
         margin-left: auto;
