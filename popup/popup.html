@@ -27,18 +27,6 @@
         </label>
       </header>
 
-      <!-- Current Site Status Banner -->
-      <div id="siteStatusBanner" class="site-status-banner">
-        <div class="site-status-left">
-          <span id="siteStatusDot" class="site-status-dot status-active"></span>
-          <div class="site-status-text">
-            <span id="siteStatusTitle" class="site-status-title">HoldTab — Active</span>
-            <span id="siteStatusSubtitle" class="site-status-subtitle">Active on this site</span>
-          </div>
-        </div>
-        <button id="quickSiteActionBtn" class="btn-site-action" title="Toggle exclusion for current website">Exclude</button>
-      </div>
-
       <!-- Organized Navigation Tabs -->
       <nav class="nav-tabs" role="tablist">
         <button
@@ -88,12 +76,12 @@
         </button>
         <button
           class="nav-tab"
-          data-tab="tab-sites"
+          data-tab="tab-rules"
           role="tab"
           aria-selected="false"
         >
           <span class="nav-icon">🛡️</span>
-          <span>Sites</span>
+          <span>Rules</span>
         </button>
       </nav>
 
@@ -1167,37 +1155,27 @@
         </section>
       </main>
 
-      <!-- Tab 5: Domain Exclusions -->
-      <main id="tab-sites" class="tab-panel">
-        <section class="card exclusions-card">
+      <!-- Tab 6: Rules (Domain Exclusions & Site Overrides) -->
+      <main id="tab-rules" class="tab-panel">
+        <!-- Current Website Status Card -->
+        <section class="card current-rule-card">
           <div class="card-header">
-            <span class="card-title">Domain Exclusions</span>
+            <div class="site-status-header-left">
+              <span id="siteStatusDot" class="site-status-dot status-active"></span>
+              <span class="card-title" id="siteStatusTitle">Active Website</span>
+            </div>
+            <span id="siteStatusBadge" class="badge">Active</span>
           </div>
-          <p class="card-desc">
-            All gestures and shortcuts are disabled on excluded domains:
+          <p id="siteStatusSubtitle" class="card-desc">
+            HoldTab is active on this site.
           </p>
-
           <button
             id="toggleCurrentDomainBtn"
             class="btn-subtle"
-            title="Toggle current website"
+            title="Toggle exclusion for current website"
           >
             + Exclude This Site
           </button>
-
-          <div id="excludedList" class="excluded-tags">
-            <!-- Tag pills inserted dynamically -->
-          </div>
-
-          <div class="add-domain-row">
-            <input
-              type="text"
-              id="newDomainInput"
-              placeholder="e.g. reddit.com"
-              class="text-input"
-            />
-            <button id="addDomainBtn" class="btn-secondary">Add</button>
-          </div>
         </section>
 
         <!-- Per-Site Custom Feature Overrides Section -->
@@ -1257,6 +1235,30 @@
                 <span class="slider"></span>
               </label>
             </div>
+          </div>
+        </section>
+
+        <!-- Domain Exclusions Card -->
+        <section class="card exclusions-card">
+          <div class="card-header">
+            <span class="card-title">Domain Exclusions</span>
+          </div>
+          <p class="card-desc">
+            All gestures and shortcuts are disabled on excluded domains:
+          </p>
+
+          <div id="excludedList" class="excluded-tags">
+            <!-- Tag pills inserted dynamically -->
+          </div>
+
+          <div class="add-domain-row">
+            <input
+              type="text"
+              id="newDomainInput"
+              placeholder="e.g. reddit.com"
+              class="text-input"
+            />
+            <button id="addDomainBtn" class="btn-secondary">Add</button>
           </div>
         </section>
       </main>

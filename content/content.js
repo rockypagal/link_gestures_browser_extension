@@ -8,6 +8,13 @@
   if (window.__HOLDTAB_INITIALIZED__) return;
   window.__HOLDTAB_INITIALIZED__ = true;
 
+  // Notify background service worker of tab URL on page load to ensure pinned icon updates
+  try {
+    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id && chrome.runtime.sendMessage) {
+      chrome.runtime.sendMessage({ action: 'contentScriptLoaded', url: window.location.href });
+    }
+  } catch (_) {}
+
   const DEFAULT_SEARCH_WEBSITES = [
     { id: 'google', name: 'Google', template: 'https://www.google.com/search?q={query}', enabled: true, icon: 'google' },
     { id: 'youtube', name: 'YouTube', template: 'https://www.youtube.com/results?search_query={query}', enabled: true, icon: 'youtube' },

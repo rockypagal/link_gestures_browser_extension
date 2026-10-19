@@ -155,6 +155,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       .catch((err) => sendResponse({ success: false, error: err.message }));
     return true;
   }
+
+  if (message.action === 'contentScriptLoaded') {
+    const tabId = sender?.tab?.id;
+    if (typeof tabId === 'number') {
+      updateTabStatusIcon(tabId, message.url || sender?.tab?.url);
+    }
+    return;
+  }
 });
 
 // Global tab cycling state to prevent race conditions and trackpad reverse-bounce ping-pong
@@ -495,6 +503,138 @@ function getActionApi() {
   return null;
 }
 
+// Inline status calculation to ensure zero dependency on importScripts
+function normalizeDomainSafe(raw) {
+  if (typeof normalizeDomain === 'function') return normalizeDomain(raw);
+  if (!raw || typeof raw !== 'string') return '';
+  let domain = raw.trim().toLowerCase();
+  domain = domain.replace(/^[a-z0-9+.-]+:\/\//i, '');
+  domain = domain.replace(/^[^/@]+@/, '');
+  domain = domain.replace(/[/?#].*$/, '');
+  domain = domain.split(':')[0];
+  domain = domain.replace(/^\.+|\.+$/g, '').replace(/^www\./, '');
+  return domain;
+}
+
+function calculateSiteStatusSafe(settings, urlOrHostname) {
+  if (typeof calculateSiteStatus === 'function') {
+    return calculateSiteStatus(settings, urlOrHostname);
+  }
+  const raw = typeof urlOrHostname === 'string' ? urlOrHostname.trim() : '';
+  const domain = normalizeDomainSafe(raw);
+  const lower = raw.toLowerCase();
+
+  const isRestricted = !raw ||
+    lower.startsWith('chrome://') || lower.startsWith('brave://') ||
+    lower.startsWith('edge://') || lower.startsWith('opera://') ||
+    lower.startsWith('about:') || lower.startsWith('devtools://') ||
+    lower.includes('chrome.google.com/webstore') ||
+    lower.includes('chromewebstore.google.com') ||
+    lower.includes('addons.mozilla.org');
+
+  if (!settings || settings.enabled === false) {
+    return { status: 'disabled', icon: 'disabled', title: 'HoldTab — Disabled', domain, isRestricted };
+  }
+  if (isRestricted && !lower.includes('test.html')) {
+    return { status: 'disabled', icon: 'disabled', title: 'HoldTab — Disabled', domain, isRestricted: true };
+  }
+
+  const excludedList = Array.isArray(settings.excludedDomains) ? settings.excludedDomains : [];
+  const isExcluded = excludedList.some((d) => {
+    const norm = normalizeDomainSafe(d);
+    return norm && (domain === norm || domain.endsWith('.' + norm) || norm.endsWith('.' + domain));
+  });
+
+  const overrides = (settings.siteOverrides && domain && settings.siteOverrides[domain]) || {};
+  const hasAnyOverride = ['toolbar', 'linkHold', 'tabCycle', 'textActions'].some((k) => overrides[k] === true);
+
+  if (isExcluded) {
+    if (hasAnyOverride) {
+      return { status: 'custom', icon: 'custom', title: 'HoldTab — Custom', domain, isRestricted: false };
+    }
+    return { status: 'disabled', icon: 'disabled', title: 'HoldTab — Disabled', domain, isRestricted: false };
+  }
+
+  return { status: 'active', icon: 'active', title: 'HoldTab — Active', domain, isRestricted: false };
+}
+
+function getIconPathsSafe(iconState) {
+  if (typeof getIconPaths === 'function') {
+    return getIconPaths(iconState, false);
+  }
+  const prefix = 'icons/';
+  if (iconState === 'custom') {
+    return {
+      16: prefix + 'icon-custom-16.png',
+      48: prefix + 'icon-custom-48.png',
+      128: prefix + 'icon-custom-128.png'
+    };
+  }
+  if (iconState === 'disabled') {
+    return {
+      16: prefix + 'icon-disabled-16.png',
+      48: prefix + 'icon-disabled-48.png',
+      128: prefix + 'icon-disabled-128.png'
+    };
+  }
+  return {
+    16: prefix + 'icon-16.png',
+    48: prefix + 'icon-48.png',
+    128: prefix + 'icon-128.png'
+  };
+}
+
+/**
+ * Robustly retrieves the currently active tab across focused or current window.
+ */
+async function getActiveTabSafe() {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+    if (tab) return tab;
+  } catch (_) {}
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (tab) return tab;
+  } catch (_) {}
+  try {
+    const [tab] = await chrome.tabs.query({ active: true });
+    if (tab) return tab;
+  } catch (_) {}
+  return null;
+}
+
+/**
+ * Safely applies icon details, retrying with alternative path format if needed.
+ */
+async function setActionIconSafe(details) {
+  const action = getActionApi();
+  if (!action || !action.setIcon) return;
+
+  try {
+    await action.setIcon(details);
+  } catch (err1) {
+    try {
+      const altPath = {};
+      for (const [size, p] of Object.entries(details.path || {})) {
+        altPath[size] = p.startsWith('/') ? p.slice(1) : '/' + p;
+      }
+      await action.setIcon({ ...details, path: altPath });
+    } catch (_) {}
+  }
+}
+
+/**
+ * Safely applies tooltip title.
+ */
+async function setActionTitleSafe(details) {
+  const action = getActionApi();
+  if (!action || !action.setTitle) return;
+
+  try {
+    await action.setTitle(details);
+  } catch (_) {}
+}
+
 /**
  * Updates the extension toolbar icon and tooltip for a specific tab based on site status.
  */
@@ -504,41 +644,39 @@ async function updateTabStatusIcon(tabId, urlHint) {
 
   try {
     let url = urlHint;
-    if (!url && typeof tabId === 'number') {
+    let targetTab = null;
+
+    if (typeof tabId === 'number') {
       try {
-        const tab = await chrome.tabs.get(tabId);
-        url = tab?.url || '';
+        targetTab = await chrome.tabs.get(tabId);
+        url = url || targetTab?.url || targetTab?.pendingUrl || '';
       } catch (_) {
         return; // Tab closed or invalid
+      }
+    } else {
+      targetTab = await getActiveTabSafe();
+      if (targetTab) {
+        tabId = targetTab.id;
+        url = targetTab.url || targetTab.pendingUrl || '';
       }
     }
 
     const settings = await chrome.storage.sync.get(DEFAULT_SETTINGS);
-    const statusCalc = (typeof calculateSiteStatus === 'function')
-      ? calculateSiteStatus(settings, url)
-      : { status: 'active', icon: 'active', title: 'HoldTab — Active' };
+    const statusCalc = calculateSiteStatusSafe(settings, url);
+    const iconPaths = getIconPathsSafe(statusCalc.icon);
 
-    const iconPaths = (typeof getIconPaths === 'function')
-      ? getIconPaths(statusCalc.icon)
-      : {
-          16: 'icons/icon-16.png',
-          48: 'icons/icon-48.png',
-          128: 'icons/icon-128.png'
-        };
-
-    const details = { path: iconPaths };
-    const titleDetails = { title: statusCalc.title };
-
+    // 1. Set tab-specific icon and title
     if (typeof tabId === 'number') {
-      details.tabId = tabId;
-      titleDetails.tabId = tabId;
+      await setActionIconSafe({ tabId, path: iconPaths });
+      await setActionTitleSafe({ tabId, title: statusCalc.title });
     }
 
-    if (action.setIcon) {
-      await action.setIcon(details);
-    }
-    if (action.setTitle) {
-      await action.setTitle(titleDetails);
+    // 2. Also update the global default icon if this tab is active!
+    // In Chromium and Firefox, pinned toolbar icons reliably react to the global action icon.
+    const isTargetActive = typeof tabId !== 'number' || Boolean(targetTab?.active);
+    if (isTargetActive) {
+      await setActionIconSafe({ path: iconPaths });
+      await setActionTitleSafe({ title: statusCalc.title });
     }
   } catch (err) {
     // Gracefully ignore closed tabs or sandbox errors
@@ -554,22 +692,8 @@ async function updateAllTabIcons() {
 
   try {
     const settings = await chrome.storage.sync.get(DEFAULT_SETTINGS);
-    const defaultIconState = (settings.enabled === false) ? 'disabled' : 'active';
-    const defaultPaths = (typeof getIconPaths === 'function')
-      ? getIconPaths(defaultIconState)
-      : { 16: 'icons/icon-16.png', 48: 'icons/icon-48.png', 128: 'icons/icon-128.png' };
 
-    if (action.setIcon) {
-      try {
-        await action.setIcon({ path: defaultPaths });
-      } catch (_) {}
-    }
-    if (action.setTitle) {
-      try {
-        await action.setTitle({ title: (settings.enabled === false) ? 'HoldTab — Disabled' : 'HoldTab Settings' });
-      } catch (_) {}
-    }
-
+    // Update each open tab
     const tabs = await chrome.tabs.query({});
     if (Array.isArray(tabs)) {
       for (const tab of tabs) {
@@ -577,6 +701,17 @@ async function updateAllTabIcons() {
           await updateTabStatusIcon(tab.id, tab.url);
         }
       }
+    }
+
+    // Set the global default icon to match the currently active tab
+    const activeTab = await getActiveTabSafe();
+    if (activeTab && typeof activeTab.id === 'number') {
+      await updateTabStatusIcon(activeTab.id, activeTab.url);
+    } else {
+      const defaultIconState = (settings.enabled === false) ? 'disabled' : 'active';
+      const defaultPaths = getIconPathsSafe(defaultIconState);
+      await setActionIconSafe({ path: defaultPaths });
+      await setActionTitleSafe({ title: (settings.enabled === false) ? 'HoldTab — Disabled' : 'HoldTab Settings' });
     }
   } catch (err) {
     console.debug('HoldTab: Failed to update all tab icons:', err);
@@ -593,11 +728,24 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
 // Tab update listener (navigation, reload, redirect)
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   try {
-    if (changeInfo.url || tab?.url || changeInfo.status === 'complete') {
+    if (changeInfo.url || tab?.url || changeInfo.status === 'complete' || changeInfo.status === 'loading') {
       await updateTabStatusIcon(tabId, tab?.url || changeInfo.url);
     }
   } catch (_) {}
 });
+
+// Window focus changed listener (user switches browser windows)
+if (chrome.windows && chrome.windows.onFocusChanged) {
+  chrome.windows.onFocusChanged.addListener(async (windowId) => {
+    if (windowId === chrome.windows.WINDOW_ID_NONE) return;
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, windowId });
+      if (tab && typeof tab.id === 'number') {
+        await updateTabStatusIcon(tab.id, tab.url);
+      }
+    } catch (_) {}
+  });
+}
 
 // Storage changes listener (master toggle, exclusions, per-site overrides)
 chrome.storage.onChanged.addListener(async (changes, area) => {

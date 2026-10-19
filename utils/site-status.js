@@ -261,25 +261,26 @@
   /**
    * Returns icon dictionary paths for chrome.action.setIcon({ path: ... })
    */
-  function getIconPaths(iconState) {
+  function getIconPaths(iconState, leadingSlash = false) {
+    const prefix = leadingSlash ? '/icons/' : 'icons/';
     if (iconState === 'custom') {
       return {
-        16: 'icons/icon-custom-16.png',
-        48: 'icons/icon-custom-48.png',
-        128: 'icons/icon-custom-128.png'
+        16: prefix + 'icon-custom-16.png',
+        48: prefix + 'icon-custom-48.png',
+        128: prefix + 'icon-custom-128.png'
       };
     }
     if (iconState === 'disabled') {
       return {
-        16: 'icons/icon-disabled-16.png',
-        48: 'icons/icon-disabled-48.png',
-        128: 'icons/icon-disabled-128.png'
+        16: prefix + 'icon-disabled-16.png',
+        48: prefix + 'icon-disabled-48.png',
+        128: prefix + 'icon-disabled-128.png'
       };
     }
     return {
-      16: 'icons/icon-16.png',
-      48: 'icons/icon-48.png',
-      128: 'icons/icon-128.png'
+      16: prefix + 'icon-16.png',
+      48: prefix + 'icon-48.png',
+      128: prefix + 'icon-128.png'
     };
   }
 

@@ -71,7 +71,10 @@ function setupTabNavigation() {
   const tabs = document.querySelectorAll('.nav-tab');
   const panels = document.querySelectorAll('.tab-panel');
 
-  const savedTab = localStorage.getItem('holdtab_active_tab');
+  let savedTab = localStorage.getItem('holdtab_active_tab');
+  if (savedTab === 'tab-sites') {
+    savedTab = 'tab-rules';
+  }
   if (savedTab && document.getElementById(savedTab)) {
     tabs.forEach((t) => t.classList.remove('active'));
     panels.forEach((p) => p.classList.remove('active'));
@@ -322,12 +325,46 @@ function renderUI() {
   updateSiteStatusUI();
 }
 
-// Update real-time site status banner and per-site overrides card
+// Immediately apply dynamic icon to browser action from popup
+function applyActionIcon(iconState, title) {
+  const action = (typeof chrome !== 'undefined' && chrome.action)
+    ? chrome.action
+    : (typeof chrome !== 'undefined' && chrome.browserAction ? chrome.browserAction : null);
+  if (!action || !action.setIcon) return;
+
+  const paths = (typeof getIconPaths === 'function')
+    ? getIconPaths(iconState, false)
+    : {
+        16: `icons/icon-${iconState === 'active' ? '' : iconState + '-'}16.png`.replace('--', '-'),
+        48: `icons/icon-${iconState === 'active' ? '' : iconState + '-'}48.png`.replace('--', '-'),
+        128: `icons/icon-${iconState === 'active' ? '' : iconState + '-'}128.png`.replace('--', '-')
+      };
+
+  try {
+    // 1. Global default icon (updates the pinned toolbar icon in Chrome/Brave/Edge)
+    action.setIcon({ path: paths });
+    if (title && action.setTitle) action.setTitle({ title });
+  } catch (_) {}
+
+  // 2. Active tab icon
+  try {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (tabs && tabs[0] && typeof tabs[0].id === 'number') {
+        try {
+          action.setIcon({ tabId: tabs[0].id, path: paths });
+          if (title && action.setTitle) action.setTitle({ tabId: tabs[0].id, title });
+        } catch (_) {}
+      }
+    });
+  } catch (_) {}
+}
+
+// Update real-time site status in Rules tab and per-site overrides card
 function updateSiteStatusUI() {
   const dot = document.getElementById('siteStatusDot');
   const title = document.getElementById('siteStatusTitle');
+  const badge = document.getElementById('siteStatusBadge');
   const subtitle = document.getElementById('siteStatusSubtitle');
-  const quickBtn = document.getElementById('quickSiteActionBtn');
   const toggleBtn = document.getElementById('toggleCurrentDomainBtn');
   const overridesCard = document.getElementById('siteOverridesCard');
   const overrideDomainPill = document.getElementById('overrideDomainName');
@@ -337,51 +374,54 @@ function updateSiteStatusUI() {
     ? calculateSiteStatus(currentSettings, currentTabUrl || currentTabHostname)
     : { status: 'active', icon: 'active', title: 'HoldTab — Active' };
 
+  // Immediately apply the dynamic icon from popup
+  applyActionIcon(statusCalc.icon, statusCalc.title);
+
   if (dot) {
     dot.className = `site-status-dot status-${statusCalc.status}`;
   }
   if (title) {
-    title.textContent = statusCalc.title;
+    if (statusCalc.domain || currentTabHostname) {
+      title.textContent = statusCalc.domain || currentTabHostname;
+    } else {
+      title.textContent = 'HoldTab Status';
+    }
+  }
+  if (badge) {
+    if (!currentSettings.enabled) {
+      badge.textContent = 'Global Off';
+      badge.className = 'badge badge-disabled';
+    } else if (statusCalc.isRestricted) {
+      badge.textContent = 'Restricted';
+      badge.className = 'badge badge-disabled';
+    } else if (statusCalc.status === 'custom') {
+      badge.textContent = `Custom (${statusCalc.enabledOverridesCount})`;
+      badge.className = 'badge badge-custom';
+    } else if (statusCalc.status === 'disabled') {
+      badge.textContent = 'Excluded';
+      badge.className = 'badge badge-disabled';
+    } else {
+      badge.textContent = 'Active';
+      badge.className = 'badge badge-active';
+    }
   }
   if (subtitle) {
     if (!currentSettings.enabled) {
-      subtitle.textContent = 'HoldTab is disabled globally';
+      subtitle.textContent = 'HoldTab is disabled globally via the master toggle above.';
     } else if (statusCalc.isRestricted) {
-      subtitle.textContent = 'Internal browser page';
+      subtitle.textContent = 'Features do not run on internal browser or web store pages.';
     } else if (statusCalc.status === 'custom') {
-      subtitle.textContent = `Custom settings for ${statusCalc.domain || currentTabHostname} (${statusCalc.enabledOverridesCount} active)`;
+      subtitle.textContent = `Custom overrides enabled (${statusCalc.enabledOverridesCount} feature${statusCalc.enabledOverridesCount === 1 ? '' : 's'} active).`;
     } else if (statusCalc.status === 'disabled') {
-      subtitle.textContent = `Excluded on ${statusCalc.domain || currentTabHostname}`;
+      subtitle.textContent = `All HoldTab features and gestures are disabled on ${statusCalc.domain || currentTabHostname}.`;
     } else {
-      subtitle.textContent = `Active on ${statusCalc.domain || currentTabHostname || 'current site'}`;
+      subtitle.textContent = `All gestures, shortcuts, and toolbar features are enabled on ${statusCalc.domain || currentTabHostname || 'this site'}.`;
     }
   }
 
-  // Quick Action Button in Banner
-  if (quickBtn) {
-    if (statusCalc.isRestricted || !currentTabHostname) {
-      quickBtn.style.display = 'none';
-    } else {
-      quickBtn.style.display = 'block';
-      const isExcluded = (typeof isSiteExcluded === 'function')
-        ? isSiteExcluded(currentSettings, currentTabHostname)
-        : (currentSettings.excludedDomains || []).includes(currentTabHostname);
-
-      if (isExcluded) {
-        quickBtn.textContent = 'Include Site';
-        quickBtn.className = 'btn-site-action btn-action-include';
-        quickBtn.title = `Remove ${currentTabHostname} from exclusions`;
-      } else {
-        quickBtn.textContent = 'Exclude Site';
-        quickBtn.className = 'btn-site-action';
-        quickBtn.title = `Add ${currentTabHostname} to exclusions`;
-      }
-    }
-  }
-
-  // Toggle button on Sites tab
+  // Toggle button on Rules tab
   if (toggleBtn) {
-    if (currentTabHostname) {
+    if (currentTabHostname && !statusCalc.isRestricted) {
       toggleBtn.style.display = 'inline-block';
       const isExcluded = (typeof isSiteExcluded === 'function')
         ? isSiteExcluded(currentSettings, currentTabHostname)
@@ -390,9 +430,11 @@ function updateSiteStatusUI() {
       if (isExcluded) {
         toggleBtn.textContent = `✓ Remove ${currentTabHostname} from Exclusions`;
         toggleBtn.classList.add('btn-subtle-remove');
+        toggleBtn.title = `Enable HoldTab on ${currentTabHostname}`;
       } else {
         toggleBtn.textContent = `+ Exclude ${currentTabHostname}`;
         toggleBtn.classList.remove('btn-subtle-remove');
+        toggleBtn.title = `Disable HoldTab on ${currentTabHostname}`;
       }
     } else {
       toggleBtn.style.display = 'none';
