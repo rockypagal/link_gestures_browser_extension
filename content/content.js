@@ -3301,6 +3301,7 @@
   function setupToolbarActionListeners() {
     // Select Line
     btnSelectAll.addEventListener('click', (e) => {
+      if (isQuickSearchOpen) return;
       e.preventDefault();
       e.stopPropagation();
       selectCurrentLine();
@@ -3308,6 +3309,7 @@
 
     // Main Search Click -> Google Search in Background Tab
     btnSearch.addEventListener('click', (e) => {
+      if (isQuickSearchOpen) return;
       e.preventDefault();
       e.stopPropagation();
       const query = currentSelectionText.trim();
@@ -3323,6 +3325,7 @@
 
     // Copy Button
     btnCopy.addEventListener('click', async (e) => {
+      if (isQuickSearchOpen) return;
       e.preventDefault();
       e.stopPropagation();
       const text = currentSelectionText;
@@ -3338,6 +3341,7 @@
 
     // Cut Button
     btnCut.addEventListener('click', (e) => {
+      if (isQuickSearchOpen) return;
       e.preventDefault();
       e.stopPropagation();
       const sel = window.getSelection();
@@ -3574,6 +3578,7 @@
 
     // Hover bridging for Search button & Submenu
     searchWrapper.addEventListener('mouseenter', () => {
+      if (isQuickSearchOpen) return;
       isToolbarHovered = true;
       if (config.toolbarSearchSubmenu !== false) {
         openSubmenu();
@@ -3581,10 +3586,12 @@
     });
 
     searchWrapper.addEventListener('mouseleave', () => {
+      if (isQuickSearchOpen) return;
       startSubmenuLeaveTimer();
     });
 
     submenuEl.addEventListener('mouseenter', () => {
+      if (isQuickSearchOpen) return;
       isSubmenuHovered = true;
       if (submenuLeaveTimer) {
         clearTimeout(submenuLeaveTimer);
@@ -3593,21 +3600,25 @@
     });
 
     submenuEl.addEventListener('mouseleave', () => {
+      if (isQuickSearchOpen) return;
       isSubmenuHovered = false;
       startSubmenuLeaveTimer();
     });
 
     // Toolbar root hover tracking
     toolbarRoot.addEventListener('mouseenter', () => {
+      if (isQuickSearchOpen) return;
       isToolbarHovered = true;
     });
 
     toolbarRoot.addEventListener('mouseleave', () => {
+      if (isQuickSearchOpen) return;
       isToolbarHovered = false;
     });
 
     // Keyboard navigation inside toolbar
     toolbarEl.addEventListener('keydown', (e) => {
+      if (isQuickSearchOpen) return;
       const buttons = [btnSelectAll, btnSearch, btnCopy, btnCut];
       const activeIdx = buttons.indexOf(toolbarShadow.activeElement);
 
@@ -3646,8 +3657,12 @@
 
       if (e.key === 'Escape') {
         e.preventDefault();
-        closeSubmenu();
-        btnSearch.focus();
+        if (isQuickSearchOpen) {
+          closeQuickSearch();
+        } else {
+          closeSubmenu();
+          btnSearch.focus();
+        }
       } else if (e.key === 'ArrowDown') {
         if (toolbarShadow.activeElement === submenuSearchInputEl) {
           e.preventDefault();
@@ -3663,8 +3678,10 @@
           const prev = activeIdx - 2;
           if (prev >= 0 && items[prev]) {
             items[prev].focus();
-          } else if (submenuSearchInputEl) {
+          } else if (submenuSearchInputEl && submenuHeaderEl && submenuHeaderEl.style.display !== 'none') {
             submenuSearchInputEl.focus();
+          } else if (isQuickSearchOpen && quickQueryInputEl) {
+            quickQueryInputEl.focus();
           } else {
             closeSubmenu();
             btnSearch.focus();
@@ -3687,8 +3704,10 @@
   }
 
   function startSubmenuLeaveTimer() {
+    if (isQuickSearchOpen) return;
     if (submenuLeaveTimer) clearTimeout(submenuLeaveTimer);
     submenuLeaveTimer = setTimeout(() => {
+      if (isQuickSearchOpen) return;
       if (!isSubmenuHovered && !searchWrapper.matches(':hover') && !isSearchInputFocused) {
         closeSubmenu();
       }
@@ -3696,6 +3715,7 @@
   }
 
   function openSubmenu() {
+    if (isQuickSearchOpen) return;
     if (!config.toolbarSearchSubmenu || !submenuEl || !submenuGridEl) return;
     if (submenuLeaveTimer) {
       clearTimeout(submenuLeaveTimer);
@@ -3724,6 +3744,7 @@
   }
 
   function closeSubmenu() {
+    if (isQuickSearchOpen) return;
     if (!submenuEl) return;
     submenuEl.classList.remove('ht-submenu-open');
     submenuEl.style.display = 'none';
@@ -4202,6 +4223,7 @@
   }
 
   function hideToolbar() {
+    if (isQuickSearchOpen) return;
     if (toolbarTimer) {
       clearTimeout(toolbarTimer);
       toolbarTimer = null;
@@ -4310,6 +4332,7 @@
   }
 
   function handleToolbarSelectionChange(e) {
+    if (isQuickSearchOpen) return;
     if (!isToolbarAllowed()) {
       if (isToolbarVisible) hideToolbar();
       return;
@@ -4323,6 +4346,7 @@
   }
 
   function scheduleToolbarDisplay(e) {
+    if (isQuickSearchOpen) return;
     if (toolbarTimer) {
       clearTimeout(toolbarTimer);
       toolbarTimer = null;
@@ -4369,6 +4393,7 @@
   }
 
   function renderAndShowToolbar(sel, text) {
+    if (isQuickSearchOpen) return;
     if (!isToolbarAllowed()) {
       if (isToolbarVisible) hideToolbar();
       return;
@@ -4403,6 +4428,7 @@
   }
 
   function updateToolbarPosition(rect) {
+    if (isQuickSearchOpen) return;
     if (!toolbarRoot || !toolbarEl) return;
     toolbarRoot.style.display = 'flex';
 
@@ -5099,6 +5125,7 @@
   document.addEventListener('selectionchange', handleToolbarSelectionChange);
 
   window.addEventListener('mouseup', (e) => {
+    if (isQuickSearchOpen) return;
     if (!isToolbarAllowed()) {
       if (isToolbarVisible) hideToolbar();
       return;
@@ -5109,6 +5136,7 @@
   }, { passive: true });
 
   window.addEventListener('scroll', () => {
+    if (isQuickSearchOpen) return;
     if (!isToolbarAllowed()) {
       if (isToolbarVisible) hideToolbar();
       return;
@@ -5130,6 +5158,7 @@
   }, { passive: true });
 
   window.addEventListener('resize', () => {
+    if (isQuickSearchOpen) return;
     if (!isToolbarAllowed()) {
       if (isToolbarVisible) hideToolbar();
       return;

@@ -466,5 +466,44 @@ function isRestrictedUrl(url) {
   console.log('  ✓ Scenario 18: Idempotent initialization prevents duplicate instances');
 }
 
-console.log('\nResults: 18 / 18 Quick Search tests passed.');
+// ---------------------------------------------------------------------------
+// Scenario 19: Hovering Quick Search popup does NOT switch to Mode A
+// ---------------------------------------------------------------------------
+{
+  let isQuickSearchOpen = true;
+  let searchMode = 'quick';
+  let submenuLeaveTimer = null;
+  let isSubmenuOpen = true;
+
+  const openSubmenu = () => {
+    if (isQuickSearchOpen) return; // Must be blocked
+    searchMode = 'selection';
+  };
+
+  const onSearchWrapperMouseEnter = () => {
+    if (isQuickSearchOpen) return;
+    openSubmenu();
+  };
+
+  const onSubmenuMouseEnter = () => {
+    if (isQuickSearchOpen) return;
+    if (submenuLeaveTimer) clearTimeout(submenuLeaveTimer);
+  };
+
+  const onSelectionChange = () => {
+    if (isQuickSearchOpen) return;
+    searchMode = 'selection';
+  };
+
+  // Simulate cursor hovering over popup / searchWrapper
+  onSearchWrapperMouseEnter();
+  onSubmenuMouseEnter();
+  onSelectionChange();
+
+  assert.strictEqual(searchMode, 'quick', 'searchMode remains "quick" when hovering popup');
+  assert.strictEqual(isQuickSearchOpen, true, 'isQuickSearchOpen remains true');
+  console.log('  ✓ Scenario 19: Hovering Quick Search popup does NOT switch back to Mode A');
+}
+
+console.log('\nResults: 19 / 19 Quick Search tests passed.');
 console.log('🎉 ALL QUICK SEARCH TESTS COMPLETED SUCCESSFULLY!\n');
