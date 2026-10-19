@@ -48,6 +48,8 @@ const DEFAULT_SETTINGS = {
   toolbarMinLength: 2,
   toolbarSearchSubmenu: true,
   toolbarSearchWebsites: DEFAULT_SEARCH_WEBSITES,
+  quickSearchEnabled: true,
+  quickSearchDefaultEngine: 'google',
   excludedDomains: [],
   siteOverrides: {}
 };
@@ -318,6 +320,14 @@ function renderUI() {
 
   renderToolbarWebsitesList();
 
+  // Quick Search Settings
+  const quickSearchEnabledToggle = document.getElementById('quickSearchEnabledToggle');
+  if (quickSearchEnabledToggle) {
+    quickSearchEnabledToggle.checked = currentSettings.quickSearchEnabled !== false;
+  }
+  renderQuickSearchEnginesDropdown();
+  updateQuickSearchShortcutDisplay();
+
   // Excluded domains
   renderExcludedTags();
 
@@ -465,15 +475,17 @@ function updateSiteStatusUI() {
       const lhToggle = document.getElementById('overrideLinkHoldToggle');
       const tcToggle = document.getElementById('overrideTabCycleToggle');
       const taToggle = document.getElementById('overrideTextActionsToggle');
+      const qsToggle = document.getElementById('overrideQuickSearchToggle');
 
       if (tbToggle) tbToggle.checked = overrides.toolbar === true;
       if (lhToggle) lhToggle.checked = overrides.linkHold === true;
       if (tcToggle) tcToggle.checked = overrides.tabCycle === true;
       if (taToggle) taToggle.checked = overrides.textActions === true;
+      if (qsToggle) qsToggle.checked = overrides.quickSearch === true;
 
       const count = (typeof countEnabledOverrides === 'function')
         ? countEnabledOverrides(overrides)
-        : [overrides.toolbar, overrides.linkHold, overrides.tabCycle, overrides.textActions].filter(Boolean).length;
+        : [overrides.toolbar, overrides.linkHold, overrides.tabCycle, overrides.textActions, overrides.quickSearch].filter(Boolean).length;
 
       if (overrideBadge) {
         if (count > 0) {
@@ -886,7 +898,8 @@ function setupEventListeners() {
     { id: 'overrideToolbarToggle', feat: 'toolbar' },
     { id: 'overrideLinkHoldToggle', feat: 'linkHold' },
     { id: 'overrideTabCycleToggle', feat: 'tabCycle' },
-    { id: 'overrideTextActionsToggle', feat: 'textActions' }
+    { id: 'overrideTextActionsToggle', feat: 'textActions' },
+    { id: 'overrideQuickSearchToggle', feat: 'quickSearch' }
   ];
 
   overrideFeatureMap.forEach(({ id, feat }) => {
@@ -1617,6 +1630,38 @@ function setupToolbarEventListeners() {
     });
   }
 
+  // Quick Search settings listeners
+  const quickSearchToggle = document.getElementById('quickSearchEnabledToggle');
+  if (quickSearchToggle) {
+    quickSearchToggle.addEventListener('change', (e) => {
+      saveSettings({ quickSearchEnabled: e.target.checked });
+    });
+  }
+
+  const defaultEngineSelect = document.getElementById('quickSearchDefaultEngineSelect');
+  if (defaultEngineSelect) {
+    defaultEngineSelect.addEventListener('change', (e) => {
+      saveSettings({ quickSearchDefaultEngine: e.target.value });
+    });
+  }
+
+  const shortcutBtn = document.getElementById('openShortcutConfigBtn');
+  if (shortcutBtn) {
+    shortcutBtn.addEventListener('click', () => {
+      try {
+        if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.create) {
+          chrome.tabs.create({ url: 'chrome://extensions/shortcuts' }, () => {
+            if (chrome.runtime.lastError) {
+              try {
+                chrome.tabs.create({ url: 'about:addons' });
+              } catch (_) {}
+            }
+          });
+        }
+      } catch (_) {}
+    });
+  }
+
   // Capture Search URL buttons & inputs
   const startCaptureBtn = document.getElementById('startCaptureBtn');
   const copyMarkerBtn = document.getElementById('copyMarkerBtn');
@@ -2117,6 +2162,65 @@ function renderToolbarWebsitesList() {
     `;
     container.appendChild(item);
   });
+
+  renderQuickSearchEnginesDropdown();
+}
+
+// Populate Default Engine dropdown for Quick Search
+function renderQuickSearchEnginesDropdown() {
+  const select = document.getElementById('quickSearchDefaultEngineSelect');
+  if (!select) return;
+  select.innerHTML = '';
+
+  const sites = Array.isArray(currentSettings.toolbarSearchWebsites) && currentSettings.toolbarSearchWebsites.length > 0
+    ? currentSettings.toolbarSearchWebsites.filter((s) => s.enabled !== false)
+    : DEFAULT_SEARCH_WEBSITES;
+
+  if (sites.length === 0) {
+    const opt = document.createElement('option');
+    opt.value = 'google';
+    opt.textContent = 'Google (Default)';
+    select.appendChild(opt);
+    return;
+  }
+
+  sites.forEach((site) => {
+    const opt = document.createElement('option');
+    opt.value = site.id;
+    opt.textContent = site.name;
+    select.appendChild(opt);
+  });
+
+  const currentDefault = currentSettings.quickSearchDefaultEngine || 'google';
+  if (sites.some((s) => s.id === currentDefault)) {
+    select.value = currentDefault;
+  } else if (sites.length > 0) {
+    select.value = sites[0].id;
+  }
+}
+
+// Display configured browser shortcut for Quick Search
+function updateQuickSearchShortcutDisplay() {
+  const badge = document.getElementById('quickSearchShortcutBadge');
+  if (!badge) return;
+  try {
+    if (typeof chrome !== 'undefined' && chrome.commands && chrome.commands.getAll) {
+      chrome.commands.getAll((commands) => {
+        if (Array.isArray(commands)) {
+          const cmd = commands.find((c) => c.name === 'quick-search');
+          if (cmd && cmd.shortcut) {
+            badge.textContent = cmd.shortcut;
+            return;
+          }
+        }
+        badge.textContent = navigator.platform && navigator.platform.toUpperCase().includes('MAC')
+          ? 'Command + Shift + K'
+          : 'Ctrl + Shift + K';
+      });
+      return;
+    }
+  } catch (_) {}
+  badge.textContent = 'Ctrl + Shift + K';
 }
 
 // Inline SVG icons for standard search engines with high contrast

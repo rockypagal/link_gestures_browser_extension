@@ -902,6 +902,57 @@
             </label>
           </div>
         </section>
+
+        <!-- Quick Search Settings Card -->
+        <section class="card">
+          <div class="card-header">
+            <span class="card-title">⚡ Quick Search Shortcut</span>
+            <label
+              class="switch switch-sm"
+              title="Toggle Quick Search Shortcut"
+            >
+              <input type="checkbox" id="quickSearchEnabledToggle" checked />
+              <span class="slider"></span>
+            </label>
+          </div>
+          <p class="card-desc">
+            Open the search interface anytime from anywhere using a keyboard shortcut, even without selecting text.
+          </p>
+
+          <!-- Shortcut info & customize button -->
+          <div class="setting-group">
+            <div class="setting-label-row">
+              <label class="setting-label">Keyboard Shortcut</label>
+              <span id="quickSearchShortcutBadge" class="shortcut-kbd-badge">Ctrl + Shift + K</span>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 6px;">
+              <span class="card-desc" style="margin-bottom: 0; font-size: 10.5px;">Browser shortcut command:</span>
+              <button
+                type="button"
+                id="openShortcutConfigBtn"
+                class="btn-secondary"
+                style="padding: 4px 8px; font-size: 10.5px; border-radius: 6px;"
+                title="Configure keyboard shortcut in browser extension settings"
+              >
+                ⚙️ Configure Shortcut
+              </button>
+            </div>
+          </div>
+
+          <!-- Default Search Engine Selection -->
+          <div class="setting-group" style="margin-bottom: 0;">
+            <div class="setting-label-row">
+              <label for="quickSearchDefaultEngineSelect" class="setting-label">Default Engine (Enter)</label>
+              <select id="quickSearchDefaultEngineSelect" class="select-dropdown">
+                <!-- Dynamically populated with configured search websites -->
+                <option value="google">Google</option>
+              </select>
+            </div>
+            <span class="form-hint" style="margin-top: 4px; display: block;">
+              Pressing <kbd>Enter</kbd> in Quick Search executes with this engine immediately.
+            </span>
+          </div>
+        </section>
       </main>
 
       <!-- Tab 5: Animations & Visual Controls -->
@@ -1235,6 +1286,17 @@
                 <span class="slider"></span>
               </label>
             </div>
+
+            <div class="toggle-row">
+              <div class="toggle-info">
+                <div class="toggle-title">🔍 Quick Search Shortcut</div>
+                <div class="toggle-desc">Keyboard shortcut search popup on this site</div>
+              </div>
+              <label class="switch switch-sm" title="Toggle Quick Search Override">
+                <input type="checkbox" id="overrideQuickSearchToggle" />
+                <span class="slider"></span>
+              </label>
+            </div>
           </div>
         </section>
 
@@ -1266,7 +1328,7 @@
       <!-- Footer -->
       <footer class="footer">
         <div class="footer-meta">
-          <span>v1.6.0 &bull; Auto-saved</span>
+          <span>v1.7.0 &bull; Auto-saved</span>
         </div>
         <button
           id="resetDefaultsBtn"

@@ -26,6 +26,11 @@
       desc: 'Contextual toolbar with search engines when highlighting text'
     },
     {
+      id: 'quickSearch',
+      label: 'Quick Search Shortcut',
+      desc: 'Open Quick Search modal via keyboard shortcut'
+    },
+    {
       id: 'linkHold',
       label: 'Link Hold Gestures',
       desc: 'Hold on links to open them in background or foreground tabs'

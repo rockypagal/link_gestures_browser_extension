@@ -56,6 +56,8 @@ const DEFAULT_SETTINGS = {
   toolbarMinLength: 2,     // Minimum characters selected to display toolbar (default: 2)
   toolbarSearchSubmenu: true, // Show search engine submenu on hover
   toolbarSearchWebsites: DEFAULT_SEARCH_WEBSITES,
+  quickSearchEnabled: true, // Quick search shortcut and popup
+  quickSearchDefaultEngine: 'google', // Default engine for Enter in quick search
   excludedDomains: [],
   siteOverrides: {}
 };
@@ -546,7 +548,7 @@ function calculateSiteStatusSafe(settings, urlOrHostname) {
   });
 
   const overrides = (settings.siteOverrides && domain && settings.siteOverrides[domain]) || {};
-  const hasAnyOverride = ['toolbar', 'linkHold', 'tabCycle', 'textActions'].some((k) => overrides[k] === true);
+  const hasAnyOverride = ['toolbar', 'quickSearch', 'linkHold', 'tabCycle', 'textActions'].some((k) => overrides[k] === true);
 
   if (isExcluded) {
     if (hasAnyOverride) {
@@ -760,4 +762,73 @@ chrome.storage.onChanged.addListener(async (changes, area) => {
 try {
   updateAllTabIcons();
 } catch (_) {}
+
+/**
+ * Checks if a URL is restricted or internal where extensions cannot execute.
+ */
+function isRestrictedUrlSafe(url) {
+  if (typeof isRestrictedUrl === 'function') return isRestrictedUrl(url);
+  if (!url || typeof url !== 'string') return true;
+  const lower = url.trim().toLowerCase();
+  return (
+    lower.startsWith('chrome://') || lower.startsWith('brave://') ||
+    lower.startsWith('edge://') || lower.startsWith('opera://') ||
+    lower.startsWith('about:') || lower.startsWith('devtools://') ||
+    lower.startsWith('view-source:') || lower.startsWith('data:') ||
+    lower.startsWith('javascript:') ||
+    lower.includes('chrome.google.com/webstore') ||
+    lower.includes('chromewebstore.google.com') ||
+    lower.includes('addons.mozilla.org')
+  );
+}
+
+/**
+ * Handles extension command 'quick-search' triggered by keyboard shortcut.
+ */
+async function handleQuickSearchCommand() {
+  try {
+    const activeTab = await getActiveTabSafe();
+    if (!activeTab || typeof activeTab.id !== 'number') return;
+
+    const url = activeTab.url || activeTab.pendingUrl || '';
+    if (isRestrictedUrlSafe(url)) {
+      return;
+    }
+
+    const settings = await chrome.storage.sync.get(DEFAULT_SETTINGS);
+    if (settings.enabled === false) return;
+    if (settings.quickSearchEnabled === false) return;
+
+    // Check exclusion & overrides
+    const statusCalc = calculateSiteStatusSafe(settings, url);
+    if (statusCalc.status === 'disabled') {
+      return;
+    }
+    if (statusCalc.status === 'custom') {
+      const domain = normalizeDomainSafe(url);
+      const overrides = (settings.siteOverrides && domain && settings.siteOverrides[domain]) || {};
+      if (overrides.quickSearch !== true && overrides.toolbar !== true) {
+        return;
+      }
+    }
+
+    // Send openQuickSearch message to the active tab
+    chrome.tabs.sendMessage(activeTab.id, { action: 'openQuickSearch' }, () => {
+      if (chrome.runtime.lastError) {
+        // Tab may not have content script running
+      }
+    });
+  } catch (err) {
+    console.debug('HoldTab: Quick Search command failed:', err);
+  }
+}
+
+// Register browser extension command listener
+if (chrome.commands && chrome.commands.onCommand) {
+  chrome.commands.onCommand.addListener(async (command) => {
+    if (command === 'quick-search') {
+      await handleQuickSearchCommand();
+    }
+  });
+}
 

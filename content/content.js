@@ -64,6 +64,8 @@
     toolbarMinLength: 2,     // Minimum characters selected to display toolbar (default: 2)
     toolbarSearchSubmenu: true, // Show search engine submenu on hover
     toolbarSearchWebsites: DEFAULT_SEARCH_WEBSITES,
+    quickSearchEnabled: true, // Quick search shortcut and popup
+    quickSearchDefaultEngine: 'google', // Default engine for Enter in quick search
     excludedDomains: [],
     siteOverrides: {}
   };
@@ -241,6 +243,10 @@
           tabCycleDidExecute = true;
           isRightMouseDown = false;
         }
+
+        if (message && message.action === 'openQuickSearch') {
+          toggleQuickSearch();
+        }
       });
     }
   } catch (e) {}
@@ -330,6 +336,7 @@
     if (!isCurrentSiteExcluded()) return true;
     return (
       isFeatureAllowed('toolbar') ||
+      isFeatureAllowed('quickSearch') ||
       isFeatureAllowed('linkHold') ||
       isFeatureAllowed('tabCycle') ||
       isFeatureAllowed('textActions')
@@ -342,6 +349,14 @@
     if (config.toolbarEnabled === false) return false;
     if (config.toolbarMode === 'disabled') return false;
     if (!isFeatureAllowed('toolbar')) return false;
+    return true;
+  }
+
+  // Check if Quick Search modal is permitted in current context
+  function isQuickSearchAllowed() {
+    if (!config || config.enabled === false) return false;
+    if (config.quickSearchEnabled === false) return false;
+    if (!isFeatureAllowed('quickSearch')) return false;
     return true;
   }
 
@@ -3093,6 +3108,18 @@
   let submenuGridEl = null;
   let submenuSearchInputEl = null;
   let submenuSearchClearEl = null;
+  let submenuHeaderEl = null;
+  let quickQueryBoxEl = null;
+  let quickQueryInputEl = null;
+  let quickQueryClearEl = null;
+  let quickMetaBarEl = null;
+  let quickDefaultTagEl = null;
+  let quickFilterToggleEl = null;
+  let quickEmptyWarningEl = null;
+  let quickShortcutsTipEl = null;
+  let searchMode = 'selection'; // 'selection' | 'quick'
+  let isQuickSearchOpen = false;
+  let isEngineFilterVisible = false;
   let toolbarTimer = null;
   let submenuLeaveTimer = null;
   let isToolbarVisible = false;
@@ -3153,12 +3180,30 @@
     arrowIcon.innerHTML = `<svg width="8" height="8" viewBox="0 0 12 12" fill="currentColor"><path d="M2.5 4.5L6 8L9.5 4.5"/></svg>`;
     btnSearch.appendChild(arrowIcon);
 
-    // Submenu
+    // Submenu (shared between Mode A: Selection Hover & Mode B: Quick Search)
     submenuEl = document.createElement('div');
     submenuEl.className = 'ht-submenu';
-    submenuEl.setAttribute('role', 'menu');
+    submenuEl.setAttribute('role', 'dialog');
     submenuEl.setAttribute('aria-label', 'Search engines');
     submenuEl.innerHTML = `
+      <div class="ht-quick-query-box" style="display: none;">
+        <svg class="ht-quick-query-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input type="text" class="ht-quick-query-input" placeholder="Enter text to search..." autocomplete="off" spellcheck="false" />
+        <button type="button" class="ht-quick-query-clear" style="display: none;" title="Clear search query" aria-label="Clear search query">✕</button>
+      </div>
+      <div class="ht-quick-meta-bar" style="display: none;">
+        <div class="ht-quick-meta-left">
+          <span class="ht-quick-meta-title">Engines</span>
+          <span class="ht-quick-default-tag" title="Press Enter to search with default engine">Default: Google ↵</span>
+        </div>
+        <button type="button" class="ht-quick-filter-toggle" title="Filter search engines" aria-label="Filter search engines">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <span>Filter</span>
+        </button>
+      </div>
       <div class="ht-submenu-header">
         <div class="ht-submenu-search-box">
           <svg class="ht-submenu-search-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -3166,11 +3211,13 @@
             <line x1="21" y1="21" x2="16.65" y2="16.65"/>
           </svg>
           <input type="text" class="ht-submenu-search-input" placeholder="Search websites..." autocomplete="off" spellcheck="false" />
-          <button type="button" class="ht-submenu-search-clear" style="display: none;" title="Clear search" aria-label="Clear search">✕</button>
+          <button type="button" class="ht-submenu-search-clear" style="display: none;" title="Clear filter" aria-label="Clear filter">✕</button>
         </div>
       </div>
+      <div class="ht-quick-empty-warning" style="display: none;">Please enter text to search</div>
       <div class="ht-submenu-grid" role="group"></div>
       <div class="ht-submenu-footer">
+        <span class="ht-quick-shortcuts-tip" style="display: none;">↵ Search • ↑↓ Navigate • Esc Close</span>
         <button type="button" class="ht-submenu-manage" title="Manage search engines in HoldTab settings">
           <svg viewBox="0 0 16 16" fill="currentColor" width="11" height="11"><path d="M8 0a8 8 0 1 0 8 8A8 8 0 0 0 8 0zm1 11H7v-2h2zm0-4H7V4h2z"/></svg>
           <span>Manage Engines</span>
@@ -3180,6 +3227,15 @@
     submenuGridEl = submenuEl.querySelector('.ht-submenu-grid');
     submenuSearchInputEl = submenuEl.querySelector('.ht-submenu-search-input');
     submenuSearchClearEl = submenuEl.querySelector('.ht-submenu-search-clear');
+    submenuHeaderEl = submenuEl.querySelector('.ht-submenu-header');
+    quickQueryBoxEl = submenuEl.querySelector('.ht-quick-query-box');
+    quickQueryInputEl = submenuEl.querySelector('.ht-quick-query-input');
+    quickQueryClearEl = submenuEl.querySelector('.ht-quick-query-clear');
+    quickMetaBarEl = submenuEl.querySelector('.ht-quick-meta-bar');
+    quickDefaultTagEl = submenuEl.querySelector('.ht-quick-default-tag');
+    quickFilterToggleEl = submenuEl.querySelector('.ht-quick-filter-toggle');
+    quickEmptyWarningEl = submenuEl.querySelector('.ht-quick-empty-warning');
+    quickShortcutsTipEl = submenuEl.querySelector('.ht-quick-shortcuts-tip');
 
     searchWrapper.appendChild(btnSearch);
     searchWrapper.appendChild(submenuEl);
@@ -3325,6 +3381,94 @@
       });
     }
 
+    // Quick Search query input & clear listeners
+    if (quickQueryInputEl) {
+      quickQueryInputEl.addEventListener('mousedown', (e) => {
+        e.stopPropagation();
+      });
+
+      quickQueryInputEl.addEventListener('input', () => {
+        const val = quickQueryInputEl.value;
+        if (quickQueryClearEl) {
+          quickQueryClearEl.style.display = val.length > 0 ? 'inline-flex' : 'none';
+        }
+        hideQuickEmptyWarning();
+      });
+
+      quickQueryInputEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          e.stopPropagation();
+          const query = quickQueryInputEl.value.trim();
+          if (!query) {
+            showQuickEmptyWarning('Please enter text to search');
+            return;
+          }
+          const defaultEngine = getDefaultSearchEngine();
+          if (defaultEngine) {
+            executeSearchOnWebsite(defaultEngine, false, query);
+          }
+        } else if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          e.stopPropagation();
+          if (isEngineFilterVisible && submenuSearchInputEl && submenuHeaderEl && submenuHeaderEl.style.display !== 'none') {
+            submenuSearchInputEl.focus();
+          } else {
+            const firstItem = submenuGridEl ? submenuGridEl.querySelector('.ht-submenu-item') : null;
+            if (firstItem) firstItem.focus();
+          }
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          e.stopPropagation();
+          closeQuickSearch();
+        }
+      });
+    }
+
+    if (quickQueryClearEl) {
+      quickQueryClearEl.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      });
+
+      quickQueryClearEl.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (quickQueryInputEl) {
+          quickQueryInputEl.value = '';
+          quickQueryInputEl.focus();
+        }
+        quickQueryClearEl.style.display = 'none';
+        hideQuickEmptyWarning();
+      });
+    }
+
+    if (quickFilterToggleEl) {
+      quickFilterToggleEl.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      });
+
+      quickFilterToggleEl.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        isEngineFilterVisible = !isEngineFilterVisible;
+        if (submenuHeaderEl) {
+          submenuHeaderEl.style.display = isEngineFilterVisible ? 'block' : 'none';
+        }
+        quickFilterToggleEl.classList.toggle('active', isEngineFilterVisible);
+        if (isEngineFilterVisible && submenuSearchInputEl) {
+          submenuSearchInputEl.placeholder = 'Filter engines...';
+          submenuSearchInputEl.focus();
+        } else {
+          if (submenuSearchInputEl) submenuSearchInputEl.value = '';
+          if (submenuSearchClearEl) submenuSearchClearEl.style.display = 'none';
+          renderSubmenuGrid('');
+          if (quickQueryInputEl) quickQueryInputEl.focus();
+        }
+      });
+    }
+
     // Submenu search input & clear button listeners
     if (submenuSearchInputEl) {
       submenuSearchInputEl.addEventListener('mousedown', (e) => {
@@ -3366,7 +3510,13 @@
               : DEFAULT_SEARCH_WEBSITES;
             const targetSite = sites.find((s) => s.id === firstItem.dataset.siteId);
             if (targetSite) {
-              executeSearchOnWebsite(targetSite, e.shiftKey || e.altKey);
+              const query = (searchMode === 'quick' && quickQueryInputEl) ? quickQueryInputEl.value.trim() : currentSelectionText.trim();
+              if (searchMode === 'quick' && !query) {
+                showQuickEmptyWarning('Please enter text to search');
+                if (quickQueryInputEl) quickQueryInputEl.focus();
+                return;
+              }
+              executeSearchOnWebsite(targetSite, e.shiftKey || e.altKey, query);
             }
           }
         } else if (e.key === 'ArrowDown') {
@@ -3374,6 +3524,12 @@
           e.stopPropagation();
           const firstItem = submenuGridEl ? submenuGridEl.querySelector('.ht-submenu-item') : null;
           if (firstItem) firstItem.focus();
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          e.stopPropagation();
+          if (searchMode === 'quick' && quickQueryInputEl) {
+            quickQueryInputEl.focus();
+          }
         } else if (e.key === 'Escape') {
           e.preventDefault();
           e.stopPropagation();
@@ -3381,6 +3537,15 @@
             submenuSearchInputEl.value = '';
             if (submenuSearchClearEl) submenuSearchClearEl.style.display = 'none';
             renderSubmenuGrid('');
+          } else if (searchMode === 'quick') {
+            if (isEngineFilterVisible) {
+              isEngineFilterVisible = false;
+              if (submenuHeaderEl) submenuHeaderEl.style.display = 'none';
+              if (quickFilterToggleEl) quickFilterToggleEl.classList.remove('active');
+              if (quickQueryInputEl) quickQueryInputEl.focus();
+            } else {
+              closeQuickSearch();
+            }
           } else {
             closeSubmenu();
             if (btnSearch) btnSearch.focus();
@@ -3537,6 +3702,12 @@
       submenuLeaveTimer = null;
     }
 
+    searchMode = 'selection';
+    if (quickQueryBoxEl) quickQueryBoxEl.style.display = 'none';
+    if (quickMetaBarEl) quickMetaBarEl.style.display = 'none';
+    if (quickShortcutsTipEl) quickShortcutsTipEl.style.display = 'none';
+    if (submenuHeaderEl) submenuHeaderEl.style.display = 'block';
+
     if (submenuSearchInputEl) {
       submenuSearchInputEl.value = '';
     }
@@ -3562,6 +3733,148 @@
     isSearchInputFocused = false;
     if (submenuSearchInputEl && toolbarShadow && toolbarShadow.activeElement === submenuSearchInputEl) {
       submenuSearchInputEl.blur();
+    }
+  }
+
+  function showQuickEmptyWarning(message = 'Please enter text to search') {
+    if (quickEmptyWarningEl) {
+      quickEmptyWarningEl.textContent = message;
+      quickEmptyWarningEl.style.display = 'block';
+    }
+  }
+
+  function hideQuickEmptyWarning() {
+    if (quickEmptyWarningEl) {
+      quickEmptyWarningEl.style.display = 'none';
+    }
+  }
+
+  function getDefaultSearchEngine() {
+    const sites = Array.isArray(config.toolbarSearchWebsites) && config.toolbarSearchWebsites.length > 0
+      ? config.toolbarSearchWebsites.filter((s) => s.enabled !== false)
+      : DEFAULT_SEARCH_WEBSITES;
+
+    if (sites.length === 0) return DEFAULT_SEARCH_WEBSITES[0];
+
+    const explicitDefault = sites.find((s) => s.isDefault === true);
+    if (explicitDefault) return explicitDefault;
+
+    const defaultId = config.quickSearchDefaultEngine || 'google';
+    const matched = sites.find((s) => s.id === defaultId);
+    if (matched) return matched;
+
+    return sites[0];
+  }
+
+  function openQuickSearch() {
+    if (!isQuickSearchAllowed()) return;
+
+    initToolbarHost();
+    if (!toolbarRoot || !toolbarEl || !submenuEl) return;
+
+    searchMode = 'quick';
+    isQuickSearchOpen = true;
+
+    // Reset toolbar positioning and classes
+    toolbarRoot.classList.remove('ht-visible');
+    toolbarRoot.removeAttribute('data-placement');
+    toolbarRoot.style.left = '50%';
+    toolbarRoot.style.top = '18%';
+    toolbarRoot.style.transform = 'translateX(-50%)';
+    toolbarRoot.style.display = 'flex';
+    toolbarRoot.classList.add('ht-visible', 'ht-quick-search-active');
+    toolbarEl.classList.add('ht-quick-search-active');
+
+    // Show Quick Search UI elements
+    if (quickQueryBoxEl) quickQueryBoxEl.style.display = 'flex';
+    if (quickMetaBarEl) quickMetaBarEl.style.display = 'flex';
+    if (quickShortcutsTipEl) quickShortcutsTipEl.style.display = 'inline-block';
+
+    // Hide engine filter search input initially (progressive disclosure)
+    isEngineFilterVisible = false;
+    if (submenuHeaderEl) submenuHeaderEl.style.display = 'none';
+    if (quickFilterToggleEl) quickFilterToggleEl.classList.remove('active');
+    if (submenuSearchInputEl) submenuSearchInputEl.value = '';
+    if (submenuSearchClearEl) submenuSearchClearEl.style.display = 'none';
+
+    // Update default engine indicator in meta bar
+    const defEngine = getDefaultSearchEngine();
+    if (quickDefaultTagEl && defEngine) {
+      quickDefaultTagEl.textContent = `Default: ${defEngine.name} ↵`;
+      quickDefaultTagEl.title = `Press Enter to search with ${defEngine.name}`;
+    }
+
+    // Prefill query if user has text selected
+    let initialQuery = '';
+    try {
+      const sel = window.getSelection ? window.getSelection() : null;
+      if (sel && !sel.isCollapsed) {
+        initialQuery = sel.toString().trim();
+      }
+    } catch (_) {}
+    if (!initialQuery && currentSelectionText) {
+      initialQuery = currentSelectionText.trim();
+    }
+
+    if (quickQueryInputEl) {
+      quickQueryInputEl.value = initialQuery;
+      if (quickQueryClearEl) {
+        quickQueryClearEl.style.display = initialQuery ? 'inline-flex' : 'none';
+      }
+    }
+
+    hideQuickEmptyWarning();
+    renderSubmenuGrid('');
+
+    // Display submenu
+    submenuEl.classList.add('ht-submenu-open');
+    submenuEl.style.display = 'block';
+    isSubmenuOpen = true;
+
+    // Autofocus input
+    setTimeout(() => {
+      if (quickQueryInputEl) {
+        quickQueryInputEl.focus();
+        if (initialQuery) {
+          quickQueryInputEl.select();
+        }
+      }
+    }, 25);
+  }
+
+  function closeQuickSearch() {
+    if (!isQuickSearchOpen && searchMode !== 'quick') return;
+
+    isQuickSearchOpen = false;
+    searchMode = 'selection';
+
+    if (quickQueryInputEl) {
+      quickQueryInputEl.blur();
+    }
+
+    if (toolbarRoot) {
+      toolbarRoot.classList.remove('ht-visible', 'ht-quick-search-active');
+      toolbarRoot.style.display = 'none';
+      toolbarRoot.style.transform = '';
+    }
+
+    if (toolbarEl) {
+      toolbarEl.classList.remove('ht-quick-search-active');
+    }
+
+    closeSubmenu();
+
+    if (quickQueryBoxEl) quickQueryBoxEl.style.display = 'none';
+    if (quickMetaBarEl) quickMetaBarEl.style.display = 'none';
+    if (quickShortcutsTipEl) quickShortcutsTipEl.style.display = 'none';
+    hideQuickEmptyWarning();
+  }
+
+  function toggleQuickSearch() {
+    if (isQuickSearchOpen) {
+      closeQuickSearch();
+    } else {
+      openQuickSearch();
     }
   }
 
@@ -3662,13 +3975,21 @@
       return;
     }
 
+    const defaultEngine = getDefaultSearchEngine();
+
     filteredSites.forEach((site) => {
+      const isDefaultSite = defaultEngine && defaultEngine.id === site.id;
       const item = document.createElement('div');
       item.className = 'ht-submenu-item';
+      if (searchMode === 'quick' && isDefaultSite) {
+        item.classList.add('ht-item-default');
+      }
       item.setAttribute('role', 'menuitem');
       item.setAttribute('tabindex', '0');
       item.dataset.siteId = site.id;
-      item.title = `Search on ${site.name} (Background Tab, keeps menu open)`;
+      item.title = searchMode === 'quick'
+        ? (isDefaultSite ? `Search on ${site.name} (Default engine - Enter)` : `Search on ${site.name}`)
+        : `Search on ${site.name} (Background Tab, keeps menu open)`;
 
       const mainAction = document.createElement('div');
       mainAction.className = 'ht-submenu-main-action';
@@ -3689,6 +4010,13 @@
       mainAction.appendChild(iconSpan);
       mainAction.appendChild(nameSpan);
 
+      if (searchMode === 'quick' && isDefaultSite) {
+        const badge = document.createElement('span');
+        badge.className = 'ht-default-badge';
+        badge.textContent = 'Default';
+        mainAction.appendChild(badge);
+      }
+
       // Right-side open-in-foreground action icon (switches immediately to new tab)
       const openBtn = document.createElement('button');
       openBtn.type = 'button';
@@ -3700,6 +4028,12 @@
       item.appendChild(mainAction);
       item.appendChild(openBtn);
 
+      const getQuery = () => {
+        return (searchMode === 'quick' && quickQueryInputEl)
+          ? quickQueryInputEl.value.trim()
+          : currentSelectionText.trim();
+      };
+
       // Foreground click on right-side icon
       openBtn.addEventListener('mousedown', (e) => {
         e.preventDefault();
@@ -3709,7 +4043,13 @@
       openBtn.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        executeSearchOnWebsite(site, true);
+        const query = getQuery();
+        if (searchMode === 'quick' && !query) {
+          showQuickEmptyWarning('Please enter text to search');
+          if (quickQueryInputEl) quickQueryInputEl.focus();
+          return;
+        }
+        executeSearchOnWebsite(site, true, query);
       });
 
       // Background click on main item
@@ -3721,14 +4061,26 @@
       item.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        executeSearchOnWebsite(site, false);
+        const query = getQuery();
+        if (searchMode === 'quick' && !query) {
+          showQuickEmptyWarning('Please enter text to search');
+          if (quickQueryInputEl) quickQueryInputEl.focus();
+          return;
+        }
+        executeSearchOnWebsite(site, false, query);
       });
 
       // Keyboard support
       item.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
-          executeSearchOnWebsite(site, e.shiftKey || e.altKey);
+          const query = getQuery();
+          if (searchMode === 'quick' && !query) {
+            showQuickEmptyWarning('Please enter text to search');
+            if (quickQueryInputEl) quickQueryInputEl.focus();
+            return;
+          }
+          executeSearchOnWebsite(site, e.shiftKey || e.altKey, query);
         }
       });
 
@@ -3762,9 +4114,18 @@
     return frag;
   }
 
-  function executeSearchOnWebsite(site, isForeground = false) {
-    const query = currentSelectionText.trim();
-    if (!query) return;
+  function executeSearchOnWebsite(site, isForeground = false, queryOverride = null) {
+    const rawQuery = (typeof queryOverride === 'string')
+      ? queryOverride
+      : (searchMode === 'quick' && quickQueryInputEl ? quickQueryInputEl.value : currentSelectionText);
+    const query = (rawQuery || '').trim();
+    if (!query) {
+      if (searchMode === 'quick') {
+        showQuickEmptyWarning('Please enter text to search');
+        if (quickQueryInputEl) quickQueryInputEl.focus();
+      }
+      return;
+    }
 
     let template = (site.template || 'https://www.google.com/search?q={query}').trim();
     if (!/^https?:\/\//i.test(template)) {
@@ -3796,16 +4157,25 @@
       finalUrl = `${template}${joiner}q=${encodedQuery}`;
     }
 
+    const isQuick = (searchMode === 'quick');
+    if (isQuick) {
+      closeQuickSearch();
+    }
+
+    const effectiveFocus = isForeground ? 'foreground' : (isQuick ? (config.tabFocus || 'foreground') : 'background');
+
     chrome.runtime.sendMessage({
       action: 'openLink',
       url: finalUrl,
-      tabFocus: isForeground ? 'foreground' : 'background'
+      tabFocus: effectiveFocus
     });
 
-    if (isForeground) {
-      hideToolbar();
-    } else {
-      showSubmenuItemFeedback(site.id);
+    if (!isQuick) {
+      if (isForeground) {
+        hideToolbar();
+      } else {
+        showSubmenuItemFeedback(site.id);
+      }
     }
   }
 
@@ -4516,6 +4886,212 @@
         opacity: 1;
         transform: translateX(-50%) translateY(0);
       }
+
+      /* Mode B: Quick Search Styles */
+      .ht-toolbar-root.ht-quick-search-active {
+        top: 18% !important;
+        left: 50% !important;
+        transform: translateX(-50%) !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        border: none !important;
+        padding: 0 !important;
+      }
+
+      .ht-toolbar.ht-quick-search-active {
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+      }
+
+      .ht-toolbar-root.ht-quick-search-active .ht-tb-btn {
+        display: none !important;
+      }
+
+      .ht-toolbar-root.ht-quick-search-active .ht-search-wrapper {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .ht-toolbar-root.ht-quick-search-active .ht-search-wrapper::after {
+        display: none !important;
+      }
+
+      .ht-toolbar-root.ht-quick-search-active .ht-submenu {
+        position: static !important;
+        transform: none !important;
+        width: 330px !important;
+        box-shadow: 0 20px 45px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.12) !important;
+        padding: 10px !important;
+        animation: htQuickFadeIn 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+
+      @keyframes htQuickFadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(-8px) scale(0.97);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+
+      .ht-quick-query-box {
+        display: flex;
+        align-items: center;
+        width: 100%;
+        background: rgba(2, 6, 23, 0.85);
+        border: 1.5px solid #38bdf8;
+        box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.22);
+        border-radius: 8px;
+        padding: 7px 10px;
+        gap: 8px;
+        margin-bottom: 8px;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+      }
+
+      .ht-quick-query-icon {
+        color: #38bdf8;
+        flex-shrink: 0;
+      }
+
+      .ht-quick-query-input {
+        flex: 1;
+        min-width: 0;
+        background: transparent;
+        border: none;
+        outline: none;
+        color: #ffffff;
+        font-size: 13.5px;
+        font-weight: 500;
+        font-family: inherit;
+        line-height: 1.4;
+      }
+
+      .ht-quick-query-input::placeholder {
+        color: #94a3b8;
+        font-size: 13px;
+        font-weight: 400;
+      }
+
+      .ht-quick-query-clear {
+        background: rgba(255, 255, 255, 0.1);
+        border: none;
+        color: #cbd5e1;
+        font-size: 11px;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        transition: background 0.12s, color 0.12s;
+      }
+
+      .ht-quick-query-clear:hover {
+        background: rgba(255, 255, 255, 0.22);
+        color: #ffffff;
+      }
+
+      .ht-quick-meta-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 2px 6px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        margin-bottom: 6px;
+      }
+
+      .ht-quick-meta-left {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .ht-quick-meta-title {
+        font-size: 10.5px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #94a3b8;
+      }
+
+      .ht-quick-default-tag {
+        font-size: 9.5px;
+        font-weight: 600;
+        color: #38bdf8;
+        background: rgba(56, 189, 248, 0.12);
+        border: 1px solid rgba(56, 189, 248, 0.25);
+        border-radius: 4px;
+        padding: 1px 5px;
+      }
+
+      .ht-quick-filter-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: transparent;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 4px;
+        color: #94a3b8;
+        font-size: 10px;
+        font-weight: 600;
+        padding: 2px 6px;
+        cursor: pointer;
+        transition: background 0.12s, color 0.12s, border-color 0.12s;
+      }
+
+      .ht-quick-filter-toggle:hover,
+      .ht-quick-filter-toggle.active {
+        background: rgba(56, 189, 248, 0.15);
+        color: #38bdf8;
+        border-color: rgba(56, 189, 248, 0.35);
+      }
+
+      .ht-quick-empty-warning {
+        background: rgba(239, 68, 68, 0.16);
+        border: 1px solid rgba(239, 68, 68, 0.35);
+        color: #fca5a5;
+        font-size: 11px;
+        font-weight: 500;
+        border-radius: 6px;
+        padding: 5px 8px;
+        margin-bottom: 6px;
+        text-align: center;
+        animation: htQuickShake 0.2s ease-in-out;
+      }
+
+      @keyframes htQuickShake {
+        0%, 100% { transform: translateX(0); }
+        25% { transform: translateX(-3px); }
+        75% { transform: translateX(3px); }
+      }
+
+      .ht-default-badge {
+        font-size: 9px;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: #38bdf8;
+        background: rgba(56, 189, 248, 0.14);
+        border: 1px solid rgba(56, 189, 248, 0.3);
+        border-radius: 3px;
+        padding: 0 4px;
+        margin-left: auto;
+        line-height: 14px;
+      }
+
+      .ht-quick-shortcuts-tip {
+        font-size: 9.5px;
+        color: #64748b;
+        margin-right: auto;
+        line-height: 18px;
+        align-self: center;
+      }
     `;
   }
 
@@ -4567,6 +5143,24 @@
       }
     }
   }, { passive: true });
+
+  // Global outside-click listener for Quick Search
+  document.addEventListener('mousedown', (e) => {
+    if (!isQuickSearchOpen) return;
+    if (toolbarHost && e.composedPath && e.composedPath().includes(toolbarHost)) {
+      return;
+    }
+    closeQuickSearch();
+  }, true);
+
+  // Global Escape key listener for Quick Search
+  document.addEventListener('keydown', (e) => {
+    if (isQuickSearchOpen && e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      closeQuickSearch();
+    }
+  }, true);
 
   // Initialize toolbar when DOM is ready
   if (document.readyState === 'loading') {
