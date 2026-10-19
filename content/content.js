@@ -3195,10 +3195,6 @@
         <button type="button" class="ht-quick-query-clear" style="display: none;" title="Clear search query" aria-label="Clear search query">✕</button>
       </div>
       <div class="ht-quick-meta-bar" style="display: none;">
-        <div class="ht-quick-meta-left">
-          <span class="ht-quick-meta-title">Engines</span>
-          <span class="ht-quick-default-tag" title="Press Enter to search with default engine">Default: Google ↵</span>
-        </div>
         <button type="button" class="ht-quick-filter-toggle" title="Filter search engines" aria-label="Filter search engines">
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           <span>Filter</span>
@@ -5039,34 +5035,10 @@
       .ht-quick-meta-bar {
         display: flex;
         align-items: center;
-        justify-content: space-between;
+        justify-content: flex-end;
         padding: 0 2px 6px;
         border-bottom: 1px solid rgba(255, 255, 255, 0.08);
         margin-bottom: 6px;
-      }
-
-      .ht-quick-meta-left {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-      }
-
-      .ht-quick-meta-title {
-        font-size: 10.5px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        color: #94a3b8;
-      }
-
-      .ht-quick-default-tag {
-        font-size: 9.5px;
-        font-weight: 600;
-        color: #c7d2fe;
-        background: rgba(129, 140, 248, 0.18);
-        border: 1px solid rgba(129, 140, 248, 0.35);
-        border-radius: 4px;
-        padding: 1px 5px;
       }
 
       .ht-quick-filter-toggle {
