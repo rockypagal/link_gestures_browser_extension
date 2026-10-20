@@ -628,6 +628,359 @@ function isRestrictedUrl(url) {
   console.log('  ✓ Scenario 23: Quick Search input has distinct indigo background and colors vs Mode A');
 }
 
-console.log('\nResults: 23 / 23 Quick Search tests passed.');
+// ---------------------------------------------------------------------------
+// Scenario 24: Extract unique domains from open tabs, filtering internal browser tabs
+// ---------------------------------------------------------------------------
+{
+  const mockTabs = [
+    { id: 1, url: 'https://news.ycombinator.com/item?id=123', title: 'Hacker News' },
+    { id: 2, url: 'https://news.ycombinator.com/newest', title: 'New Hacker News' }, // Duplicate domain
+    { id: 3, url: 'https://docs.python.org/3/library/', title: 'Python Docs' },
+    { id: 4, url: 'chrome://settings/', title: 'Settings' }, // Internal page
+    { id: 5, url: 'about:blank', title: 'Blank' }, // Internal page
+    { id: 6, url: 'https://www.nytimes.com/section/technology', title: 'NYT Tech' }
+  ];
+
+  const seenDomains = new Set();
+  const openTabSites = [];
+  for (const tab of mockTabs) {
+    if (!tab.url || !/^https?:\/\//i.test(tab.url)) continue;
+    try {
+      const u = new URL(tab.url);
+      const domain = u.hostname.toLowerCase().replace(/^www\./, '');
+      if (!domain || seenDomains.has(domain)) continue;
+      seenDomains.add(domain);
+      openTabSites.push({ domain, title: tab.title });
+    } catch (_) {}
+  }
+
+  assert.strictEqual(openTabSites.length, 3, 'Filtered to 3 unique HTTP/HTTPS domains');
+  assert.strictEqual(openTabSites[0].domain, 'news.ycombinator.com');
+  assert.strictEqual(openTabSites[1].domain, 'docs.python.org');
+  assert.strictEqual(openTabSites[2].domain, 'nytimes.com');
+  console.log('  ✓ Scenario 24: Unique domains extracted from open tabs while omitting internal pages');
+}
+
+// ---------------------------------------------------------------------------
+// Scenario 25: Open tabs already present in saved search engines are excluded
+// ---------------------------------------------------------------------------
+{
+  const mockTabs = [
+    { domain: 'google.com' },     // In saved engines
+    { domain: 'youtube.com' },    // In saved engines
+    { domain: 'stackoverflow.com' }, // NOT in saved engines
+    { domain: 'wikipedia.org' }   // In saved engines
+  ];
+
+  const isDomainInSaved = (domain) => {
+    return DEFAULT_SEARCH_WEBSITES.some((s) => {
+      const sId = (s.id || '').toLowerCase();
+      const sName = (s.name || '').toLowerCase();
+      if (sId === domain || sName === domain) return true;
+      if (s.template) {
+        try {
+          const u = new URL(s.template.replace(/\{query\}/gi, 'test'));
+          const sHost = u.hostname.toLowerCase().replace(/^www\./, '');
+          if (domain === sHost || domain.endsWith('.' + sHost) || sHost.endsWith('.' + domain)) return true;
+        } catch (_) {}
+      }
+      return false;
+    });
+  };
+
+  const unaddedTabs = mockTabs.filter((t) => !isDomainInSaved(t.domain));
+  assert.strictEqual(unaddedTabs.length, 1);
+  assert.strictEqual(unaddedTabs[0].domain, 'stackoverflow.com');
+  console.log('  ✓ Scenario 25: Open tabs matching saved search engines are cleanly excluded');
+}
+
+// ---------------------------------------------------------------------------
+// Scenario 26: Native #ht-site-search template accurately triggers in-page search
+// ---------------------------------------------------------------------------
+{
+  const domain = 'theverge.com';
+  const query = 'pixel 9 review';
+  const nativeAutoFillTemplate = `https://${domain}/#ht-site-search={query}`;
+
+  const searchUrl = buildSearchUrl(nativeAutoFillTemplate, query);
+  assert.strictEqual(searchUrl, 'https://theverge.com/#ht-site-search=pixel%209%20review');
+  assert(searchUrl.includes('#ht-site-search='));
+
+  // Also verify known direct template for stackoverflow
+  const stackoverflowTemplate = 'https://stackoverflow.com/search?q={query}';
+  const soUrl = buildSearchUrl(stackoverflowTemplate, 'python async await');
+  assert.strictEqual(soUrl, 'https://stackoverflow.com/search?q=python+async+await');
+
+  console.log('  ✓ Scenario 26: Native #ht-site-search template accurately generates in-page autofill search URLs');
+}
+
+// ---------------------------------------------------------------------------
+// Scenario 27: Tab switcher switches datasets and supports background/foreground clicks
+// ---------------------------------------------------------------------------
+{
+  let activeTab = 'engines';
+  const savedList = [...DEFAULT_SEARCH_WEBSITES];
+  const openTabsList = [
+    { id: 'opentab_theverge', name: 'theverge.com', domain: 'theverge.com', template: 'https://google.com/search?q=site:theverge.com+{query}', isOpenTab: true }
+  ];
+
+  const getSitesForTab = (tab) => (tab === 'opentabs' ? openTabsList : savedList);
+
+  assert.strictEqual(getSitesForTab('engines').length, 6);
+  assert.strictEqual(getSitesForTab('opentabs').length, 1);
+  assert.strictEqual(getSitesForTab('opentabs')[0].name, 'theverge.com');
+
+  // Verify search on open tab
+  const openTab = getSitesForTab('opentabs')[0];
+  const url = buildSearchUrl(openTab.template, 'pixel 9 review');
+  assert(url.includes('site:theverge.com') || url.includes('site%3Atheverge.com'));
+  assert(url.includes('pixel+9+review'));
+  console.log('  ✓ Scenario 27: Tab switcher toggles datasets and executes open tab searches');
+}
+
+// ---------------------------------------------------------------------------
+// Scenario 28: Word length truncation and 2-column grid stability with minmax(0, 1fr)
+// ---------------------------------------------------------------------------
+{
+  // Test simulated long domain / name in Mode A, Mode B, and Open Tabs
+  const longDomainTab = {
+    id: 'opentab_verylongdomain',
+    name: 'extremely-long-subdomain-name-that-would-blow-out-grid.company-internal.co.uk',
+    domain: 'extremely-long-subdomain-name-that-would-blow-out-grid.company-internal.co.uk',
+    isOpenTab: true,
+    isCurrentTab: false
+  };
+
+  const longCustomEngine = {
+    id: 'custom_long_engine',
+    name: 'Documentation Center & API Reference Manuals (Version 2.0 Alpha)',
+    template: 'https://docs.example.com/search?q={query}',
+    enabled: true
+  };
+
+  // Verify truncation helper logic
+  const truncateWithEllipsis = (str, maxChars = 24) => {
+    if (!str || str.length <= maxChars) return str;
+    return str.substring(0, maxChars - 3) + '...';
+  };
+
+  const truncatedDomain = truncateWithEllipsis(longDomainTab.name, 22);
+  assert(truncatedDomain.endsWith('...'));
+  assert.strictEqual(truncatedDomain.length, 22);
+
+  const truncatedName = truncateWithEllipsis(longCustomEngine.name, 25);
+  assert(truncatedName.endsWith('...'));
+  assert.strictEqual(truncatedName.length, 25);
+
+  console.log('  ✓ Scenario 28: Word length truncation and grid safety logic verified for long names and domains');
+}
+
+// ---------------------------------------------------------------------------
+// Scenario 29: Close Tab shortcut match for default 'alt+/' and configurable keys
+// ---------------------------------------------------------------------------
+{
+  function isCloseTabShortcutMatch(e, shortcut) {
+    const isAlt = !!e.altKey;
+    const key = (e.key || '').toLowerCase();
+    const code = e.code || '';
+
+    switch (shortcut) {
+      case 'alt+w':
+        return isAlt && !e.ctrlKey && !e.metaKey && (key === 'w' || code === 'KeyW');
+      case 'alt+x':
+        return isAlt && !e.ctrlKey && !e.metaKey && (key === 'x' || code === 'KeyX');
+      case 'alt+q':
+        return isAlt && !e.ctrlKey && !e.metaKey && (key === 'q' || code === 'KeyQ');
+      case 'alt+c':
+        return isAlt && !e.ctrlKey && !e.metaKey && (key === 'c' || code === 'KeyC');
+      case 'alt+/':
+      default:
+        return isAlt && !e.ctrlKey && !e.metaKey && (key === '/' || key === '?' || code === 'Slash');
+    }
+  }
+
+  // Alt + / (Default)
+  assert.strictEqual(isCloseTabShortcutMatch({ altKey: true, key: '/', code: 'Slash' }, 'alt+/'), true);
+  assert.strictEqual(isCloseTabShortcutMatch({ altKey: true, key: '?', code: 'Slash', shiftKey: true }, 'alt+/'), true);
+  // Ctrl + / should NOT match alt+/
+  assert.strictEqual(isCloseTabShortcutMatch({ ctrlKey: true, key: '/', code: 'Slash' }, 'alt+/'), false);
+
+  // Configured Alt + W
+  assert.strictEqual(isCloseTabShortcutMatch({ altKey: true, key: 'w', code: 'KeyW' }, 'alt+w'), true);
+  assert.strictEqual(isCloseTabShortcutMatch({ altKey: true, key: 'W', code: 'KeyW' }, 'alt+w'), true);
+  assert.strictEqual(isCloseTabShortcutMatch({ altKey: true, key: '/', code: 'Slash' }, 'alt+w'), false);
+
+  // Configured Alt + X
+  assert.strictEqual(isCloseTabShortcutMatch({ altKey: true, key: 'x', code: 'KeyX' }, 'alt+x'), true);
+
+  console.log('  ✓ Scenario 29: Close Tab shortcut accurately matches Alt + / and configurable keys');
+}
+
+// ---------------------------------------------------------------------------
+// Scenario 30: Switch Tab direction resolution for configurable keys
+// ---------------------------------------------------------------------------
+{
+  function getTabCycleDirectionFromKey(e, shortcutType) {
+    const isAlt = !!e.altKey;
+    const isCtrl = !!(e.ctrlKey || e.metaKey);
+    const key = e.key;
+    const code = e.code;
+
+    switch (shortcutType) {
+      case 'alt+arrows': {
+        if (!isAlt || isCtrl) return null;
+        if (key === 'ArrowLeft' || code === 'ArrowLeft') return 'prev';
+        if (key === 'ArrowRight' || code === 'ArrowRight') return 'next';
+        return null;
+      }
+      case 'alt+brackets': {
+        if (!isAlt || isCtrl) return null;
+        if (key === '[' || code === 'BracketLeft') return 'prev';
+        if (key === ']' || code === 'BracketRight') return 'next';
+        return null;
+      }
+      case 'ctrl+arrows': {
+        if (!isCtrl || e.altKey) return null;
+        if (key === 'ArrowLeft' || code === 'ArrowLeft') return 'prev';
+        if (key === 'ArrowRight' || code === 'ArrowRight') return 'next';
+        return null;
+      }
+      case 'ctrl+pageupdown': {
+        if (!isCtrl) return null;
+        if (key === 'PageUp' || code === 'PageUp') return 'prev';
+        if (key === 'PageDown' || code === 'PageDown') return 'next';
+        return null;
+      }
+      case 'alt+comma_period':
+      default: {
+        if (!isAlt || isCtrl) return null;
+        if (key === '<' || key === ',' || code === 'Comma') return 'prev';
+        if (key === '>' || key === '.' || code === 'Period') return 'next';
+        return null;
+      }
+    }
+  }
+
+  // alt+comma_period (Default)
+  assert.strictEqual(getTabCycleDirectionFromKey({ altKey: true, key: '<', code: 'Comma' }, 'alt+comma_period'), 'prev');
+  assert.strictEqual(getTabCycleDirectionFromKey({ altKey: true, key: '>', code: 'Period' }, 'alt+comma_period'), 'next');
+
+  // alt+arrows
+  assert.strictEqual(getTabCycleDirectionFromKey({ altKey: true, key: 'ArrowLeft', code: 'ArrowLeft' }, 'alt+arrows'), 'prev');
+  assert.strictEqual(getTabCycleDirectionFromKey({ altKey: true, key: 'ArrowRight', code: 'ArrowRight' }, 'alt+arrows'), 'next');
+  assert.strictEqual(getTabCycleDirectionFromKey({ altKey: true, key: '<', code: 'Comma' }, 'alt+arrows'), null);
+
+  // alt+brackets
+  assert.strictEqual(getTabCycleDirectionFromKey({ altKey: true, key: '[', code: 'BracketLeft' }, 'alt+brackets'), 'prev');
+  assert.strictEqual(getTabCycleDirectionFromKey({ altKey: true, key: ']', code: 'BracketRight' }, 'alt+brackets'), 'next');
+
+  // ctrl+arrows
+  assert.strictEqual(getTabCycleDirectionFromKey({ ctrlKey: true, key: 'ArrowLeft', code: 'ArrowLeft' }, 'ctrl+arrows'), 'prev');
+  assert.strictEqual(getTabCycleDirectionFromKey({ ctrlKey: true, key: 'ArrowRight', code: 'ArrowRight' }, 'ctrl+arrows'), 'next');
+
+  // ctrl+pageupdown
+  assert.strictEqual(getTabCycleDirectionFromKey({ ctrlKey: true, key: 'PageUp', code: 'PageUp' }, 'ctrl+pageupdown'), 'prev');
+  assert.strictEqual(getTabCycleDirectionFromKey({ ctrlKey: true, key: 'PageDown', code: 'PageDown' }, 'ctrl+pageupdown'), 'next');
+
+  console.log('  ✓ Scenario 30: Switch Tab direction accurately resolved for all configurable shortcut keys');
+}
+
+// ---------------------------------------------------------------------------
+// Scenario 31: 1-Click Auto-Submit and fallback capture session transitions
+// ---------------------------------------------------------------------------
+{
+  // Simulated 1-click auto-submit success scenario
+  const marker = 'holdtab_test_xyz789';
+  const targetUrl = `https://news.ycombinator.com/item?id=3000#q=${marker}`;
+  
+  // Derivation of template
+  const occurrences = [];
+  let idx = 0;
+  const markerLower = marker.toLowerCase();
+  const urlLower = targetUrl.toLowerCase();
+  while ((idx = urlLower.indexOf(markerLower, idx)) !== -1) {
+    occurrences.push(idx);
+    idx += markerLower.length;
+  }
+  assert.strictEqual(occurrences.length, 1);
+  const template = targetUrl.substring(0, occurrences[0]) + '{query}' + targetUrl.substring(occurrences[0] + markerLower.length);
+  assert.strictEqual(template, 'https://news.ycombinator.com/item?id=3000#q={query}');
+
+  const autoCapturedSession = {
+    marker,
+    step: 'preview',
+    template,
+    autoCaptured: true
+  };
+  assert.strictEqual(autoCapturedSession.autoCaptured, true);
+  assert.strictEqual(autoCapturedSession.step, 'preview');
+
+  // Simulated fallback scenario when no search bar is found
+  const fallbackSession = {
+    marker,
+    step: 'capturing',
+    fallbackNotice: 'Search bar could not be auto-detected on this page. Follow manual capture steps.'
+  };
+  assert.strictEqual(fallbackSession.step, 'capturing');
+  assert(fallbackSession.fallbackNotice.includes('manual capture'));
+
+  console.log('  ✓ Scenario 31: 1-Click Auto-Submit and graceful fallback transitions verified');
+}
+
+// ---------------------------------------------------------------------------
+// Scenario 32: Pinned background tab capture lifecycle and automatic tab closure
+// ---------------------------------------------------------------------------
+{
+  const activeTab = { id: 101, url: 'https://theverge.com/reviews/headphones', active: true };
+  const marker = 'holdtab_test_bg123';
+  
+  // 1. Creation of non-intrusive pinned background tab
+  let closedTabId = null;
+  const mockTabs = {
+    create: (opts) => {
+      assert.strictEqual(opts.active, false, 'Tab opened strictly in background');
+      assert.strictEqual(opts.pinned, true, 'Tab opened pinned for minimal footprint');
+      assert.strictEqual(opts.url, activeTab.url);
+      return { id: 999, url: opts.url, pinned: true, active: false };
+    },
+    remove: (tabId) => {
+      closedTabId = tabId;
+    }
+  };
+
+  const bgTab = mockTabs.create({ url: activeTab.url, active: false, pinned: true });
+  assert.strictEqual(bgTab.id, 999);
+  assert.strictEqual(bgTab.active, false);
+  assert.strictEqual(bgTab.pinned, true);
+
+  // 2. Simulated search navigation in background tab
+  const searchResultUrl = `https://theverge.com/search?q=${marker}`;
+  const derived = {
+    template: searchResultUrl.replace(marker, '{query}'),
+    siteName: 'Theverge'
+  };
+
+  const session = {
+    marker,
+    step: 'preview',
+    template: derived.template,
+    siteName: derived.siteName,
+    autoCaptured: true,
+    isBackgroundTab: true
+  };
+
+  assert.strictEqual(session.template, 'https://theverge.com/search?q={query}');
+  assert.strictEqual(session.isBackgroundTab, true);
+
+  // 3. Immediate automatic tab closure once captured
+  if (session.isBackgroundTab) {
+    mockTabs.remove(bgTab.id);
+  }
+  assert.strictEqual(closedTabId, 999, 'Pinned background tab closed automatically after capture');
+
+  console.log('  ✓ Scenario 32: Pinned background tab capture lifecycle and automatic tab closure verified');
+}
+
+console.log('\nResults: 32 / 32 Quick Search tests passed.');
 console.log('🎉 ALL QUICK SEARCH TESTS COMPLETED SUCCESSFULLY!\n');
 

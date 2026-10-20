@@ -38,7 +38,10 @@
     tabCycleSwipe: true,     // Right-click + Swipe left/right
     tabCycleRocker: true,    // Rocker gestures (Left+Right: Next, Right+Left: Prev)
     tabCycleAltScroll: true, // Alt + Two-finger trackpad scroll / wheel
-    tabCycleAltKeys: true,   // Alt + < / > keybinds to cycle tabs
+    tabCycleAltKeys: true,   // Keyboard keybinds to cycle tabs
+    tabCycleKeyShortcut: 'alt+comma_period', // 'alt+comma_period' | 'alt+arrows' | 'alt+brackets' | 'ctrl+arrows' | 'ctrl+pageupdown'
+    closeTabShortcutEnabled: true, // Close active tab shortcut
+    closeTabShortcut: 'alt+/', // 'alt+/' | 'alt+w' | 'alt+x' | 'alt+q' | 'alt+c'
     tabCycleHud: true,       // On-screen visual HUD pill
     swipeDeviceMode: 'mouse', // 'mouse' | 'mousepad'
     closeTabOnDoubleRightClick: true, // Close tab on double right-click
@@ -217,7 +220,7 @@
   // Listen for background tab-cycle activation messages
   try {
     if (chrome.runtime && chrome.runtime.onMessage) {
-      chrome.runtime.onMessage.addListener((message) => {
+      chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if (message && message.action === 'tabCycleActivated') {
           isLeftMouseDown = false;
           isRightMouseDown = false;
@@ -246,6 +249,21 @@
 
         if (message && message.action === 'openQuickSearch') {
           toggleQuickSearch();
+        }
+
+        if (message && message.action === 'autoSubmitSearchMarker') {
+          const marker = message.marker;
+          if (!marker) {
+            sendResponse({ success: false, error: 'No marker provided' });
+            return;
+          }
+          try {
+            const filled = fillSiteSearchBar(marker, true);
+            sendResponse({ success: true, filled: !!filled });
+          } catch (err) {
+            sendResponse({ success: false, filled: false, error: err.message });
+          }
+          return;
         }
       });
     }
@@ -1826,6 +1844,12 @@
             const filled = fillSiteSearchBar(query, true);
             if (!filled && attempts < 10) {
               setTimeout(tryFillAndSubmit, 250);
+            } else if (!filled && attempts >= 10) {
+              // If page has no native search bar after 10 attempts, gracefully fall back to Google site: search
+              try {
+                const domain = window.location.hostname.replace(/^www\./, '');
+                window.location.href = `https://www.google.com/search?q=site:${encodeURIComponent(domain)}+${encodeURIComponent(query)}`;
+              } catch (_) {}
             }
           };
 
@@ -3020,6 +3044,75 @@
     }
   }, true);
 
+  /**
+   * Helper to determine if a keydown event matches the configured close-tab shortcut
+   */
+  function isCloseTabShortcutMatch(e, shortcut) {
+    const isAlt = isAltPressed(e);
+    const key = (e.key || '').toLowerCase();
+    const code = e.code || '';
+
+    switch (shortcut) {
+      case 'alt+w':
+        return isAlt && !e.ctrlKey && !e.metaKey && (key === 'w' || code === 'KeyW');
+      case 'alt+x':
+        return isAlt && !e.ctrlKey && !e.metaKey && (key === 'x' || code === 'KeyX');
+      case 'alt+q':
+        return isAlt && !e.ctrlKey && !e.metaKey && (key === 'q' || code === 'KeyQ');
+      case 'alt+c':
+        return isAlt && !e.ctrlKey && !e.metaKey && (key === 'c' || code === 'KeyC');
+      case 'alt+/':
+      default:
+        // Alt + / (or code Slash, key '/', or key '?')
+        return isAlt && !e.ctrlKey && !e.metaKey && (key === '/' || key === '?' || code === 'Slash');
+    }
+  }
+
+  /**
+   * Helper to determine tab cycle direction ('prev' | 'next' | null) from a keydown event
+   * according to user's configured shortcut key combination
+   */
+  function getTabCycleDirectionFromKey(e, shortcutType) {
+    const isAlt = isAltPressed(e);
+    const isCtrl = !!(e.ctrlKey || e.metaKey);
+    const key = e.key;
+    const code = e.code;
+
+    switch (shortcutType) {
+      case 'alt+arrows': {
+        if (!isAlt || isCtrl) return null;
+        if (key === 'ArrowLeft' || code === 'ArrowLeft') return 'prev';
+        if (key === 'ArrowRight' || code === 'ArrowRight') return 'next';
+        return null;
+      }
+      case 'alt+brackets': {
+        if (!isAlt || isCtrl) return null;
+        if (key === '[' || code === 'BracketLeft') return 'prev';
+        if (key === ']' || code === 'BracketRight') return 'next';
+        return null;
+      }
+      case 'ctrl+arrows': {
+        if (!isCtrl || e.altKey) return null;
+        if (key === 'ArrowLeft' || code === 'ArrowLeft') return 'prev';
+        if (key === 'ArrowRight' || code === 'ArrowRight') return 'next';
+        return null;
+      }
+      case 'ctrl+pageupdown': {
+        if (!isCtrl) return null;
+        if (key === 'PageUp' || code === 'PageUp') return 'prev';
+        if (key === 'PageDown' || code === 'PageDown') return 'next';
+        return null;
+      }
+      case 'alt+comma_period':
+      default: {
+        if (!isAlt || isCtrl) return null;
+        if (key === '<' || key === ',' || code === 'Comma') return 'prev';
+        if (key === '>' || key === '.' || code === 'Period') return 'next';
+        return null;
+      }
+    }
+  }
+
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Alt' || e.key === 'AltGraph' || e.code === 'AltLeft' || e.code === 'AltRight') {
       isAltKeyDown = true;
@@ -3040,31 +3133,42 @@
       lastRightClickSelectedText = '';
     }
 
-    // Alt + < (Prev Tab) and Alt + > (Next Tab) keybinds
-    if (config.enabled && isFeatureAllowed('tabCycle') && config.tabCycleAltKeys !== false) {
-      const isAlt = isAltPressed(e);
-      if (isAlt && !e.ctrlKey && !e.metaKey) {
-        // Detect < (Prev Tab): e.key '<' or ',' or code 'Comma'
-        // Detect > (Next Tab): e.key '>' or '.' or code 'Period'
-        const isPrev = e.key === '<' || e.key === ',' || e.code === 'Comma';
-        const isNext = e.key === '>' || e.key === '.' || e.code === 'Period';
-
-        if (isPrev || isNext) {
-          e.preventDefault();
-          e.stopPropagation();
-          e.stopImmediatePropagation();
-
-          const now = performance.now();
-          if (now - lastAltKeyCycleTime >= ALT_KEY_CYCLE_THROTTLE) {
-            lastAltKeyCycleTime = now;
-            altGestureTriggered = true;
-            tabCycleDidExecute = true;
-
-            const direction = isPrev ? 'prev' : 'next';
-            sendCycleTabMessage(direction, { viaAlt: true, isScrollGesture: false });
-          }
-          return false;
+    // Close Tab Shortcut (Default Alt + /, configurable)
+    if (config.enabled && isFeatureAllowed('tabCycle') && config.closeTabShortcutEnabled !== false) {
+      if (isCloseTabShortcutMatch(e, config.closeTabShortcut || 'alt+/')) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        tabCycleDidExecute = true;
+        if (config.tabCycleHud) {
+          showTabCycleHud('Close Tab', '✕');
         }
+        try {
+          if (chrome.runtime && chrome.runtime.id) {
+            chrome.runtime.sendMessage({ action: 'closeTab' });
+          }
+        } catch (_) {}
+        return false;
+      }
+    }
+
+    // Configurable Switch Tab Keybinds (alt+comma_period, alt+arrows, alt+brackets, ctrl+arrows, ctrl+pageupdown)
+    if (config.enabled && isFeatureAllowed('tabCycle') && config.tabCycleAltKeys !== false) {
+      const direction = getTabCycleDirectionFromKey(e, config.tabCycleKeyShortcut || 'alt+comma_period');
+      if (direction) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+
+        const now = performance.now();
+        if (now - lastAltKeyCycleTime >= ALT_KEY_CYCLE_THROTTLE) {
+          lastAltKeyCycleTime = now;
+          altGestureTriggered = true;
+          tabCycleDidExecute = true;
+
+          sendCycleTabMessage(direction, { viaAlt: true, isScrollGesture: false });
+        }
+        return false;
       }
     }
   }, true);
@@ -3117,6 +3221,11 @@
   let quickFilterToggleEl = null;
   let quickEmptyWarningEl = null;
   let quickShortcutsTipEl = null;
+  let activeSearchTab = 'engines'; // 'engines' | 'opentabs'
+  let cachedOpenTabSites = [];
+  let navTabEnginesEl = null;
+  let navTabOpenTabsEl = null;
+  let navTabOpenTabsCountEl = null;
   let searchMode = 'selection'; // 'selection' | 'quick'
   let isQuickSearchOpen = false;
   let isEngineFilterVisible = false;
@@ -3195,6 +3304,15 @@
         <button type="button" class="ht-quick-query-clear" style="display: none;" title="Clear search query" aria-label="Clear search query">✕</button>
       </div>
       <div class="ht-quick-meta-bar" style="display: none;">
+        <div class="ht-submenu-tabs" role="tablist">
+          <button type="button" class="ht-nav-tab ht-nav-tab-engines active" data-tab="engines" role="tab" aria-selected="true" title="Search configured engines">
+            <span>Saved</span>
+          </button>
+          <button type="button" class="ht-nav-tab ht-nav-tab-opentabs" data-tab="opentabs" role="tab" aria-selected="false" title="Search other websites currently open in browser tabs">
+            <span>Open Tabs</span>
+            <span class="ht-nav-tab-count" style="display: none;">0</span>
+          </button>
+        </div>
         <button type="button" class="ht-quick-filter-toggle" title="Filter search engines" aria-label="Filter search engines">
           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           <span>Filter</span>
@@ -3230,8 +3348,27 @@
     quickMetaBarEl = submenuEl.querySelector('.ht-quick-meta-bar');
     quickDefaultTagEl = submenuEl.querySelector('.ht-quick-default-tag');
     quickFilterToggleEl = submenuEl.querySelector('.ht-quick-filter-toggle');
+    navTabEnginesEl = submenuEl.querySelector('.ht-nav-tab-engines');
+    navTabOpenTabsEl = submenuEl.querySelector('.ht-nav-tab-opentabs');
+    navTabOpenTabsCountEl = submenuEl.querySelector('.ht-nav-tab-count');
     quickEmptyWarningEl = submenuEl.querySelector('.ht-quick-empty-warning');
     quickShortcutsTipEl = submenuEl.querySelector('.ht-quick-shortcuts-tip');
+
+    if (navTabEnginesEl) {
+      navTabEnginesEl.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        switchSearchTab('engines');
+      });
+    }
+
+    if (navTabOpenTabsEl) {
+      navTabOpenTabsEl.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        switchSearchTab('opentabs');
+      });
+    }
 
     searchWrapper.appendChild(btnSearch);
     searchWrapper.appendChild(submenuEl);
@@ -3505,10 +3642,12 @@
           e.stopPropagation();
           const firstItem = submenuGridEl ? submenuGridEl.querySelector('.ht-submenu-item') : null;
           if (firstItem && firstItem.dataset.siteId) {
-            const sites = Array.isArray(config.toolbarSearchWebsites) && config.toolbarSearchWebsites.length > 0
-              ? config.toolbarSearchWebsites.filter((s) => s.enabled !== false)
-              : DEFAULT_SEARCH_WEBSITES;
-            const targetSite = sites.find((s) => s.id === firstItem.dataset.siteId);
+            const currentList = (activeSearchTab === 'opentabs')
+              ? cachedOpenTabSites
+              : (Array.isArray(config.toolbarSearchWebsites) && config.toolbarSearchWebsites.length > 0
+                  ? config.toolbarSearchWebsites.filter((s) => s.enabled !== false)
+                  : DEFAULT_SEARCH_WEBSITES);
+            const targetSite = currentList.find((s) => s.id === firstItem.dataset.siteId);
             if (targetSite) {
               const query = (searchMode === 'quick' && quickQueryInputEl) ? quickQueryInputEl.value.trim() : currentSelectionText.trim();
               if (searchMode === 'quick' && !query) {
@@ -3719,10 +3858,22 @@
     }
 
     searchMode = 'selection';
+    activeSearchTab = 'engines';
+    if (navTabEnginesEl) {
+      navTabEnginesEl.classList.add('active');
+      navTabEnginesEl.setAttribute('aria-selected', 'true');
+    }
+    if (navTabOpenTabsEl) {
+      navTabOpenTabsEl.classList.remove('active');
+      navTabOpenTabsEl.setAttribute('aria-selected', 'false');
+    }
+
     if (quickQueryBoxEl) quickQueryBoxEl.style.display = 'none';
-    if (quickMetaBarEl) quickMetaBarEl.style.display = 'none';
+    if (quickMetaBarEl) quickMetaBarEl.style.display = 'flex';
     if (quickShortcutsTipEl) quickShortcutsTipEl.style.display = 'none';
-    if (submenuHeaderEl) submenuHeaderEl.style.display = 'block';
+    if (submenuHeaderEl) submenuHeaderEl.style.display = 'none';
+    if (quickFilterToggleEl) quickFilterToggleEl.classList.remove('active');
+    isEngineFilterVisible = false;
 
     if (submenuSearchInputEl) {
       submenuSearchInputEl.value = '';
@@ -3731,6 +3882,7 @@
       submenuSearchClearEl.style.display = 'none';
     }
 
+    fetchOpenTabsForSearch();
     renderSubmenuGrid('');
 
     submenuEl.classList.add('ht-submenu-open');
@@ -3744,6 +3896,7 @@
     if (!submenuEl) return;
     submenuEl.classList.remove('ht-submenu-open');
     submenuEl.style.display = 'none';
+    if (quickMetaBarEl) quickMetaBarEl.style.display = 'none';
     if (btnSearch) btnSearch.setAttribute('aria-expanded', 'false');
     isSubmenuOpen = false;
     isSubmenuHovered = false;
@@ -3763,6 +3916,131 @@
   function hideQuickEmptyWarning() {
     if (quickEmptyWarningEl) {
       quickEmptyWarningEl.style.display = 'none';
+    }
+  }
+
+  function switchSearchTab(tabName) {
+    activeSearchTab = tabName;
+
+    if (navTabEnginesEl) {
+      navTabEnginesEl.classList.toggle('active', tabName === 'engines');
+      navTabEnginesEl.setAttribute('aria-selected', String(tabName === 'engines'));
+    }
+    if (navTabOpenTabsEl) {
+      navTabOpenTabsEl.classList.toggle('active', tabName === 'opentabs');
+      navTabOpenTabsEl.setAttribute('aria-selected', String(tabName === 'opentabs'));
+    }
+
+    const currentFilter = submenuSearchInputEl ? submenuSearchInputEl.value : '';
+    renderSubmenuGrid(currentFilter);
+
+    if (searchMode === 'quick' && quickQueryInputEl && document.activeElement !== quickQueryInputEl) {
+      quickQueryInputEl.focus();
+    }
+  }
+
+  function fetchOpenTabsForSearch() {
+    try {
+      chrome.runtime.sendMessage({ action: 'getOpenTabsForSearch' }, (response) => {
+        if (chrome.runtime.lastError) return;
+        if (response && response.success && Array.isArray(response.openTabs)) {
+          processOpenTabs(response.openTabs);
+        }
+      });
+    } catch (_) {}
+  }
+
+  function isDomainInSavedWebsites(domain) {
+    if (!domain) return false;
+    const norm = domain.trim().toLowerCase().replace(/^www\./, '');
+    const sites = Array.isArray(config.toolbarSearchWebsites) && config.toolbarSearchWebsites.length > 0
+      ? config.toolbarSearchWebsites
+      : DEFAULT_SEARCH_WEBSITES;
+
+    return sites.some((s) => {
+      if (s.enabled === false) return false;
+      const sId = (s.id || '').toLowerCase();
+      const sName = (s.name || '').toLowerCase();
+      if (sId === norm || sName === norm) return true;
+      if (s.template) {
+        try {
+          const u = new URL(s.template.replace(/\{query\}/gi, 'test'));
+          const sHost = u.hostname.toLowerCase().replace(/^www\./, '');
+          if (norm === sHost || norm.endsWith('.' + sHost) || sHost.endsWith('.' + norm)) return true;
+        } catch (_) {}
+      }
+      return false;
+    });
+  }
+
+  function getOpenTabSearchTemplate(tabInfo) {
+    const domain = (tabInfo.domain || '').toLowerCase();
+    const origin = tabInfo.origin || `https://${domain}`;
+
+    // 1. Direct search URL for known websites
+    if (domain.includes('youtube.com')) {
+      return 'https://www.youtube.com/results?search_query={query}';
+    }
+    if (domain.includes('wikipedia.org')) {
+      return `https://${domain}/w/index.php?search={query}`;
+    }
+    if (domain.includes('github.com')) {
+      return 'https://github.com/search?q={query}';
+    }
+    if (domain.includes('amazon.')) {
+      return `https://${domain}/s?k={query}`;
+    }
+    if (domain.includes('reddit.com')) {
+      return 'https://www.reddit.com/search/?q={query}';
+    }
+    if (domain.includes('google.')) {
+      return `https://${domain}/search?q={query}`;
+    }
+    if (domain.includes('stackoverflow.com')) {
+      return 'https://stackoverflow.com/search?q={query}';
+    }
+    if (domain.includes('twitter.com') || domain.includes('x.com')) {
+      return 'https://x.com/search?q={query}';
+    }
+    if (domain.includes('duckduckgo.com')) {
+      return 'https://duckduckgo.com/?q={query}';
+    }
+
+    // 2. Native in-page search autofill technique using #ht-site-search={query}
+    // HoldTab on the destination tab auto-detects the search bar, types in the query, and submits!
+    return `${origin}/#ht-site-search={query}`;
+  }
+
+  function processOpenTabs(openTabs) {
+    cachedOpenTabSites = openTabs
+      .filter((t) => !isDomainInSavedWebsites(t.domain))
+      .map((t) => {
+        const tmpl = getOpenTabSearchTemplate(t);
+        return {
+          id: `opentab_${t.domain.replace(/[^a-z0-9_-]/g, '_')}`,
+          name: t.domain,
+          domain: t.domain,
+          template: tmpl,
+          icon: t.favIconUrl || '',
+          isCurrentTab: !!t.isCurrentTab,
+          isOpenTab: true,
+          tabTitle: t.title || ''
+        };
+      });
+
+    // Update count badge
+    if (navTabOpenTabsCountEl) {
+      if (cachedOpenTabSites.length > 0) {
+        navTabOpenTabsCountEl.textContent = cachedOpenTabSites.length;
+        navTabOpenTabsCountEl.style.display = 'inline-flex';
+      } else {
+        navTabOpenTabsCountEl.style.display = 'none';
+      }
+    }
+
+    if (activeSearchTab === 'opentabs') {
+      const currentFilter = submenuSearchInputEl ? submenuSearchInputEl.value : '';
+      renderSubmenuGrid(currentFilter);
     }
   }
 
@@ -3791,6 +4069,15 @@
 
     searchMode = 'quick';
     isQuickSearchOpen = true;
+    activeSearchTab = 'engines';
+    if (navTabEnginesEl) {
+      navTabEnginesEl.classList.add('active');
+      navTabEnginesEl.setAttribute('aria-selected', 'true');
+    }
+    if (navTabOpenTabsEl) {
+      navTabOpenTabsEl.classList.remove('active');
+      navTabOpenTabsEl.setAttribute('aria-selected', 'false');
+    }
 
     // Reset toolbar positioning and classes
     toolbarRoot.classList.remove('ht-visible');
@@ -3820,6 +4107,8 @@
       quickDefaultTagEl.textContent = `Default: ${defEngine.name} ↵`;
       quickDefaultTagEl.title = `Press Enter to search with ${defEngine.name}`;
     }
+
+    fetchOpenTabsForSearch();
 
     // Only prefill if user currently has active selected text on the webpage
     let initialQuery = '';
@@ -3971,23 +4260,37 @@
     if (!submenuGridEl) return;
     submenuGridEl.innerHTML = '';
 
-    const sites = Array.isArray(config.toolbarSearchWebsites) && config.toolbarSearchWebsites.length > 0
-      ? config.toolbarSearchWebsites.filter((s) => s.enabled !== false)
-      : DEFAULT_SEARCH_WEBSITES;
+    const sites = (activeSearchTab === 'opentabs')
+      ? cachedOpenTabSites
+      : (Array.isArray(config.toolbarSearchWebsites) && config.toolbarSearchWebsites.length > 0
+          ? config.toolbarSearchWebsites.filter((s) => s.enabled !== false)
+          : DEFAULT_SEARCH_WEBSITES);
 
     const trimmedFilter = typeof filter === 'string' ? filter.trim().toLowerCase() : '';
     const filteredSites = trimmedFilter
       ? sites.filter((s) => {
           const name = (s.name || '').toLowerCase();
           const id = (s.id || '').toLowerCase();
-          return name.includes(trimmedFilter) || id.includes(trimmedFilter);
+          const title = (s.tabTitle || '').toLowerCase();
+          return name.includes(trimmedFilter) || id.includes(trimmedFilter) || title.includes(trimmedFilter);
         })
       : sites;
 
     if (filteredSites.length === 0) {
       const emptyItem = document.createElement('div');
       emptyItem.className = 'ht-submenu-empty';
-      emptyItem.textContent = `No websites matching "${filter.trim()}"`;
+      if (activeSearchTab === 'opentabs') {
+        if (!trimmedFilter) {
+          emptyItem.innerHTML = `
+            <div style="font-size: 11.5px; font-weight: 600; margin-bottom: 2px; color: #cbd5e1;">No other open tabs found</div>
+            <div style="font-size: 10px; color: #94a3b8;">Tabs matching saved engines or internal browser pages are omitted.</div>
+          `;
+        } else {
+          emptyItem.textContent = `No open tabs matching "${filter.trim()}"`;
+        }
+      } else {
+        emptyItem.textContent = `No websites matching "${filter.trim()}"`;
+      }
       submenuGridEl.appendChild(emptyItem);
       return;
     }
@@ -3995,18 +4298,23 @@
     const defaultEngine = getDefaultSearchEngine();
 
     filteredSites.forEach((site) => {
-      const isDefaultSite = defaultEngine && defaultEngine.id === site.id;
+      const isDefaultSite = (activeSearchTab === 'engines') && defaultEngine && defaultEngine.id === site.id;
       const item = document.createElement('div');
       item.className = 'ht-submenu-item';
       if (searchMode === 'quick' && isDefaultSite) {
         item.classList.add('ht-item-default');
       }
+      if (site.isOpenTab) {
+        item.classList.add('ht-item-opentab');
+      }
       item.setAttribute('role', 'menuitem');
       item.setAttribute('tabindex', '0');
       item.dataset.siteId = site.id;
-      item.title = searchMode === 'quick'
-        ? (isDefaultSite ? `Search on ${site.name} (Default engine - Enter)` : `Search on ${site.name}`)
-        : `Search on ${site.name} (Background Tab, keeps menu open)`;
+      item.title = site.isOpenTab
+        ? `Search ${site.name} via site:${site.domain}`
+        : (searchMode === 'quick'
+            ? (isDefaultSite ? `Search on ${site.name} (Default engine - Enter)` : `Search on ${site.name}`)
+            : `Search on ${site.name} (Background Tab, keeps menu open)`);
 
       const mainAction = document.createElement('div');
       mainAction.className = 'ht-submenu-main-action';
@@ -4017,6 +4325,7 @@
 
       const nameSpan = document.createElement('span');
       nameSpan.className = 'ht-submenu-name';
+      nameSpan.title = site.name;
 
       if (trimmedFilter) {
         nameSpan.appendChild(createHighlightedTextFragment(site.name, trimmedFilter));
@@ -4031,6 +4340,11 @@
         const badge = document.createElement('span');
         badge.className = 'ht-default-badge';
         badge.textContent = 'Default';
+        mainAction.appendChild(badge);
+      } else if (site.isOpenTab) {
+        const badge = document.createElement('span');
+        badge.className = site.isCurrentTab ? 'ht-opentab-badge' : 'ht-opentab-site-badge';
+        badge.textContent = site.isCurrentTab ? 'This Tab' : 'Open Tab';
         mainAction.appendChild(badge);
       }
 
@@ -4473,6 +4787,9 @@
   }
 
   function getWebsiteIconSvg(site) {
+    if (site.icon && (/^https?:\/\//i.test(site.icon) || site.icon.startsWith('data:'))) {
+      return `<img src="${site.icon}" alt="${site.name}" width="16" height="16" style="width: 16px; height: 16px; border-radius: 2px; object-fit: contain;" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='inline-flex';"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" style="display: none;"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`;
+    }
     const id = (site.icon || site.id || '').toLowerCase();
     if (id === 'google') {
       return `<svg viewBox="0 0 24 24" width="16" height="16"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.65v3.05h3.9c2.28-2.1 3.645-5.2 3.645-9.14z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.9-3.05c-1.08.72-2.45 1.16-4.03 1.16-3.1 0-5.73-2.1-6.67-4.93H1.28v3.15C3.26 21.3 7.33 24 12 24z"/><path fill="#FBBC05" d="M5.33 14.27c-.24-.72-.38-1.49-.38-2.27s.14-1.55.38-2.27V6.58H1.28C.46 8.2 0 10.04 0 12s.46 3.8 1.28 5.42l4.05-3.15z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.7 1.28 6.58l4.05 3.15c.94-2.83 3.57-4.98 6.67-4.98z"/></svg>`;
@@ -4638,7 +4955,7 @@
         left: 50%;
         transform: translateX(-50%) translateY(4px);
         top: calc(100% + 6px);
-        width: 290px;
+        width: 310px;
         background: rgba(15, 23, 42, 0.96);
         backdrop-filter: blur(14px);
         -webkit-backdrop-filter: blur(14px);
@@ -4751,7 +5068,7 @@
 
       .ht-submenu-grid {
         display: grid;
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 3px;
         max-height: 220px;
         overflow-y: auto;
@@ -4773,6 +5090,8 @@
         cursor: pointer;
         text-align: left;
         width: 100%;
+        min-width: 0;
+        overflow: hidden;
         transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
         outline: none;
         white-space: nowrap;
@@ -4796,7 +5115,7 @@
         display: flex;
         align-items: center;
         gap: 6px;
-        flex: 1;
+        flex: 1 1 0%;
         min-width: 0;
         overflow: hidden;
       }
@@ -4817,6 +5136,9 @@
       }
 
       .ht-submenu-name {
+        flex: 1 1 auto;
+        min-width: 0;
+        max-width: 100%;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
@@ -4945,7 +5267,7 @@
       .ht-toolbar-root.ht-quick-search-active .ht-submenu {
         position: static !important;
         transform: none !important;
-        width: 330px !important;
+        width: 340px !important;
         background: rgba(15, 19, 39, 0.97) !important;
         border: 1px solid rgba(129, 140, 248, 0.25) !important;
         box-shadow: 0 20px 45px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(129, 140, 248, 0.25) !important;
@@ -5035,10 +5357,88 @@
       .ht-quick-meta-bar {
         display: flex;
         align-items: center;
-        justify-content: flex-end;
+        justify-content: space-between;
         padding: 0 2px 6px;
         border-bottom: 1px solid rgba(255, 255, 255, 0.08);
         margin-bottom: 6px;
+        gap: 6px;
+      }
+
+      .ht-submenu-tabs {
+        display: inline-flex;
+        align-items: center;
+        background: rgba(2, 6, 23, 0.55);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 6px;
+        padding: 2px;
+        gap: 2px;
+      }
+
+      .ht-nav-tab {
+        background: transparent;
+        border: 1px solid transparent;
+        color: #94a3b8;
+        font-size: 11px;
+        font-weight: 600;
+        padding: 2px 7px;
+        border-radius: 4px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        transition: background 0.12s, color 0.12s, border-color 0.12s;
+        line-height: 15px;
+        user-select: none;
+      }
+
+      .ht-nav-tab:hover {
+        color: #e2e8f0;
+        background: rgba(255, 255, 255, 0.06);
+      }
+
+      .ht-nav-tab.active {
+        background: rgba(129, 140, 248, 0.22);
+        color: #c7d2fe;
+        border-color: rgba(129, 140, 248, 0.4);
+      }
+
+      .ht-nav-tab-count {
+        background: rgba(129, 140, 248, 0.28);
+        color: #e0e7ff;
+        font-size: 9.5px;
+        font-weight: 700;
+        padding: 0 4.5px;
+        border-radius: 999px;
+        line-height: 13px;
+      }
+
+      .ht-opentab-badge {
+        font-size: 9px;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: #38bdf8;
+        background: rgba(56, 189, 248, 0.14);
+        border: 1px solid rgba(56, 189, 248, 0.3);
+        border-radius: 3px;
+        padding: 0 4px;
+        margin-left: auto;
+        line-height: 14px;
+        flex-shrink: 0;
+        white-space: nowrap;
+      }
+
+      .ht-opentab-site-badge {
+        font-size: 8.5px;
+        font-weight: 600;
+        text-transform: uppercase;
+        color: #94a3b8;
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 3px;
+        padding: 0 4px;
+        margin-left: auto;
+        line-height: 13px;
+        flex-shrink: 0;
+        white-space: nowrap;
       }
 
       .ht-quick-filter-toggle {
@@ -5093,6 +5493,8 @@
         padding: 0 4px;
         margin-left: auto;
         line-height: 14px;
+        flex-shrink: 0;
+        white-space: nowrap;
       }
 
       .ht-quick-shortcuts-tip {

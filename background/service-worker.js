@@ -30,7 +30,10 @@ const DEFAULT_SETTINGS = {
   tabCycleSwipe: true,     // Right-click + Swipe left/right
   tabCycleRocker: true,    // Rocker gestures (Left+Right: Next, Right+Left: Prev)
   tabCycleAltScroll: true, // Alt + Two-finger trackpad scroll / wheel
-  tabCycleAltKeys: true,   // Alt + < / > keybinds to cycle tabs
+  tabCycleAltKeys: true,   // Keyboard keybinds to cycle tabs
+  tabCycleKeyShortcut: 'alt+comma_period', // 'alt+comma_period' | 'alt+arrows' | 'alt+brackets' | 'ctrl+arrows' | 'ctrl+pageupdown'
+  closeTabShortcutEnabled: true, // Close active tab shortcut
+  closeTabShortcut: 'alt+/', // 'alt+/' | 'alt+w' | 'alt+x' | 'alt+q' | 'alt+c'
   tabCycleHud: true,       // On-screen visual HUD pill
   swipeDeviceMode: 'mouse', // 'mouse' (Right->Next, Left->Prev) | 'mousepad' (Left->Next, Right->Prev)
   closeTabOnDoubleRightClick: true, // Close tab on double right-click
@@ -165,7 +168,61 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
     return;
   }
+
+  if (message.action === 'getOpenTabsForSearch') {
+    handleGetOpenTabsForSearch(message, sender)
+      .then((res) => sendResponse(res))
+      .catch((err) => {
+        console.error('HoldTab: Error fetching open tabs for search:', err);
+        sendResponse({ success: false, error: err.message, openTabs: [] });
+      });
+    return true;
+  }
 });
+
+/**
+ * Returns a list of unique HTTP/HTTPS websites currently open in the browser window
+ * for the Open Tabs search feature (Option 1: site:domain search).
+ */
+async function handleGetOpenTabsForSearch(message, sender) {
+  try {
+    const tabs = await chrome.tabs.query({ currentWindow: true });
+    const currentTabId = sender?.tab?.id;
+    const seenDomains = new Set();
+    const resultSites = [];
+
+    for (const tab of tabs) {
+      if (!tab.url) continue;
+      const urlStr = tab.url.trim();
+      if (!/^https?:\/\//i.test(urlStr)) continue;
+
+      let urlObj;
+      try {
+        urlObj = new URL(urlStr);
+      } catch (_) {
+        continue;
+      }
+
+      const rawHost = urlObj.hostname.toLowerCase();
+      const domain = rawHost.replace(/^www\./, '');
+      if (!domain || seenDomains.has(domain)) continue;
+      seenDomains.add(domain);
+
+      resultSites.push({
+        domain: domain,
+        origin: urlObj.origin,
+        title: tab.title || domain,
+        favIconUrl: tab.favIconUrl || '',
+        isCurrentTab: (typeof currentTabId === 'number' && tab.id === currentTabId)
+      });
+    }
+
+    return { success: true, openTabs: resultSites };
+  } catch (err) {
+    console.error('HoldTab: Error in handleGetOpenTabsForSearch:', err);
+    return { success: false, error: err.message, openTabs: [] };
+  }
+}
 
 // Global tab cycling state to prevent race conditions and trackpad reverse-bounce ping-pong
 let isCyclingTab = false;
@@ -732,6 +789,60 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   try {
     if (changeInfo.url || tab?.url || changeInfo.status === 'complete' || changeInfo.status === 'loading') {
       await updateTabStatusIcon(tabId, tab?.url || changeInfo.url);
+    }
+
+    // Auto-detect search result navigation for active capture sessions
+    const activeUrl = changeInfo.url || tab?.url;
+    if (activeUrl && chrome.storage && chrome.storage.local) {
+      try {
+        const stored = await chrome.storage.local.get('activeCaptureSession');
+        const session = stored?.activeCaptureSession;
+        if (session && session.step === 'capturing' && session.marker && session.tabId === tabId) {
+          const markerLower = session.marker.trim().toLowerCase();
+          if (activeUrl.toLowerCase().includes(markerLower)) {
+            const uLower = activeUrl.toLowerCase();
+            const occurrences = [];
+            let idx = 0;
+            while ((idx = uLower.indexOf(markerLower, idx)) !== -1) {
+              occurrences.push(idx);
+              idx += markerLower.length;
+            }
+            if (occurrences.length > 0) {
+              const start = occurrences[0];
+              const template = activeUrl.substring(0, start) + '{query}' + activeUrl.substring(start + markerLower.length);
+              let siteName = 'Custom Search';
+              try {
+                const u = new URL(activeUrl);
+                siteName = u.hostname.replace(/^www\./, '').split('.')[0];
+                siteName = siteName.charAt(0).toUpperCase() + siteName.slice(1);
+              } catch (_) {}
+
+              await chrome.storage.local.set({
+                activeCaptureSession: {
+                  marker: session.marker,
+                  step: 'preview',
+                  siteName: siteName,
+                  template: template,
+                  testQuery: 'wireless headphones',
+                  capturedUrl: activeUrl,
+                  multipleOccurrences: occurrences.length > 1,
+                  autoCaptured: true,
+                  isBackgroundTab: session.isBackgroundTab || false,
+                  createdAt: session.createdAt || Date.now(),
+                  updatedAt: Date.now()
+                }
+              });
+
+              // Automatically close pinned background tab once captured
+              if (session.isBackgroundTab) {
+                try {
+                  await chrome.tabs.remove(tabId);
+                } catch (_) {}
+              }
+            }
+          }
+        }
+      } catch (_) {}
     }
   } catch (_) {}
 });

@@ -23,6 +23,9 @@ const DEFAULT_SETTINGS = {
   tabCycleRocker: true,
   tabCycleAltScroll: true,
   tabCycleAltKeys: true,
+  tabCycleKeyShortcut: 'alt+comma_period',
+  closeTabShortcutEnabled: true,
+  closeTabShortcut: 'alt+/',
   tabCycleHud: true,
   swipeDeviceMode: 'mouse',
   closeTabOnDoubleRightClick: true,
@@ -195,9 +198,33 @@ function renderUI() {
   const altScrollToggle = document.getElementById('tabCycleAltScrollToggle');
   if (altScrollToggle) altScrollToggle.checked = currentSettings.tabCycleAltScroll !== false;
 
-  // Alt + < / > keybinds toggle
+  // Keyboard tab cycle shortcut
   const altKeysToggle = document.getElementById('tabCycleAltKeysToggle');
   if (altKeysToggle) altKeysToggle.checked = currentSettings.tabCycleAltKeys !== false;
+
+  const tabCycleKeyShortcutSelect = document.getElementById('tabCycleKeyShortcutSelect');
+  if (tabCycleKeyShortcutSelect) {
+    tabCycleKeyShortcutSelect.value = currentSettings.tabCycleKeyShortcut || 'alt+comma_period';
+  }
+  const tabCycleKeyShortcutGroup = document.getElementById('tabCycleKeyShortcutGroup');
+  if (tabCycleKeyShortcutGroup) {
+    tabCycleKeyShortcutGroup.style.opacity = (currentSettings.tabCycleAltKeys !== false) ? '1' : '0.45';
+    tabCycleKeyShortcutGroup.style.pointerEvents = (currentSettings.tabCycleAltKeys !== false) ? 'auto' : 'none';
+  }
+
+  // Close tab shortcut
+  const closeTabShortcutToggle = document.getElementById('closeTabShortcutToggle');
+  if (closeTabShortcutToggle) closeTabShortcutToggle.checked = currentSettings.closeTabShortcutEnabled !== false;
+
+  const closeTabShortcutSelect = document.getElementById('closeTabShortcutSelect');
+  if (closeTabShortcutSelect) {
+    closeTabShortcutSelect.value = currentSettings.closeTabShortcut || 'alt+/';
+  }
+  const closeTabShortcutGroup = document.getElementById('closeTabShortcutGroup');
+  if (closeTabShortcutGroup) {
+    closeTabShortcutGroup.style.opacity = (currentSettings.closeTabShortcutEnabled !== false) ? '1' : '0.45';
+    closeTabShortcutGroup.style.pointerEvents = (currentSettings.closeTabShortcutEnabled !== false) ? 'auto' : 'none';
+  }
 
   // Swipe device mode
   const swipeDeviceRadio = document.querySelector(`input[name="swipeDeviceMode"][value="${currentSettings.swipeDeviceMode || 'mouse'}"]`);
@@ -720,11 +747,43 @@ function setupEventListeners() {
     });
   }
 
-  // Alt + < / > keybinds toggle
+  // Keyboard tab cycle shortcut toggle & key selection
   const altKeysToggle = document.getElementById('tabCycleAltKeysToggle');
+  const tabCycleKeyShortcutGroup = document.getElementById('tabCycleKeyShortcutGroup');
   if (altKeysToggle) {
     altKeysToggle.addEventListener('change', (e) => {
       saveSettings({ tabCycleAltKeys: e.target.checked });
+      if (tabCycleKeyShortcutGroup) {
+        tabCycleKeyShortcutGroup.style.opacity = e.target.checked ? '1' : '0.45';
+        tabCycleKeyShortcutGroup.style.pointerEvents = e.target.checked ? 'auto' : 'none';
+      }
+    });
+  }
+
+  const tabCycleKeyShortcutSelect = document.getElementById('tabCycleKeyShortcutSelect');
+  if (tabCycleKeyShortcutSelect) {
+    tabCycleKeyShortcutSelect.addEventListener('change', (e) => {
+      saveSettings({ tabCycleKeyShortcut: e.target.value });
+    });
+  }
+
+  // Close tab shortcut toggle & key selection
+  const closeTabShortcutToggle = document.getElementById('closeTabShortcutToggle');
+  const closeTabShortcutGroup = document.getElementById('closeTabShortcutGroup');
+  if (closeTabShortcutToggle) {
+    closeTabShortcutToggle.addEventListener('change', (e) => {
+      saveSettings({ closeTabShortcutEnabled: e.target.checked });
+      if (closeTabShortcutGroup) {
+        closeTabShortcutGroup.style.opacity = e.target.checked ? '1' : '0.45';
+        closeTabShortcutGroup.style.pointerEvents = e.target.checked ? 'auto' : 'none';
+      }
+    });
+  }
+
+  const closeTabShortcutSelect = document.getElementById('closeTabShortcutSelect');
+  if (closeTabShortcutSelect) {
+    closeTabShortcutSelect.addEventListener('change', (e) => {
+      saveSettings({ closeTabShortcut: e.target.value });
     });
   }
 
@@ -1344,7 +1403,7 @@ function hideAllWebsiteCards() {
 }
 
 // Display Step 1 capture dialog
-function showCaptureDialog(marker) {
+function showCaptureDialog(marker, fallbackNoticeHtml = null) {
   hideAllWebsiteCards();
   const card = document.getElementById('captureSearchCard');
   const markerDisplay = document.getElementById('captureMarkerDisplay');
@@ -1353,6 +1412,8 @@ function showCaptureDialog(marker) {
   const captureBtn = document.getElementById('captureActiveUrlBtn');
   const spinner = document.getElementById('captureSpinner');
   const btnText = document.getElementById('captureBtnText');
+  const fallbackNotice = document.getElementById('captureFallbackNotice');
+  const fallbackText = document.getElementById('captureFallbackNoticeText');
 
   if (markerDisplay) markerDisplay.textContent = marker;
   if (copyBtn) {
@@ -1362,6 +1423,14 @@ function showCaptureDialog(marker) {
   if (statusMsg) {
     statusMsg.style.display = 'none';
     statusMsg.innerHTML = '';
+  }
+  if (fallbackNotice && fallbackText) {
+    if (fallbackNoticeHtml) {
+      fallbackText.innerHTML = fallbackNoticeHtml;
+      fallbackNotice.style.display = 'flex';
+    } else {
+      fallbackNotice.style.display = 'none';
+    }
   }
   if (captureBtn) captureBtn.disabled = false;
   if (spinner) spinner.style.display = 'none';
@@ -1380,6 +1449,7 @@ function showCapturePreview(data) {
   const multipleWarning = document.getElementById('captureMultipleWarning');
   const errorBox = document.getElementById('capturePreviewError');
   const successBox = document.getElementById('capturePreviewSuccess');
+  const autoSuccessBadge = document.getElementById('captureAutoSuccessBadge');
 
   if (nameInput) nameInput.value = data.siteName || '';
   if (templateInput) templateInput.value = data.template || '';
@@ -1387,6 +1457,19 @@ function showCapturePreview(data) {
 
   if (multipleWarning) {
     multipleWarning.style.display = data.multipleOccurrences ? 'block' : 'none';
+  }
+  if (autoSuccessBadge) {
+    if (data.autoCaptured) {
+      const badgeText = autoSuccessBadge.querySelector('.info-pill-body');
+      if (badgeText) {
+        badgeText.innerHTML = data.isBackgroundTab
+          ? `<strong>Auto-captured in background tab!</strong> Search bar was detected and URL template derived in a pinned background tab, which was closed automatically.`
+          : `<strong>Auto-captured in 1 click!</strong> The search URL and query parameter were detected automatically.`;
+      }
+      autoSuccessBadge.style.display = 'flex';
+    } else {
+      autoSuccessBadge.style.display = 'none';
+    }
   }
   if (errorBox) errorBox.style.display = 'none';
   if (successBox) successBox.style.display = 'none';
@@ -1680,14 +1763,146 @@ function setupToolbarEventListeners() {
 
   if (startCaptureBtn) {
     startCaptureBtn.addEventListener('click', async () => {
-      hideAllWebsiteCards();
+      const origHtml = startCaptureBtn.innerHTML;
+      startCaptureBtn.disabled = true;
+      startCaptureBtn.innerHTML = `<span>⏳</span> Capturing in background tab...`;
+
       const marker = generateSearchMarker();
+      let activeTab = null;
+      try {
+        const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+        activeTab = tabs && tabs[0] ? tabs[0] : null;
+      } catch (_) {}
+
+      const isHttp = activeTab && activeTab.url && /^https?:\/\//i.test(activeTab.url);
+      if (!isHttp) {
+        await saveActiveCaptureSession({
+          marker,
+          step: 'capturing',
+          tabId: activeTab ? activeTab.id : null,
+          isBackgroundTab: false,
+          createdAt: Date.now()
+        });
+        startCaptureBtn.disabled = false;
+        startCaptureBtn.innerHTML = origHtml;
+        showCaptureDialog(marker, '⚡ Auto-capture is unavailable on internal or restricted browser pages. Follow the quick manual capture steps below.');
+        return;
+      }
+
+      // Open a pinned background tab for non-intrusive in-background capture
+      let bgTab = null;
+      try {
+        bgTab = await chrome.tabs.create({
+          url: activeTab.url,
+          active: false,
+          pinned: true
+        });
+      } catch (err) {
+        console.warn('HoldTab: Failed to open pinned background tab:', err);
+      }
+
+      const targetTabId = bgTab ? bgTab.id : activeTab.id;
+      const isBg = !!bgTab;
+
       await saveActiveCaptureSession({
         marker,
         step: 'capturing',
+        tabId: targetTabId,
+        isBackgroundTab: isBg,
         createdAt: Date.now()
       });
-      showCaptureDialog(marker);
+
+      let autoSubmitted = false;
+      let captured = false;
+
+      try {
+        // Wait for background tab's content script to be ready and submit the marker
+        const pollStart = Date.now();
+        while (Date.now() - pollStart < 5000) {
+          await new Promise((r) => setTimeout(r, 250));
+          if (isBg) {
+            const check = await chrome.tabs.get(bgTab.id).catch(() => null);
+            if (!check) break; // User or browser closed tab
+          }
+
+          try {
+            const resp = await chrome.tabs.sendMessage(targetTabId, {
+              action: 'autoSubmitSearchMarker',
+              marker
+            });
+            if (resp && resp.filled) {
+              autoSubmitted = true;
+              break;
+            }
+          } catch (_) {
+            // Content script in background tab still loading
+          }
+        }
+
+        if (autoSubmitted) {
+          // Tab submitted search form! Poll for URL containing marker
+          const submitStart = Date.now();
+          while (Date.now() - submitStart < 5000) {
+            await new Promise((r) => setTimeout(r, 200));
+            const currentTab = await chrome.tabs.get(targetTabId).catch(() => null);
+            if (currentTab && currentTab.url && currentTab.url.toLowerCase().includes(marker.toLowerCase())) {
+              const derived = deriveTemplateFromCapturedUrl(currentTab.url, marker);
+              if (derived && derived.template) {
+                const detectedName = deriveNameFromUrl(currentTab.url) || currentTab.title || 'Custom Search';
+                const sessionData = {
+                  marker,
+                  step: 'preview',
+                  siteName: detectedName.replace(/\s*[-–|].*$/, '').trim(),
+                  template: derived.template,
+                  testQuery: 'wireless headphones',
+                  capturedUrl: currentTab.url,
+                  multipleOccurrences: derived.multipleOccurrences || false,
+                  autoCaptured: true,
+                  isBackgroundTab: isBg,
+                  createdAt: Date.now()
+                };
+                await saveActiveCaptureSession(sessionData);
+                showCapturePreview(sessionData);
+                captured = true;
+                break;
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('HoldTab: Error during background capture:', err);
+      } finally {
+        // ALWAYS close the pinned background tab after the process is done
+        if (isBg && bgTab && bgTab.id) {
+          try {
+            await chrome.tabs.remove(bgTab.id);
+          } catch (_) {}
+          bgTab = null;
+        }
+
+        startCaptureBtn.disabled = false;
+        startCaptureBtn.innerHTML = origHtml;
+      }
+
+      if (!captured) {
+        if (autoSubmitted) {
+          showCaptureDialog(marker, '⚡ Auto-submit was sent in the background tab, but the search URL did not update automatically. Follow the manual capture steps below.');
+        } else {
+          showCaptureDialog(marker, '⚡ Search bar could not be auto-detected in the background tab. No problem! Follow the quick 2-step manual capture below.');
+        }
+      }
+    });
+  }
+
+  // Reactive listener for storage updates (e.g. background service worker auto-captured URL)
+  if (chrome.storage && chrome.storage.onChanged) {
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area === 'local' && changes.activeCaptureSession) {
+        const session = changes.activeCaptureSession.newValue;
+        if (session && session.step === 'preview') {
+          showCapturePreview(session);
+        }
+      }
     });
   }
 
