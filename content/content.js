@@ -39,9 +39,10 @@
     tabCycleRocker: true,    // Rocker gestures (Left+Right: Next, Right+Left: Prev)
     tabCycleAltScroll: true, // Alt + Two-finger trackpad scroll / wheel
     tabCycleAltKeys: true,   // Keyboard keybinds to cycle tabs
-    tabCycleKeyShortcut: 'alt+comma_period', // 'alt+comma_period' | 'alt+arrows' | 'alt+brackets' | 'ctrl+arrows' | 'ctrl+pageupdown'
+    tabCyclePrevShortcut: 'Alt + <', // Custom shortcut to cycle to previous tab
+    tabCycleNextShortcut: 'Alt + >', // Custom shortcut to cycle to next tab
     closeTabShortcutEnabled: true, // Close active tab shortcut
-    closeTabShortcut: 'alt+/', // 'alt+/' | 'alt+w' | 'alt+x' | 'alt+q' | 'alt+c'
+    closeTabShortcut: 'Alt + /', // Custom shortcut to close active tab
     tabCycleHud: true,       // On-screen visual HUD pill
     swipeDeviceMode: 'mouse', // 'mouse' | 'mousepad'
     closeTabOnDoubleRightClick: true, // Close tab on double right-click
@@ -3045,72 +3046,85 @@
   }, true);
 
   /**
-   * Helper to determine if a keydown event matches the configured close-tab shortcut
+   * Universal keyboard shortcut matcher.
+   * Matches a keydown event against a human-readable shortcut string
+   * such as "Alt + /", "Alt + <", "Ctrl + Left", "Alt + W", etc.
    */
-  function isCloseTabShortcutMatch(e, shortcut) {
-    const isAlt = isAltPressed(e);
-    const key = (e.key || '').toLowerCase();
-    const code = e.code || '';
+  function matchesShortcut(e, shortcutStr) {
+    if (!shortcutStr || typeof shortcutStr !== 'string') return false;
+    const parts = shortcutStr.split('+').map((s) => s.trim().toLowerCase());
+    if (parts.length === 0) return false;
 
-    switch (shortcut) {
-      case 'alt+w':
-        return isAlt && !e.ctrlKey && !e.metaKey && (key === 'w' || code === 'KeyW');
-      case 'alt+x':
-        return isAlt && !e.ctrlKey && !e.metaKey && (key === 'x' || code === 'KeyX');
-      case 'alt+q':
-        return isAlt && !e.ctrlKey && !e.metaKey && (key === 'q' || code === 'KeyQ');
-      case 'alt+c':
-        return isAlt && !e.ctrlKey && !e.metaKey && (key === 'c' || code === 'KeyC');
-      case 'alt+/':
-      default:
-        // Alt + / (or code Slash, key '/', or key '?')
-        return isAlt && !e.ctrlKey && !e.metaKey && (key === '/' || key === '?' || code === 'Slash');
+    const hasAlt = parts.includes('alt') || parts.includes('option');
+    const hasCtrl = parts.includes('ctrl') || parts.includes('control');
+    const hasShift = parts.includes('shift');
+    const hasMeta = parts.includes('meta') || parts.includes('cmd') || parts.includes('command') || parts.includes('win');
+
+    // Modifiers matching
+    const eAlt = isAltPressed(e);
+    const eCtrl = !!e.ctrlKey;
+    const eShift = !!e.shiftKey;
+    const eMeta = !!e.metaKey;
+
+    if (hasAlt !== eAlt) return false;
+    if (hasCtrl !== eCtrl) return false;
+    if (hasShift !== eShift) return false;
+    if (hasMeta !== eMeta) return false;
+
+    // The primary key is the non-modifier part
+    const modifierKeys = new Set(['alt', 'option', 'ctrl', 'control', 'shift', 'meta', 'cmd', 'command', 'win']);
+    const nonModifiers = parts.filter((p) => !modifierKeys.has(p));
+    if (nonModifiers.length === 0) return false;
+    const keyPart = nonModifiers.join('+');
+
+    const eventKey = (e.key || '').toLowerCase();
+    const eventCode = (e.code || '').toLowerCase();
+
+    // Direct key matches
+    if (eventKey === keyPart) return true;
+
+    // Common aliases:
+    if (keyPart === '<' || keyPart === ',') {
+      return eventKey === '<' || eventKey === ',' || eventCode === 'comma';
     }
-  }
-
-  /**
-   * Helper to determine tab cycle direction ('prev' | 'next' | null) from a keydown event
-   * according to user's configured shortcut key combination
-   */
-  function getTabCycleDirectionFromKey(e, shortcutType) {
-    const isAlt = isAltPressed(e);
-    const isCtrl = !!(e.ctrlKey || e.metaKey);
-    const key = e.key;
-    const code = e.code;
-
-    switch (shortcutType) {
-      case 'alt+arrows': {
-        if (!isAlt || isCtrl) return null;
-        if (key === 'ArrowLeft' || code === 'ArrowLeft') return 'prev';
-        if (key === 'ArrowRight' || code === 'ArrowRight') return 'next';
-        return null;
-      }
-      case 'alt+brackets': {
-        if (!isAlt || isCtrl) return null;
-        if (key === '[' || code === 'BracketLeft') return 'prev';
-        if (key === ']' || code === 'BracketRight') return 'next';
-        return null;
-      }
-      case 'ctrl+arrows': {
-        if (!isCtrl || e.altKey) return null;
-        if (key === 'ArrowLeft' || code === 'ArrowLeft') return 'prev';
-        if (key === 'ArrowRight' || code === 'ArrowRight') return 'next';
-        return null;
-      }
-      case 'ctrl+pageupdown': {
-        if (!isCtrl) return null;
-        if (key === 'PageUp' || code === 'PageUp') return 'prev';
-        if (key === 'PageDown' || code === 'PageDown') return 'next';
-        return null;
-      }
-      case 'alt+comma_period':
-      default: {
-        if (!isAlt || isCtrl) return null;
-        if (key === '<' || key === ',' || code === 'Comma') return 'prev';
-        if (key === '>' || key === '.' || code === 'Period') return 'next';
-        return null;
-      }
+    if (keyPart === '>' || keyPart === '.') {
+      return eventKey === '>' || eventKey === '.' || eventCode === 'period';
     }
+    if (keyPart === '/' || keyPart === 'slash' || keyPart === '?') {
+      return eventKey === '/' || eventKey === '?' || eventCode === 'slash';
+    }
+    if (keyPart === '[' || keyPart === 'bracketleft') {
+      return eventKey === '[' || eventCode === 'bracketleft';
+    }
+    if (keyPart === ']' || keyPart === 'bracketright') {
+      return eventKey === ']' || eventCode === 'bracketright';
+    }
+    if (keyPart === 'arrowleft' || keyPart === 'left') {
+      return eventKey === 'arrowleft' || eventCode === 'arrowleft';
+    }
+    if (keyPart === 'arrowright' || keyPart === 'right') {
+      return eventKey === 'arrowright' || eventCode === 'arrowright';
+    }
+    if (keyPart === 'arrowup' || keyPart === 'up') {
+      return eventKey === 'arrowup' || eventCode === 'arrowup';
+    }
+    if (keyPart === 'arrowdown' || keyPart === 'down') {
+      return eventKey === 'arrowdown' || eventCode === 'arrowdown';
+    }
+    if (keyPart === 'pageup') {
+      return eventKey === 'pageup' || eventCode === 'pageup';
+    }
+    if (keyPart === 'pagedown') {
+      return eventKey === 'pagedown' || eventCode === 'pagedown';
+    }
+    if (eventCode === 'key' + keyPart) {
+      return true;
+    }
+    if (eventCode === 'digit' + keyPart) {
+      return true;
+    }
+
+    return false;
   }
 
   window.addEventListener('keydown', (e) => {
@@ -3133,9 +3147,10 @@
       lastRightClickSelectedText = '';
     }
 
-    // Close Tab Shortcut (Default Alt + /, configurable)
+    // Close Tab Shortcut (Default Alt + /, fully custom configurable)
     if (config.enabled && isFeatureAllowed('tabCycle') && config.closeTabShortcutEnabled !== false) {
-      if (isCloseTabShortcutMatch(e, config.closeTabShortcut || 'alt+/')) {
+      const closeShortcut = config.closeTabShortcut || 'Alt + /';
+      if (matchesShortcut(e, closeShortcut)) {
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
@@ -3152,9 +3167,18 @@
       }
     }
 
-    // Configurable Switch Tab Keybinds (alt+comma_period, alt+arrows, alt+brackets, ctrl+arrows, ctrl+pageupdown)
+    // Switch Tab Keybinds (Previous Tab & Next Tab, fully custom configurable)
     if (config.enabled && isFeatureAllowed('tabCycle') && config.tabCycleAltKeys !== false) {
-      const direction = getTabCycleDirectionFromKey(e, config.tabCycleKeyShortcut || 'alt+comma_period');
+      const prevShortcut = config.tabCyclePrevShortcut || 'Alt + <';
+      const nextShortcut = config.tabCycleNextShortcut || 'Alt + >';
+
+      let direction = null;
+      if (matchesShortcut(e, prevShortcut)) {
+        direction = 'prev';
+      } else if (matchesShortcut(e, nextShortcut)) {
+        direction = 'next';
+      }
+
       if (direction) {
         e.preventDefault();
         e.stopPropagation();
@@ -4342,10 +4366,81 @@
         badge.textContent = 'Default';
         mainAction.appendChild(badge);
       } else if (site.isOpenTab) {
-        const badge = document.createElement('span');
-        badge.className = site.isCurrentTab ? 'ht-opentab-badge' : 'ht-opentab-site-badge';
-        badge.textContent = site.isCurrentTab ? 'This Tab' : 'Open Tab';
-        mainAction.appendChild(badge);
+        // Save icon button to capture and add open tab website to search engines list
+        const saveBtn = document.createElement('button');
+        saveBtn.type = 'button';
+        saveBtn.className = 'ht-opentab-save-btn';
+        saveBtn.title = `Save ${site.name} to Search Engines`;
+        saveBtn.setAttribute('aria-label', `Save ${site.name} to search engines`);
+        saveBtn.innerHTML = `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>`;
+
+        saveBtn.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        });
+
+        saveBtn.addEventListener('click', async (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+
+          if (saveBtn.classList.contains('ht-saving') || saveBtn.classList.contains('ht-saved')) {
+            return;
+          }
+
+          saveBtn.classList.add('ht-saving');
+          saveBtn.innerHTML = `<svg class="ht-save-spin" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"></circle><path d="M12 2a10 10 0 0 1 10 10" stroke="#38bdf8"></path></svg>`;
+          saveBtn.title = `Saving ${site.name}...`;
+
+          try {
+            const resp = await new Promise((resolve) => {
+              chrome.runtime.sendMessage({
+                action: 'captureAndSaveOpenTab',
+                site: {
+                  domain: site.domain,
+                  origin: site.origin,
+                  name: site.name,
+                  title: site.tabTitle || site.name
+                }
+              }, (r) => resolve(r));
+            });
+
+            if (resp && resp.success) {
+              saveBtn.classList.remove('ht-saving');
+              saveBtn.classList.add('ht-saved');
+              saveBtn.innerHTML = `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#22c55e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+              saveBtn.title = `✓ Saved to Search Engines!`;
+              showToolbarToast(`✓ Saved "${resp.siteName || site.name}" to Search Engines!`);
+
+              cachedOpenTabSites = cachedOpenTabSites.filter((s) => s.domain !== site.domain);
+              if (navTabOpenTabsCountEl) {
+                if (cachedOpenTabSites.length > 0) {
+                  navTabOpenTabsCountEl.textContent = cachedOpenTabSites.length;
+                  navTabOpenTabsCountEl.style.display = 'inline-flex';
+                } else {
+                  navTabOpenTabsCountEl.style.display = 'none';
+                }
+              }
+              setTimeout(() => {
+                if (submenuSearchInputEl) {
+                  renderSubmenuGrid(submenuSearchInputEl.value);
+                } else {
+                  renderSubmenuGrid();
+                }
+              }, 700);
+            } else {
+              saveBtn.classList.remove('ht-saving');
+              saveBtn.innerHTML = `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>`;
+              saveBtn.title = `Could not auto-save`;
+              showToolbarToast(`⚠️ Could not auto-save ${site.name}`);
+            }
+          } catch (err) {
+            saveBtn.classList.remove('ht-saving');
+            saveBtn.innerHTML = `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>`;
+            saveBtn.title = `Save ${site.name} to Search Engines`;
+          }
+        });
+
+        mainAction.appendChild(saveBtn);
       }
 
       // Right-side open-in-foreground action icon (switches immediately to new tab)
@@ -5412,33 +5507,45 @@
         line-height: 13px;
       }
 
-      .ht-opentab-badge {
-        font-size: 9px;
-        font-weight: 700;
-        text-transform: uppercase;
-        color: #38bdf8;
-        background: rgba(56, 189, 248, 0.14);
-        border: 1px solid rgba(56, 189, 248, 0.3);
-        border-radius: 3px;
-        padding: 0 4px;
-        margin-left: auto;
-        line-height: 14px;
+      .ht-opentab-save-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 18px;
+        height: 18px;
+        border-radius: 4px;
+        background: transparent;
+        border: none;
+        color: #94a3b8;
+        cursor: pointer;
+        padding: 0;
         flex-shrink: 0;
-        white-space: nowrap;
+        margin-left: auto;
+        transition: color 0.12s ease, background 0.12s ease, transform 0.1s ease;
+        outline: none;
       }
 
-      .ht-opentab-site-badge {
-        font-size: 8.5px;
-        font-weight: 600;
-        text-transform: uppercase;
-        color: #94a3b8;
-        background: rgba(255, 255, 255, 0.08);
-        border-radius: 3px;
-        padding: 0 4px;
-        margin-left: auto;
-        line-height: 13px;
-        flex-shrink: 0;
-        white-space: nowrap;
+      .ht-opentab-save-btn:hover {
+        background: rgba(56, 189, 248, 0.2);
+        color: #38bdf8;
+        transform: scale(1.15);
+      }
+
+      .ht-opentab-save-btn.ht-saved {
+        color: #22c55e !important;
+      }
+
+      .ht-opentab-save-btn.ht-saving {
+        pointer-events: none;
+      }
+
+      .ht-save-spin {
+        animation: htSaveSpinAnim 0.75s linear infinite;
+      }
+
+      @keyframes htSaveSpinAnim {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
       }
 
       .ht-quick-filter-toggle {

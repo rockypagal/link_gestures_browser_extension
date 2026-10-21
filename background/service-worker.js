@@ -31,9 +31,10 @@ const DEFAULT_SETTINGS = {
   tabCycleRocker: true,    // Rocker gestures (Left+Right: Next, Right+Left: Prev)
   tabCycleAltScroll: true, // Alt + Two-finger trackpad scroll / wheel
   tabCycleAltKeys: true,   // Keyboard keybinds to cycle tabs
-  tabCycleKeyShortcut: 'alt+comma_period', // 'alt+comma_period' | 'alt+arrows' | 'alt+brackets' | 'ctrl+arrows' | 'ctrl+pageupdown'
+  tabCyclePrevShortcut: 'Alt + <', // Custom shortcut to cycle to previous tab
+  tabCycleNextShortcut: 'Alt + >', // Custom shortcut to cycle to next tab
   closeTabShortcutEnabled: true, // Close active tab shortcut
-  closeTabShortcut: 'alt+/', // 'alt+/' | 'alt+w' | 'alt+x' | 'alt+q' | 'alt+c'
+  closeTabShortcut: 'Alt + /', // Custom shortcut to close active tab
   tabCycleHud: true,       // On-screen visual HUD pill
   swipeDeviceMode: 'mouse', // 'mouse' (Right->Next, Left->Prev) | 'mousepad' (Left->Next, Right->Prev)
   closeTabOnDoubleRightClick: true, // Close tab on double right-click
@@ -178,6 +179,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       });
     return true;
   }
+
+  if (message.action === 'captureAndSaveOpenTab') {
+    handleCaptureAndSaveOpenTab(message, sender)
+      .then((res) => sendResponse(res))
+      .catch((err) => {
+        console.error('HoldTab: Error capturing open tab:', err);
+        sendResponse({ success: false, error: err.message });
+      });
+    return true;
+  }
 });
 
 /**
@@ -221,6 +232,121 @@ async function handleGetOpenTabsForSearch(message, sender) {
   } catch (err) {
     console.error('HoldTab: Error in handleGetOpenTabsForSearch:', err);
     return { success: false, error: err.message, openTabs: [] };
+  }
+}
+
+/**
+ * Automatically captures the search URL for an open tab website using a pinned background tab
+ * and persists the newly added search engine into toolbarSearchWebsites in sync storage.
+ */
+async function handleCaptureAndSaveOpenTab(message, sender) {
+  const site = message?.site;
+  if (!site || !site.domain) {
+    return { success: false, error: 'No site information provided' };
+  }
+
+  const domain = site.domain.trim().toLowerCase();
+  const targetUrl = site.origin || `https://${domain}`;
+  const cleanName = site.name || site.title || domain.split('.')[0].charAt(0).toUpperCase() + domain.split('.')[0].slice(1);
+  const marker = `holdtab_test_${Math.random().toString(36).substring(2, 7)}`;
+
+  let derivedTemplate = null;
+  let bgTab = null;
+
+  try {
+    // 1. Create a quiet pinned background tab
+    bgTab = await chrome.tabs.create({
+      url: targetUrl,
+      active: false,
+      pinned: true
+    });
+
+    if (bgTab && bgTab.id) {
+      // 2. Poll for content script to be ready and submit the test marker
+      let autoSubmitted = false;
+      const pollStart = Date.now();
+      while (Date.now() - pollStart < 4500) {
+        await new Promise((r) => setTimeout(r, 250));
+        const check = await chrome.tabs.get(bgTab.id).catch(() => null);
+        if (!check) break;
+
+        try {
+          const resp = await chrome.tabs.sendMessage(bgTab.id, {
+            action: 'autoSubmitSearchMarker',
+            marker
+          });
+          if (resp && resp.filled) {
+            autoSubmitted = true;
+            break;
+          }
+        } catch (_) {}
+      }
+
+      // 3. If submitted, poll for URL containing the marker
+      if (autoSubmitted) {
+        const submitStart = Date.now();
+        while (Date.now() - submitStart < 4500) {
+          await new Promise((r) => setTimeout(r, 200));
+          const currentTab = await chrome.tabs.get(bgTab.id).catch(() => null);
+          if (currentTab && currentTab.url && currentTab.url.toLowerCase().includes(marker.toLowerCase())) {
+            const uLower = currentTab.url.toLowerCase();
+            const idx = uLower.indexOf(marker.toLowerCase());
+            if (idx !== -1) {
+              derivedTemplate = currentTab.url.substring(0, idx) + '{query}' + currentTab.url.substring(idx + marker.length);
+              break;
+            }
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('HoldTab: Auto-capture error for open tab:', err);
+  } finally {
+    // ALWAYS remove the pinned background tab
+    if (bgTab && bgTab.id) {
+      try {
+        await chrome.tabs.remove(bgTab.id);
+      } catch (_) {}
+    }
+  }
+
+  // 4. Fallback if auto-capture was not supported or failed
+  if (!derivedTemplate) {
+    derivedTemplate = `https://${domain}/#ht-site-search={query}`;
+  }
+
+  // 5. Save website into toolbarSearchWebsites in storage
+  try {
+    const data = await chrome.storage.sync.get('toolbarSearchWebsites');
+    const existing = Array.isArray(data?.toolbarSearchWebsites)
+      ? [...data.toolbarSearchWebsites]
+      : [...DEFAULT_SEARCH_WEBSITES];
+
+    const isAlreadySaved = existing.some((s) => {
+      const sId = (s.id || '').toLowerCase();
+      const sName = (s.name || '').toLowerCase();
+      return sId === domain || sName === domain || (s.template && s.template.includes(domain));
+    });
+
+    if (!isAlreadySaved) {
+      const newSite = {
+        id: 'custom_' + Date.now(),
+        name: cleanName,
+        template: derivedTemplate,
+        enabled: true,
+        icon: 'custom'
+      };
+      existing.push(newSite);
+      await chrome.storage.sync.set({ toolbarSearchWebsites: existing });
+    }
+
+    return {
+      success: true,
+      siteName: cleanName,
+      template: derivedTemplate
+    };
+  } catch (storageErr) {
+    return { success: false, error: storageErr.message };
   }
 }
 

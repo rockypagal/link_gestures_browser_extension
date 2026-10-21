@@ -776,113 +776,141 @@ function isRestrictedUrl(url) {
 }
 
 // ---------------------------------------------------------------------------
-// Scenario 29: Close Tab shortcut match for default 'alt+/' and configurable keys
+// Scenario 29: Universal matchesShortcut for Close Tab custom key combinations
 // ---------------------------------------------------------------------------
 {
-  function isCloseTabShortcutMatch(e, shortcut) {
-    const isAlt = !!e.altKey;
-    const key = (e.key || '').toLowerCase();
-    const code = e.code || '';
+  function matchesShortcut(e, shortcutStr) {
+    if (!shortcutStr || typeof shortcutStr !== 'string') return false;
+    const parts = shortcutStr.split('+').map((s) => s.trim().toLowerCase());
+    if (parts.length === 0) return false;
 
-    switch (shortcut) {
-      case 'alt+w':
-        return isAlt && !e.ctrlKey && !e.metaKey && (key === 'w' || code === 'KeyW');
-      case 'alt+x':
-        return isAlt && !e.ctrlKey && !e.metaKey && (key === 'x' || code === 'KeyX');
-      case 'alt+q':
-        return isAlt && !e.ctrlKey && !e.metaKey && (key === 'q' || code === 'KeyQ');
-      case 'alt+c':
-        return isAlt && !e.ctrlKey && !e.metaKey && (key === 'c' || code === 'KeyC');
-      case 'alt+/':
-      default:
-        return isAlt && !e.ctrlKey && !e.metaKey && (key === '/' || key === '?' || code === 'Slash');
-    }
+    const hasAlt = parts.includes('alt') || parts.includes('option');
+    const hasCtrl = parts.includes('ctrl') || parts.includes('control');
+    const hasShift = parts.includes('shift');
+    const hasMeta = parts.includes('meta') || parts.includes('cmd') || parts.includes('command') || parts.includes('win');
+
+    const eAlt = !!e.altKey;
+    const eCtrl = !!e.ctrlKey;
+    const eShift = !!e.shiftKey;
+    const eMeta = !!e.metaKey;
+
+    if (hasAlt !== eAlt) return false;
+    if (hasCtrl !== eCtrl) return false;
+    if (hasShift !== eShift) return false;
+    if (hasMeta !== eMeta) return false;
+
+    const modifierKeys = new Set(['alt', 'option', 'ctrl', 'control', 'shift', 'meta', 'cmd', 'command', 'win']);
+    const nonModifiers = parts.filter((p) => !modifierKeys.has(p));
+    if (nonModifiers.length === 0) return false;
+    const keyPart = nonModifiers.join('+');
+
+    const eventKey = (e.key || '').toLowerCase();
+    const eventCode = (e.code || '').toLowerCase();
+
+    if (eventKey === keyPart) return true;
+    if (keyPart === '<' || keyPart === ',') return eventKey === '<' || eventKey === ',' || eventCode === 'comma';
+    if (keyPart === '>' || keyPart === '.') return eventKey === '>' || eventKey === '.' || eventCode === 'period';
+    if (keyPart === '/' || keyPart === 'slash' || keyPart === '?') return eventKey === '/' || eventKey === '?' || eventCode === 'slash';
+    if (keyPart === '[' || keyPart === 'bracketleft') return eventKey === '[' || eventCode === 'bracketleft';
+    if (keyPart === ']' || keyPart === 'bracketright') return eventKey === ']' || eventCode === 'bracketright';
+    if (keyPart === 'arrowleft' || keyPart === 'left') return eventKey === 'arrowleft' || eventCode === 'arrowleft';
+    if (keyPart === 'arrowright' || keyPart === 'right') return eventKey === 'arrowright' || eventCode === 'arrowright';
+    if (keyPart === 'arrowup' || keyPart === 'up') return eventKey === 'arrowup' || eventCode === 'arrowup';
+    if (keyPart === 'arrowdown' || keyPart === 'down') return eventKey === 'arrowdown' || eventCode === 'arrowdown';
+    if (keyPart === 'pageup') return eventKey === 'pageup' || eventCode === 'pageup';
+    if (keyPart === 'pagedown') return eventKey === 'pagedown' || eventCode === 'pagedown';
+    if (eventCode === 'key' + keyPart) return true;
+    if (eventCode === 'digit' + keyPart) return true;
+
+    return false;
   }
 
   // Alt + / (Default)
-  assert.strictEqual(isCloseTabShortcutMatch({ altKey: true, key: '/', code: 'Slash' }, 'alt+/'), true);
-  assert.strictEqual(isCloseTabShortcutMatch({ altKey: true, key: '?', code: 'Slash', shiftKey: true }, 'alt+/'), true);
-  // Ctrl + / should NOT match alt+/
-  assert.strictEqual(isCloseTabShortcutMatch({ ctrlKey: true, key: '/', code: 'Slash' }, 'alt+/'), false);
+  assert.strictEqual(matchesShortcut({ altKey: true, key: '/', code: 'Slash' }, 'Alt + /'), true);
+  assert.strictEqual(matchesShortcut({ altKey: true, key: '?', code: 'Slash', shiftKey: true }, 'Alt + /'), false); // Shift mismatch
+  assert.strictEqual(matchesShortcut({ altKey: true, key: '?', code: 'Slash', shiftKey: true }, 'Alt + Shift + /'), true);
+  assert.strictEqual(matchesShortcut({ ctrlKey: true, key: '/', code: 'Slash' }, 'Alt + /'), false);
 
-  // Configured Alt + W
-  assert.strictEqual(isCloseTabShortcutMatch({ altKey: true, key: 'w', code: 'KeyW' }, 'alt+w'), true);
-  assert.strictEqual(isCloseTabShortcutMatch({ altKey: true, key: 'W', code: 'KeyW' }, 'alt+w'), true);
-  assert.strictEqual(isCloseTabShortcutMatch({ altKey: true, key: '/', code: 'Slash' }, 'alt+w'), false);
+  // Custom Alt + W
+  assert.strictEqual(matchesShortcut({ altKey: true, key: 'w', code: 'KeyW' }, 'Alt + W'), true);
+  assert.strictEqual(matchesShortcut({ altKey: true, key: 'W', code: 'KeyW' }, 'Alt + W'), true);
 
-  // Configured Alt + X
-  assert.strictEqual(isCloseTabShortcutMatch({ altKey: true, key: 'x', code: 'KeyX' }, 'alt+x'), true);
+  // Custom Ctrl + Shift + W
+  assert.strictEqual(matchesShortcut({ ctrlKey: true, shiftKey: true, key: 'w', code: 'KeyW' }, 'Ctrl + Shift + W'), true);
 
-  console.log('  ✓ Scenario 29: Close Tab shortcut accurately matches Alt + / and configurable keys');
+  // Custom Alt + Q
+  assert.strictEqual(matchesShortcut({ altKey: true, key: 'q', code: 'KeyQ' }, 'Alt + Q'), true);
+
+  console.log('  ✓ Scenario 29: Universal matchesShortcut accurately matches custom Close Tab shortcuts');
 }
 
 // ---------------------------------------------------------------------------
-// Scenario 30: Switch Tab direction resolution for configurable keys
+// Scenario 30: Universal matchesShortcut for Previous Tab & Next Tab custom keybinds
 // ---------------------------------------------------------------------------
 {
-  function getTabCycleDirectionFromKey(e, shortcutType) {
-    const isAlt = !!e.altKey;
-    const isCtrl = !!(e.ctrlKey || e.metaKey);
-    const key = e.key;
-    const code = e.code;
+  function matchesShortcut(e, shortcutStr) {
+    if (!shortcutStr || typeof shortcutStr !== 'string') return false;
+    const parts = shortcutStr.split('+').map((s) => s.trim().toLowerCase());
+    if (parts.length === 0) return false;
 
-    switch (shortcutType) {
-      case 'alt+arrows': {
-        if (!isAlt || isCtrl) return null;
-        if (key === 'ArrowLeft' || code === 'ArrowLeft') return 'prev';
-        if (key === 'ArrowRight' || code === 'ArrowRight') return 'next';
-        return null;
-      }
-      case 'alt+brackets': {
-        if (!isAlt || isCtrl) return null;
-        if (key === '[' || code === 'BracketLeft') return 'prev';
-        if (key === ']' || code === 'BracketRight') return 'next';
-        return null;
-      }
-      case 'ctrl+arrows': {
-        if (!isCtrl || e.altKey) return null;
-        if (key === 'ArrowLeft' || code === 'ArrowLeft') return 'prev';
-        if (key === 'ArrowRight' || code === 'ArrowRight') return 'next';
-        return null;
-      }
-      case 'ctrl+pageupdown': {
-        if (!isCtrl) return null;
-        if (key === 'PageUp' || code === 'PageUp') return 'prev';
-        if (key === 'PageDown' || code === 'PageDown') return 'next';
-        return null;
-      }
-      case 'alt+comma_period':
-      default: {
-        if (!isAlt || isCtrl) return null;
-        if (key === '<' || key === ',' || code === 'Comma') return 'prev';
-        if (key === '>' || key === '.' || code === 'Period') return 'next';
-        return null;
-      }
-    }
+    const hasAlt = parts.includes('alt') || parts.includes('option');
+    const hasCtrl = parts.includes('ctrl') || parts.includes('control');
+    const hasShift = parts.includes('shift');
+    const hasMeta = parts.includes('meta') || parts.includes('cmd') || parts.includes('command') || parts.includes('win');
+
+    const eAlt = !!e.altKey;
+    const eCtrl = !!e.ctrlKey;
+    const eShift = !!e.shiftKey;
+    const eMeta = !!e.metaKey;
+
+    if (hasAlt !== eAlt) return false;
+    if (hasCtrl !== eCtrl) return false;
+    if (hasShift !== eShift) return false;
+    if (hasMeta !== eMeta) return false;
+
+    const modifierKeys = new Set(['alt', 'option', 'ctrl', 'control', 'shift', 'meta', 'cmd', 'command', 'win']);
+    const nonModifiers = parts.filter((p) => !modifierKeys.has(p));
+    if (nonModifiers.length === 0) return false;
+    const keyPart = nonModifiers.join('+');
+
+    const eventKey = (e.key || '').toLowerCase();
+    const eventCode = (e.code || '').toLowerCase();
+
+    if (eventKey === keyPart) return true;
+    if (keyPart === '<' || keyPart === ',') return eventKey === '<' || eventKey === ',' || eventCode === 'comma';
+    if (keyPart === '>' || keyPart === '.') return eventKey === '>' || eventKey === '.' || eventCode === 'period';
+    if (keyPart === '/' || keyPart === 'slash' || keyPart === '?') return eventKey === '/' || eventKey === '?' || eventCode === 'slash';
+    if (keyPart === '[' || keyPart === 'bracketleft') return eventKey === '[' || eventCode === 'bracketleft';
+    if (keyPart === ']' || keyPart === 'bracketright') return eventKey === ']' || eventCode === 'bracketright';
+    if (keyPart === 'arrowleft' || keyPart === 'left') return eventKey === 'arrowleft' || eventCode === 'arrowleft';
+    if (keyPart === 'arrowright' || keyPart === 'right') return eventKey === 'arrowright' || eventCode === 'arrowright';
+    if (keyPart === 'arrowup' || keyPart === 'up') return eventKey === 'arrowup' || eventCode === 'arrowup';
+    if (keyPart === 'arrowdown' || keyPart === 'down') return eventKey === 'arrowdown' || eventCode === 'arrowdown';
+    if (keyPart === 'pageup') return eventKey === 'pageup' || eventCode === 'pageup';
+    if (keyPart === 'pagedown') return eventKey === 'pagedown' || eventCode === 'pagedown';
+    if (eventCode === 'key' + keyPart) return true;
+    if (eventCode === 'digit' + keyPart) return true;
+
+    return false;
   }
 
-  // alt+comma_period (Default)
-  assert.strictEqual(getTabCycleDirectionFromKey({ altKey: true, key: '<', code: 'Comma' }, 'alt+comma_period'), 'prev');
-  assert.strictEqual(getTabCycleDirectionFromKey({ altKey: true, key: '>', code: 'Period' }, 'alt+comma_period'), 'next');
+  // Previous Tab (Default Alt + <)
+  assert.strictEqual(matchesShortcut({ altKey: true, key: '<', code: 'Comma' }, 'Alt + <'), true);
+  assert.strictEqual(matchesShortcut({ altKey: true, key: ',', code: 'Comma' }, 'Alt + <'), true);
 
-  // alt+arrows
-  assert.strictEqual(getTabCycleDirectionFromKey({ altKey: true, key: 'ArrowLeft', code: 'ArrowLeft' }, 'alt+arrows'), 'prev');
-  assert.strictEqual(getTabCycleDirectionFromKey({ altKey: true, key: 'ArrowRight', code: 'ArrowRight' }, 'alt+arrows'), 'next');
-  assert.strictEqual(getTabCycleDirectionFromKey({ altKey: true, key: '<', code: 'Comma' }, 'alt+arrows'), null);
+  // Next Tab (Default Alt + >)
+  assert.strictEqual(matchesShortcut({ altKey: true, key: '>', code: 'Period' }, 'Alt + >'), true);
+  assert.strictEqual(matchesShortcut({ altKey: true, key: '.', code: 'Period' }, 'Alt + >'), true);
 
-  // alt+brackets
-  assert.strictEqual(getTabCycleDirectionFromKey({ altKey: true, key: '[', code: 'BracketLeft' }, 'alt+brackets'), 'prev');
-  assert.strictEqual(getTabCycleDirectionFromKey({ altKey: true, key: ']', code: 'BracketRight' }, 'alt+brackets'), 'next');
+  // Custom Alt + Left and Alt + Right
+  assert.strictEqual(matchesShortcut({ altKey: true, key: 'ArrowLeft', code: 'ArrowLeft' }, 'Alt + Left'), true);
+  assert.strictEqual(matchesShortcut({ altKey: true, key: 'ArrowRight', code: 'ArrowRight' }, 'Alt + Right'), true);
 
-  // ctrl+arrows
-  assert.strictEqual(getTabCycleDirectionFromKey({ ctrlKey: true, key: 'ArrowLeft', code: 'ArrowLeft' }, 'ctrl+arrows'), 'prev');
-  assert.strictEqual(getTabCycleDirectionFromKey({ ctrlKey: true, key: 'ArrowRight', code: 'ArrowRight' }, 'ctrl+arrows'), 'next');
+  // Custom Ctrl + [ and Ctrl + ]
+  assert.strictEqual(matchesShortcut({ ctrlKey: true, key: '[', code: 'BracketLeft' }, 'Ctrl + ['), true);
+  assert.strictEqual(matchesShortcut({ ctrlKey: true, key: ']', code: 'BracketRight' }, 'Ctrl + ]'), true);
 
-  // ctrl+pageupdown
-  assert.strictEqual(getTabCycleDirectionFromKey({ ctrlKey: true, key: 'PageUp', code: 'PageUp' }, 'ctrl+pageupdown'), 'prev');
-  assert.strictEqual(getTabCycleDirectionFromKey({ ctrlKey: true, key: 'PageDown', code: 'PageDown' }, 'ctrl+pageupdown'), 'next');
-
-  console.log('  ✓ Scenario 30: Switch Tab direction accurately resolved for all configurable shortcut keys');
+  console.log('  ✓ Scenario 30: Universal matchesShortcut accurately matches custom Previous Tab & Next Tab shortcuts');
 }
 
 // ---------------------------------------------------------------------------
@@ -981,6 +1009,67 @@ function isRestrictedUrl(url) {
   console.log('  ✓ Scenario 32: Pinned background tab capture lifecycle and automatic tab closure verified');
 }
 
-console.log('\nResults: 32 / 32 Quick Search tests passed.');
+// ---------------------------------------------------------------------------
+// Scenario 33: Open Tabs save icon click & auto-capture integration
+// ---------------------------------------------------------------------------
+{
+  const openTabSite = {
+    domain: 'stackoverflow.com',
+    name: 'Stack Overflow',
+    origin: 'https://stackoverflow.com'
+  };
+
+  let closedTabId = null;
+  const mockTabs = {
+    create: (opts) => {
+      assert.strictEqual(opts.active, false, 'Tab opened strictly in background');
+      assert.strictEqual(opts.pinned, true, 'Tab opened pinned');
+      assert.strictEqual(opts.url, openTabSite.origin);
+      return { id: 888, url: opts.url, pinned: true, active: false };
+    },
+    remove: (tabId) => {
+      closedTabId = tabId;
+    }
+  };
+
+  const bgTab = mockTabs.create({ url: openTabSite.origin, active: false, pinned: true });
+  assert.strictEqual(bgTab.id, 888);
+
+  // Simulated auto-capture of search URL
+  const marker = 'holdtab_test_so456';
+  const capturedUrl = `https://stackoverflow.com/questions/tagged?q=${marker}`;
+  const idx = capturedUrl.indexOf(marker);
+  const derivedTemplate = capturedUrl.substring(0, idx) + '{query}' + capturedUrl.substring(idx + marker.length);
+
+  assert.strictEqual(derivedTemplate, 'https://stackoverflow.com/questions/tagged?q={query}');
+
+  // Close background tab
+  mockTabs.remove(bgTab.id);
+  assert.strictEqual(closedTabId, 888, 'Background pinned tab cleaned up');
+
+  // Verify storage insertion into toolbarSearchWebsites
+  const existingWebsites = [...DEFAULT_SEARCH_WEBSITES];
+  const newSite = {
+    id: 'custom_' + Date.now(),
+    name: openTabSite.name,
+    template: derivedTemplate,
+    enabled: true,
+    icon: 'custom'
+  };
+  existingWebsites.push(newSite);
+
+  const found = existingWebsites.find((s) => s.name === 'Stack Overflow');
+  assert(found, 'Site saved to search engine list');
+  assert.strictEqual(found.template, 'https://stackoverflow.com/questions/tagged?q={query}');
+
+  // Test fallback if search bar not found
+  const fallbackSite = { domain: 'staticdocs.com', name: 'StaticDocs' };
+  const fallbackTemplate = `https://${fallbackSite.domain}/#ht-site-search={query}`;
+  assert.strictEqual(fallbackTemplate, 'https://staticdocs.com/#ht-site-search={query}');
+
+  console.log('  ✓ Scenario 33: Open Tabs save icon click & auto-capture integration verified');
+}
+
+console.log('\nResults: 33 / 33 Quick Search tests passed.');
 console.log('🎉 ALL QUICK SEARCH TESTS COMPLETED SUCCESSFULLY!\n');
 

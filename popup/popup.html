@@ -280,7 +280,7 @@
             <div class="toggle-info">
               <div class="toggle-title">Switch Tabs Shortcut</div>
               <div class="toggle-desc">
-                Cycle through open tabs using keyboard shortcut
+                Cycle through open tabs using custom keyboard shortcuts
               </div>
             </div>
             <label class="switch switch-sm" title="Toggle Switch Tabs Keyboard Shortcut">
@@ -289,15 +289,21 @@
             </label>
           </div>
           <div class="setting-group" id="tabCycleKeyShortcutGroup" style="margin-top: 4px; margin-bottom: 8px;">
+            <div class="setting-label-row" style="margin-bottom: 6px;">
+              <label class="setting-label" style="font-size: 11px; color: var(--text-secondary);">Previous Tab</label>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <span id="tabCyclePrevShortcutBadge" class="shortcut-kbd-badge" tabindex="0" title="Click Change to record shortcut">Alt + &lt;</span>
+                <button type="button" id="recordPrevShortcutBtn" class="btn-secondary" style="padding: 3px 8px; font-size: 10px; border-radius: 6px;" title="Record custom previous tab shortcut">⚙️ Change</button>
+                <button type="button" id="resetPrevShortcutBtn" class="btn-subtle" style="padding: 3px 6px; font-size: 10px; border-radius: 6px;" title="Reset to Alt + <">↺</button>
+              </div>
+            </div>
             <div class="setting-label-row">
-              <label for="tabCycleKeyShortcutSelect" class="setting-label" style="font-size: 11px; color: var(--text-secondary);">Shortcut Keys</label>
-              <select id="tabCycleKeyShortcutSelect" class="select-dropdown">
-                <option value="alt+comma_period">Alt + &lt; / &gt; (Comma / Period)</option>
-                <option value="alt+arrows">Alt + Left / Right Arrow</option>
-                <option value="alt+brackets">Alt + [ / ]</option>
-                <option value="ctrl+arrows">Ctrl + Left / Right Arrow</option>
-                <option value="ctrl+pageupdown">Ctrl + PageUp / PageDown</option>
-              </select>
+              <label class="setting-label" style="font-size: 11px; color: var(--text-secondary);">Next Tab</label>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <span id="tabCycleNextShortcutBadge" class="shortcut-kbd-badge" tabindex="0" title="Click Change to record shortcut">Alt + &gt;</span>
+                <button type="button" id="recordNextShortcutBtn" class="btn-secondary" style="padding: 3px 8px; font-size: 10px; border-radius: 6px;" title="Record custom next tab shortcut">⚙️ Change</button>
+                <button type="button" id="resetNextShortcutBtn" class="btn-subtle" style="padding: 3px 6px; font-size: 10px; border-radius: 6px;" title="Reset to Alt + >">↺</button>
+              </div>
             </div>
           </div>
 
@@ -316,14 +322,12 @@
           </div>
           <div class="setting-group" id="closeTabShortcutGroup" style="margin-top: 4px; margin-bottom: 8px;">
             <div class="setting-label-row">
-              <label for="closeTabShortcutSelect" class="setting-label" style="font-size: 11px; color: var(--text-secondary);">Shortcut Key</label>
-              <select id="closeTabShortcutSelect" class="select-dropdown">
-                <option value="alt+/">Alt + / (Slash)</option>
-                <option value="alt+w">Alt + W</option>
-                <option value="alt+x">Alt + X</option>
-                <option value="alt+q">Alt + Q</option>
-                <option value="alt+c">Alt + C</option>
-              </select>
+              <label class="setting-label" style="font-size: 11px; color: var(--text-secondary);">Shortcut Key</label>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <span id="closeTabShortcutBadge" class="shortcut-kbd-badge" tabindex="0" title="Click Change to record shortcut">Alt + /</span>
+                <button type="button" id="recordCloseTabShortcutBtn" class="btn-secondary" style="padding: 3px 8px; font-size: 10px; border-radius: 6px;" title="Record custom close tab shortcut">⚙️ Change</button>
+                <button type="button" id="resetCloseTabShortcutBtn" class="btn-subtle" style="padding: 3px 6px; font-size: 10px; border-radius: 6px;" title="Reset to Alt + /">↺</button>
+              </div>
             </div>
           </div>
 
@@ -1382,7 +1386,7 @@
       <!-- Footer -->
       <footer class="footer">
         <div class="footer-meta">
-          <span>v1.8.0 &bull; Auto-saved</span>
+          <span>v1.9.0 &bull; Auto-saved</span>
         </div>
         <button
           id="resetDefaultsBtn"

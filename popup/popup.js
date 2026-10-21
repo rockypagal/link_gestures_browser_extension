@@ -23,9 +23,10 @@ const DEFAULT_SETTINGS = {
   tabCycleRocker: true,
   tabCycleAltScroll: true,
   tabCycleAltKeys: true,
-  tabCycleKeyShortcut: 'alt+comma_period',
+  tabCyclePrevShortcut: 'Alt + <',
+  tabCycleNextShortcut: 'Alt + >',
   closeTabShortcutEnabled: true,
-  closeTabShortcut: 'alt+/',
+  closeTabShortcut: 'Alt + /',
   tabCycleHud: true,
   swipeDeviceMode: 'mouse',
   closeTabOnDoubleRightClick: true,
@@ -202,10 +203,12 @@ function renderUI() {
   const altKeysToggle = document.getElementById('tabCycleAltKeysToggle');
   if (altKeysToggle) altKeysToggle.checked = currentSettings.tabCycleAltKeys !== false;
 
-  const tabCycleKeyShortcutSelect = document.getElementById('tabCycleKeyShortcutSelect');
-  if (tabCycleKeyShortcutSelect) {
-    tabCycleKeyShortcutSelect.value = currentSettings.tabCycleKeyShortcut || 'alt+comma_period';
-  }
+  const prevBadge = document.getElementById('tabCyclePrevShortcutBadge');
+  if (prevBadge) prevBadge.textContent = currentSettings.tabCyclePrevShortcut || 'Alt + <';
+
+  const nextBadge = document.getElementById('tabCycleNextShortcutBadge');
+  if (nextBadge) nextBadge.textContent = currentSettings.tabCycleNextShortcut || 'Alt + >';
+
   const tabCycleKeyShortcutGroup = document.getElementById('tabCycleKeyShortcutGroup');
   if (tabCycleKeyShortcutGroup) {
     tabCycleKeyShortcutGroup.style.opacity = (currentSettings.tabCycleAltKeys !== false) ? '1' : '0.45';
@@ -216,10 +219,9 @@ function renderUI() {
   const closeTabShortcutToggle = document.getElementById('closeTabShortcutToggle');
   if (closeTabShortcutToggle) closeTabShortcutToggle.checked = currentSettings.closeTabShortcutEnabled !== false;
 
-  const closeTabShortcutSelect = document.getElementById('closeTabShortcutSelect');
-  if (closeTabShortcutSelect) {
-    closeTabShortcutSelect.value = currentSettings.closeTabShortcut || 'alt+/';
-  }
+  const closeTabBadge = document.getElementById('closeTabShortcutBadge');
+  if (closeTabBadge) closeTabBadge.textContent = currentSettings.closeTabShortcut || 'Alt + /';
+
   const closeTabShortcutGroup = document.getElementById('closeTabShortcutGroup');
   if (closeTabShortcutGroup) {
     closeTabShortcutGroup.style.opacity = (currentSettings.closeTabShortcutEnabled !== false) ? '1' : '0.45';
@@ -747,7 +749,7 @@ function setupEventListeners() {
     });
   }
 
-  // Keyboard tab cycle shortcut toggle & key selection
+  // Keyboard tab cycle shortcut toggle & interactive custom key recording
   const altKeysToggle = document.getElementById('tabCycleAltKeysToggle');
   const tabCycleKeyShortcutGroup = document.getElementById('tabCycleKeyShortcutGroup');
   if (altKeysToggle) {
@@ -760,14 +762,11 @@ function setupEventListeners() {
     });
   }
 
-  const tabCycleKeyShortcutSelect = document.getElementById('tabCycleKeyShortcutSelect');
-  if (tabCycleKeyShortcutSelect) {
-    tabCycleKeyShortcutSelect.addEventListener('change', (e) => {
-      saveSettings({ tabCycleKeyShortcut: e.target.value });
-    });
-  }
+  // Setup custom shortcut recorders for Previous Tab, Next Tab, and Close Tab
+  setupShortcutRecorder('recordPrevShortcutBtn', 'tabCyclePrevShortcutBadge', 'tabCyclePrevShortcut', 'Alt + <', 'resetPrevShortcutBtn');
+  setupShortcutRecorder('recordNextShortcutBtn', 'tabCycleNextShortcutBadge', 'tabCycleNextShortcut', 'Alt + >', 'resetNextShortcutBtn');
 
-  // Close tab shortcut toggle & key selection
+  // Close tab shortcut toggle & interactive custom key recording
   const closeTabShortcutToggle = document.getElementById('closeTabShortcutToggle');
   const closeTabShortcutGroup = document.getElementById('closeTabShortcutGroup');
   if (closeTabShortcutToggle) {
@@ -780,12 +779,7 @@ function setupEventListeners() {
     });
   }
 
-  const closeTabShortcutSelect = document.getElementById('closeTabShortcutSelect');
-  if (closeTabShortcutSelect) {
-    closeTabShortcutSelect.addEventListener('change', (e) => {
-      saveSettings({ closeTabShortcut: e.target.value });
-    });
-  }
+  setupShortcutRecorder('recordCloseTabShortcutBtn', 'closeTabShortcutBadge', 'closeTabShortcut', 'Alt + /', 'resetCloseTabShortcutBtn');
 
   // Swipe device mode radio
   document.querySelectorAll('input[name="swipeDeviceMode"]').forEach((el) => {
@@ -2436,6 +2430,104 @@ function updateQuickSearchShortcutDisplay() {
     }
   } catch (_) {}
   badge.textContent = 'Ctrl + Shift + K';
+}
+
+/**
+ * Interactive keyboard shortcut recorder for custom shortcuts (Close Tab, Prev Tab, Next Tab).
+ * Records key combination when user clicks 'Change', and saves to storage.
+ */
+function setupShortcutRecorder(btnId, badgeId, settingKey, defaultVal, resetBtnId) {
+  const btn = document.getElementById(btnId);
+  const badge = document.getElementById(badgeId);
+  const resetBtn = resetBtnId ? document.getElementById(resetBtnId) : null;
+  if (!btn || !badge) return;
+
+  let isRecording = false;
+
+  function stopRecording(restoreCurrent = false) {
+    if (!isRecording) return;
+    isRecording = false;
+    badge.classList.remove('shortcut-recording');
+    btn.textContent = '⚙️ Change';
+    if (restoreCurrent) {
+      badge.textContent = currentSettings[settingKey] || defaultVal;
+    }
+    window.removeEventListener('keydown', handleKeydown, true);
+  }
+
+  function handleKeydown(e) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (e.key === 'Escape') {
+      stopRecording(true);
+      return;
+    }
+
+    const isModifierOnly = ['Alt', 'Control', 'Shift', 'Meta'].includes(e.key);
+    if (isModifierOnly) {
+      const mods = [];
+      if (e.ctrlKey) mods.push('Ctrl');
+      if (e.altKey) mods.push('Alt');
+      if (e.shiftKey) mods.push('Shift');
+      if (e.metaKey) mods.push('Cmd');
+      badge.textContent = mods.length > 0 ? mods.join(' + ') + ' + ...' : 'Press keys...';
+      return;
+    }
+
+    // Capture non-modifier with any held modifiers
+    const parts = [];
+    if (e.ctrlKey) parts.push('Ctrl');
+    if (e.altKey) parts.push('Alt');
+    if (e.shiftKey) parts.push('Shift');
+    if (e.metaKey) parts.push('Cmd');
+
+    let keyName = e.key;
+    if (keyName === ' ') keyName = 'Space';
+    else if (keyName === 'ArrowLeft') keyName = 'Left';
+    else if (keyName === 'ArrowRight') keyName = 'Right';
+    else if (keyName === 'ArrowUp') keyName = 'Up';
+    else if (keyName === 'ArrowDown') keyName = 'Down';
+    else if (keyName === ',') keyName = '<';
+    else if (keyName === '.') keyName = '>';
+    else if (keyName.length === 1) keyName = keyName.toUpperCase();
+
+    parts.push(keyName);
+    const shortcutStr = parts.join(' + ');
+
+    currentSettings[settingKey] = shortcutStr;
+    saveSettings({ [settingKey]: shortcutStr });
+    badge.textContent = shortcutStr;
+    stopRecording(false);
+  }
+
+  btn.addEventListener('click', () => {
+    if (isRecording) {
+      stopRecording(true);
+    } else {
+      isRecording = true;
+      badge.classList.add('shortcut-recording');
+      badge.textContent = 'Press keys...';
+      btn.textContent = 'Cancel';
+      window.addEventListener('keydown', handleKeydown, true);
+    }
+  });
+
+  // Also allow clicking directly on badge to record
+  badge.addEventListener('click', () => {
+    if (!isRecording) {
+      btn.click();
+    }
+  });
+
+  if (resetBtn) {
+    resetBtn.addEventListener('click', () => {
+      if (isRecording) stopRecording(false);
+      currentSettings[settingKey] = defaultVal;
+      saveSettings({ [settingKey]: defaultVal });
+      badge.textContent = defaultVal;
+    });
+  }
 }
 
 // Inline SVG icons for standard search engines with high contrast

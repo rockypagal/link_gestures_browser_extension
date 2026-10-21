@@ -1292,6 +1292,21 @@ input:checked + .slider:before {
   border-radius: 5px;
   padding: 2.5px 7px;
   letter-spacing: 0.3px;
+  user-select: none;
+  transition: all 0.15s ease;
+}
+
+.shortcut-kbd-badge.shortcut-recording {
+  border-color: #38bdf8 !important;
+  background: rgba(56, 189, 248, 0.25) !important;
+  color: #38bdf8 !important;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.3) !important;
+  animation: htRecordPulse 0.8s infinite alternate ease-in-out;
+}
+
+@keyframes htRecordPulse {
+  from { opacity: 0.75; }
+  to { opacity: 1; }
 }
 
 
