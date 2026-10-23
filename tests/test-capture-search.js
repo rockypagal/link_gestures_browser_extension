@@ -81,37 +81,107 @@ function buildSearchUrl(template, query) {
   }
 }
 
-function deriveTemplateFromCapturedUrl(tabUrl, marker) {
-  if (!tabUrl || !marker) return null;
-  const markerTrimmed = marker.trim();
-  if (!markerTrimmed) return null;
+function getMarkerRegex(marker) {
+  if (!marker || typeof marker !== 'string') return null;
+  const raw = marker.trim();
+  if (!raw) return null;
 
-  const markerLower = markerTrimmed.toLowerCase();
-  const urlLower = tabUrl.toLowerCase();
+  const parts = raw.split(/[^a-zA-Z0-9]+/).filter(Boolean);
+  if (parts.length === 0) return null;
 
-  const occurrences = [];
-  let idx = 0;
-  while ((idx = urlLower.indexOf(markerLower, idx)) !== -1) {
-    occurrences.push(idx);
-    idx += markerLower.length;
+  if (parts.length === 1) {
+    return new RegExp(escapeRegex(parts[0]), 'gi');
   }
 
-  if (occurrences.length === 0) {
-    const encodedMarker = encodeURIComponent(markerTrimmed).toLowerCase();
-    if (encodedMarker !== markerLower) {
-      idx = 0;
-      while ((idx = urlLower.indexOf(encodedMarker, idx)) !== -1) {
-        occurrences.push(idx);
-        idx += encodedMarker.length;
-      }
+  const sep = '(?:[-_+.\\s]|%20|%5[fF]|%2[dD]|%2[bB])+';
+  const pattern = parts.map((p) => escapeRegex(p)).join(sep);
+  return new RegExp(pattern, 'gi');
+}
+
+function getMarkerVariants(marker) {
+  if (!marker || typeof marker !== 'string') return [];
+  const raw = marker.trim();
+  if (!raw) return [];
+
+  const variants = new Set();
+  variants.add(raw);
+  variants.add(raw.toLowerCase());
+
+  const parts = raw.split(/[^a-zA-Z0-9]+/).filter(Boolean);
+  if (parts.length > 1) {
+    variants.add(parts.join('_'));
+    variants.add(parts.join('-'));
+    variants.add(parts.join('+'));
+    variants.add(parts.join(' '));
+    variants.add(parts.join('%20'));
+    variants.add(parts.join('%5f'));
+    variants.add(parts.join('%5F'));
+    variants.add(parts.join('%2d'));
+    variants.add(parts.join('%2D'));
+    variants.add(parts.join('.'));
+    variants.add(parts.join(''));
+  }
+
+  try {
+    variants.add(encodeURIComponent(raw));
+    variants.add(encodeURIComponent(parts.join('-')));
+    variants.add(encodeURIComponent(parts.join('+')));
+  } catch (_) {}
+
+  return Array.from(variants).filter(Boolean);
+}
+
+function findMarkerMatchesInUrl(tabUrl, marker) {
+  if (!tabUrl || !marker) return [];
+  const matches = [];
+
+  const regex = getMarkerRegex(marker);
+  if (regex) {
+    let m;
+    while ((m = regex.exec(tabUrl)) !== null) {
+      matches.push({
+        index: m.index,
+        text: m[0],
+        length: m[0].length
+      });
+      if (m.index === regex.lastIndex) regex.lastIndex++;
     }
   }
 
-  if (occurrences.length === 0) {
-    return null;
+  if (matches.length === 0) {
+    const variants = getMarkerVariants(marker);
+    const urlLower = tabUrl.toLowerCase();
+    for (const v of variants) {
+      const vLower = v.toLowerCase();
+      let idx = 0;
+      let foundAny = false;
+      while ((idx = urlLower.indexOf(vLower, idx)) !== -1) {
+        matches.push({
+          index: idx,
+          text: tabUrl.substring(idx, idx + vLower.length),
+          length: vLower.length
+        });
+        idx += vLower.length;
+        foundAny = true;
+      }
+      if (foundAny) break;
+    }
   }
 
-  const multipleOccurrences = occurrences.length > 1;
+  return matches;
+}
+
+function urlMatchesSearchMarker(tabUrl, marker) {
+  if (!tabUrl || !marker) return false;
+  return findMarkerMatchesInUrl(tabUrl, marker).length > 0;
+}
+
+function deriveTemplateFromCapturedUrl(tabUrl, marker) {
+  if (!tabUrl || !marker) return null;
+  const matches = findMarkerMatchesInUrl(tabUrl, marker);
+  if (matches.length === 0) return null;
+
+  const multipleOccurrences = matches.length > 1;
 
   if (multipleOccurrences) {
     try {
@@ -125,7 +195,8 @@ function deriveTemplateFromCapturedUrl(tabUrl, marker) {
       for (const key of searchKeys) {
         if (parsed.searchParams.has(key)) {
           const val = parsed.searchParams.get(key) || '';
-          if (val.toLowerCase().includes(markerLower)) {
+          const paramMatches = findMarkerMatchesInUrl(val, marker);
+          if (paramMatches.length > 0) {
             targetKey = key;
             break;
           }
@@ -134,7 +205,8 @@ function deriveTemplateFromCapturedUrl(tabUrl, marker) {
 
       if (!targetKey) {
         for (const [key, val] of parsed.searchParams.entries()) {
-          if (val.toLowerCase().includes(markerLower)) {
+          const paramMatches = findMarkerMatchesInUrl(val, marker);
+          if (paramMatches.length > 0) {
             targetKey = key;
             break;
           }
@@ -143,20 +215,22 @@ function deriveTemplateFromCapturedUrl(tabUrl, marker) {
 
       if (targetKey) {
         const originalVal = parsed.searchParams.get(targetKey) || '';
-        const regex = new RegExp(escapeRegex(markerTrimmed), 'i');
-        const replacedVal = originalVal.replace(regex, '{query}');
-        parsed.searchParams.set(targetKey, replacedVal);
-        return {
-          template: parsed.toString().replace(/%7Bquery%7D/gi, '{query}'),
-          multipleOccurrences: true
-        };
+        const paramMatches = findMarkerMatchesInUrl(originalVal, marker);
+        if (paramMatches.length > 0) {
+          const pm = paramMatches[0];
+          const replacedVal = originalVal.substring(0, pm.index) + '{query}' + originalVal.substring(pm.index + pm.length);
+          parsed.searchParams.set(targetKey, replacedVal);
+          return {
+            template: parsed.toString().replace(/%7Bquery%7D/gi, '{query}'),
+            multipleOccurrences: true
+          };
+        }
       }
     } catch (_) {}
   }
 
-  const start = occurrences[0];
-  const end = start + markerLower.length;
-  const template = tabUrl.substring(0, start) + '{query}' + tabUrl.substring(end);
+  const match = matches[0];
+  const template = tabUrl.substring(0, match.index) + '{query}' + tabUrl.substring(match.index + match.length);
 
   return {
     template,
@@ -388,6 +462,51 @@ test('Path-based search with Unicode and spaces in path segment', () => {
   const res = buildSearchUrl(tmpl, 'café wireless');
   assert.strictEqual(res.valid, true);
   assert.strictEqual(res.url, 'https://example.com/items/caf%C3%A9%20wireless');
+});
+
+// 21. Capture URL where target website slugified underscores to hyphens (user reported case)
+test('Capture URL where target website replaced keyword underscores with hyphens', () => {
+  const marker = 'holdtab_test_hfb3w';
+  const url = 'https://example.com/search/holdtab-test-hfb3w';
+  const res = deriveTemplateFromCapturedUrl(url, marker);
+  assert.ok(res, 'Derived template result must not be null');
+  assert.strictEqual(res.template, 'https://example.com/search/{query}');
+});
+
+// 22. Capture URL where query parameter has hyphenated or slugified keyword
+test('Capture URL where query parameter has hyphenated keyword', () => {
+  const marker = 'holdtab_test_hfb3w';
+  const url = 'https://example.com/search?q=holdtab-test-hfb3w&lang=en';
+  const res = deriveTemplateFromCapturedUrl(url, marker);
+  assert.ok(res, 'Derived template result must not be null');
+  assert.strictEqual(res.template, 'https://example.com/search?q={query}&lang=en');
+});
+
+// 23. Capture URL where keyword has plus separators
+test('Capture URL where keyword has plus separators', () => {
+  const marker = 'holdtab_test_hfb3w';
+  const url = 'https://example.com/search?q=holdtab+test+hfb3w';
+  const res = deriveTemplateFromCapturedUrl(url, marker);
+  assert.ok(res, 'Derived template result must not be null');
+  assert.strictEqual(res.template, 'https://example.com/search?q={query}');
+});
+
+// 24. Capture URL where keyword has percent-encoded space or mixed separators
+test('Capture URL where keyword has URL-encoded space or mixed separators', () => {
+  const marker = 'holdtab_test_hfb3w';
+  const url = 'https://example.com/search?q=holdtab%20test%20hfb3w';
+  const res = deriveTemplateFromCapturedUrl(url, marker);
+  assert.ok(res, 'Derived template result must not be null');
+  assert.strictEqual(res.template, 'https://example.com/search?q={query}');
+});
+
+// 25. urlMatchesSearchMarker polling helper correctly identifies altered URL keywords
+test('urlMatchesSearchMarker polling helper correctly identifies altered URL keywords', () => {
+  const marker = 'holdtab_test_hfb3w';
+  assert.strictEqual(urlMatchesSearchMarker('https://example.com/search/holdtab-test-hfb3w', marker), true);
+  assert.strictEqual(urlMatchesSearchMarker('https://example.com/search?q=holdtab+test+hfb3w', marker), true);
+  assert.strictEqual(urlMatchesSearchMarker('https://example.com/search?q=holdtab%20test%20hfb3w', marker), true);
+  assert.strictEqual(urlMatchesSearchMarker('https://example.com/search?q=holdtab_test_different', marker), false);
 });
 
 console.log(`\nResults: ${passed} / ${total} tests passed.`);

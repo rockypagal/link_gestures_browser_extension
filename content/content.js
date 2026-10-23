@@ -15,13 +15,21 @@
     }
   } catch (_) {}
 
+  const DEFAULT_SEARCH_CATEGORIES = [
+    { id: 'cat_gaming', name: 'Gaming', color: '#818cf8', order: 0, createdAt: 1700000000000 },
+    { id: 'cat_work', name: 'Work', color: '#38bdf8', order: 1, createdAt: 1700000000001 },
+    { id: 'cat_movies', name: 'Movies', color: '#f43f5e', order: 2, createdAt: 1700000000002 },
+    { id: 'cat_shopping', name: 'Shopping', color: '#f59e0b', order: 3, createdAt: 1700000000003 },
+    { id: 'cat_research', name: 'Research', color: '#10b981', order: 4, createdAt: 1700000000004 }
+  ];
+
   const DEFAULT_SEARCH_WEBSITES = [
-    { id: 'google', name: 'Google', template: 'https://www.google.com/search?q={query}', enabled: true, icon: 'google' },
-    { id: 'youtube', name: 'YouTube', template: 'https://www.youtube.com/results?search_query={query}', enabled: true, icon: 'youtube' },
-    { id: 'wikipedia', name: 'Wikipedia', template: 'https://en.wikipedia.org/w/index.php?search={query}', enabled: true, icon: 'wikipedia' },
-    { id: 'reddit', name: 'Reddit', template: 'https://www.reddit.com/search/?q={query}', enabled: true, icon: 'reddit' },
-    { id: 'github', name: 'GitHub', template: 'https://github.com/search?q={query}', enabled: true, icon: 'github' },
-    { id: 'amazon', name: 'Amazon', template: 'https://www.amazon.com/s?k={query}', enabled: true, icon: 'amazon' }
+    { id: 'google', name: 'Google', template: 'https://www.google.com/search?q={query}', enabled: true, icon: 'google', categoryId: 'cat_research' },
+    { id: 'youtube', name: 'YouTube', template: 'https://www.youtube.com/results?search_query={query}', enabled: true, icon: 'youtube', categoryId: 'cat_movies' },
+    { id: 'wikipedia', name: 'Wikipedia', template: 'https://en.wikipedia.org/w/index.php?search={query}', enabled: true, icon: 'wikipedia', categoryId: 'cat_research' },
+    { id: 'reddit', name: 'Reddit', template: 'https://www.reddit.com/search/?q={query}', enabled: true, icon: 'reddit', categoryId: 'cat_work' },
+    { id: 'github', name: 'GitHub', template: 'https://github.com/search?q={query}', enabled: true, icon: 'github', categoryId: 'cat_work' },
+    { id: 'amazon', name: 'Amazon', template: 'https://www.amazon.com/s?k={query}', enabled: true, icon: 'amazon', categoryId: 'cat_shopping' }
   ];
 
   // Default configuration
@@ -35,6 +43,7 @@
     indicatorStyle: 'ring',  // 'ring', 'pulse', 'minimal'
     requireModifier: 'none', // 'none', 'alt', 'ctrl', 'shift'
     tabCycleWheel: true,     // Right-click + Wheel scroll
+    tabCycleWheelSpeed: 120, // ms interval between scroll wheel tab switches (50 - 300)
     tabCycleSwipe: true,     // Right-click + Swipe left/right
     tabCycleRocker: true,    // Rocker gestures (Left+Right: Next, Right+Left: Prev)
     tabCycleAltScroll: true, // Alt + Two-finger trackpad scroll / wheel
@@ -68,8 +77,10 @@
     toolbarMinLength: 2,     // Minimum characters selected to display toolbar (default: 2)
     toolbarSearchSubmenu: true, // Show search engine submenu on hover
     toolbarSearchWebsites: DEFAULT_SEARCH_WEBSITES,
+    searchCategories: DEFAULT_SEARCH_CATEGORIES,
     quickSearchEnabled: true, // Quick search shortcut and popup
     quickSearchDefaultEngine: 'google', // Default engine for Enter in quick search
+    quickSearchMouseShortcut: true, // Right-click hold + mouse wheel click shortcut for Quick Search
     excludedDomains: [],
     siteOverrides: {}
   };
@@ -115,6 +126,7 @@
   // Mouse buttons & rocker state
   let isLeftMouseDown = false;
   let rockerTriggered = false;
+  let quickSearchMouseTriggered = false;
 
   // Tab cycling state
   let isRightMouseDown = false;
@@ -213,6 +225,19 @@
             if (typeof cancelHold === 'function') cancelHold();
             if (typeof hideIndicator === 'function') hideIndicator();
           }
+          if (changes.searchCategories || changes.toolbarSearchWebsites) {
+            if (typeof renderCategoryChips === 'function') {
+              try {
+      renderCategoryChips();
+    } catch (catErr) {
+      console.warn('HoldTab: Failed to render category chips on tab switch', catErr);
+    }
+            }
+            if (typeof renderSubmenuGrid === 'function') {
+              const curFilter = submenuSearchInputEl ? submenuSearchInputEl.value : '';
+              renderSubmenuGrid(curFilter);
+            }
+          }
         }
       });
     }
@@ -227,6 +252,7 @@
           isRightMouseDown = false;
           rightSwipeTriggered = false;
           rockerTriggered = false;
+          quickSearchMouseTriggered = false;
           altScrollAccumulator = 0;
           lastAltScrollTime = performance.now();
           lastAltDirection = message.direction || null;
@@ -1872,7 +1898,8 @@
       viaAlt = false,
       isScrollGesture = false,
       intentionalReverse = false,
-      lockedAxis = null
+      lockedAxis = null,
+      wheelSpeed = null
     } = typeof options === 'boolean' ? { viaAlt: options, isScrollGesture: options } : options;
 
     // Immediately clear local mouse button/swipe states so they never stick when tab switches away
@@ -1889,7 +1916,8 @@
           viaAlt,
           isScrollGesture,
           intentionalReverse,
-          lockedAxis
+          lockedAxis,
+          wheelSpeed
         }, (response) => {
           if (chrome.runtime.lastError) return;
           if (response && response.success && config.tabCycleHud) {
@@ -2208,8 +2236,44 @@
 
     if (!isAnyFeatureAllowed()) return;
 
+    // Handle middle-click (mouse wheel click)
+    if (e.button === 1) {
+      // Right-Click Hold + Mouse Wheel Click -> Quick Search Shortcut
+      const isRightHeld = isRightMouseDown || ((e.buttons & 2) !== 0);
+      if (isRightHeld && config.enabled && isQuickSearchAllowed() && config.quickSearchMouseShortcut !== false) {
+        quickSearchMouseTriggered = true;
+        tabCycleDidExecute = true;
+        lastRightClickTime = 0;
+        lastContextMenuTime = 0;
+        suppressContextMenuUntil = performance.now() + 1500;
+        suppressClickUntil = performance.now() + 1500;
+        cancelHold();
+        toggleQuickSearch();
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        return;
+      }
+    }
+
     // Handle right-click
     if (e.button === 2) {
+      // Mouse Wheel physically held down + Right button clicked -> Quick Search Shortcut
+      if (config.enabled && isQuickSearchAllowed() && config.quickSearchMouseShortcut !== false && (e.buttons & 4) !== 0) {
+        quickSearchMouseTriggered = true;
+        tabCycleDidExecute = true;
+        lastRightClickTime = 0;
+        lastContextMenuTime = 0;
+        suppressContextMenuUntil = performance.now() + 1500;
+        suppressClickUntil = performance.now() + 1500;
+        cancelHold();
+        toggleQuickSearch();
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        return;
+      }
+
       // Rocker Gesture: Left button is physically held down + Right button clicked -> Next Tab
       if (config.enabled && isFeatureAllowed('tabCycle') && config.tabCycleRocker && (e.buttons & 1) !== 0) {
         rockerTriggered = true;
@@ -2722,15 +2786,34 @@
 
   // Mouse Up Event Listener
   window.addEventListener('mouseup', (e) => {
+    if (e.button === 1) {
+      if (quickSearchMouseTriggered) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        return;
+      }
+    }
+
     if (e.button === 2) {
       isRightMouseDown = false;
       const now = performance.now();
-      const shouldSuppress = isClosingTab || now < suppressContextMenuUntil || tabCycleDidExecute || rockerTriggered || rightSwipeTriggered;
+      const shouldSuppress = isClosingTab || now < suppressContextMenuUntil || tabCycleDidExecute || rockerTriggered || rightSwipeTriggered || quickSearchMouseTriggered;
 
       if (shouldSuppress) {
         e.preventDefault();
         e.stopPropagation();
         e.stopImmediatePropagation();
+      }
+
+      if (quickSearchMouseTriggered) {
+        suppressContextMenuUntil = performance.now() + 1800;
+        suppressClickUntil = performance.now() + 1800;
+        cancelHold();
+        setTimeout(() => {
+          quickSearchMouseTriggered = false;
+        }, 500);
+        return;
       }
 
       if (rockerTriggered) {
@@ -2881,7 +2964,8 @@
     }
 
     // Mode 2: Right-Click + Wheel Scroll
-    if (now - lastWheelCycleTime < WHEEL_CYCLE_THROTTLE) return;
+    const wheelThrottle = Math.max(40, config.tabCycleWheelSpeed || 120);
+    if (now - lastWheelCycleTime < wheelThrottle) return;
 
     let direction = null;
     if (Math.abs(e.deltaX) > Math.abs(e.deltaY) * 1.5) {
@@ -2903,13 +2987,14 @@
     sendCycleTabMessage(direction, {
       viaAlt: false,
       isScrollGesture: true,
-      intentionalReverse: false
+      intentionalReverse: false,
+      wheelSpeed: wheelThrottle
     });
   }, { passive: false, capture: true });
 
   // Capture and prevent native click navigation if gesture was completed
   window.addEventListener('click', (e) => {
-    if (rockerTriggered || hasTriggered || performance.now() < suppressClickUntil) {
+    if (rockerTriggered || hasTriggered || quickSearchMouseTriggered || performance.now() < suppressClickUntil) {
       e.preventDefault();
       e.stopPropagation();
       e.stopImmediatePropagation();
@@ -2921,7 +3006,7 @@
 
   // Also catch auxclick in capture phase
   window.addEventListener('auxclick', (e) => {
-    if (rockerTriggered || hasTriggered || performance.now() < suppressClickUntil) {
+    if (rockerTriggered || hasTriggered || quickSearchMouseTriggered || performance.now() < suppressClickUntil) {
       e.preventDefault();
       e.stopPropagation();
       e.stopImmediatePropagation();
@@ -2964,6 +3049,7 @@
       isAltKeyDown = false;
       altScrollAccumulator = 0;
       rockerTriggered = false;
+      quickSearchMouseTriggered = false;
       cancelHold();
     }
   }, false);
@@ -2974,6 +3060,7 @@
       isRightMouseDown = false;
       rightSwipeTriggered = false;
       rockerTriggered = false;
+      quickSearchMouseTriggered = false;
       altScrollAccumulator = 0;
       cancelHold();
     }
@@ -2981,13 +3068,14 @@
 
   window.addEventListener('contextmenu', (e) => {
     const now = performance.now();
-    if (isClosingTab || rockerTriggered || rightHoldSearchTriggered || now < suppressContextMenuUntil || tabCycleDidExecute || rightSwipeTriggered) {
+    if (isClosingTab || rockerTriggered || rightHoldSearchTriggered || quickSearchMouseTriggered || now < suppressContextMenuUntil || tabCycleDidExecute || rightSwipeTriggered) {
       e.preventDefault();
       e.stopPropagation();
       e.stopImmediatePropagation();
       tabCycleDidExecute = false;
       rightSwipeTriggered = false;
       rightHoldSearchTriggered = false;
+      quickSearchMouseTriggered = false;
       return false;
     }
 
@@ -3147,6 +3235,17 @@
       lastRightClickSelectedText = '';
     }
 
+    // Quick Search shortcut (Ctrl + Shift + K / Command + Shift + K)
+    if (config.enabled && isQuickSearchAllowed()) {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'K' || e.key === 'k' || e.code === 'KeyK')) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        toggleQuickSearch();
+        return false;
+      }
+    }
+
     // Close Tab Shortcut (Default Alt + /, fully custom configurable)
     if (config.enabled && isFeatureAllowed('tabCycle') && config.closeTabShortcutEnabled !== false) {
       const closeShortcut = config.closeTabShortcut || 'Alt + /';
@@ -3245,6 +3344,12 @@
   let quickFilterToggleEl = null;
   let quickEmptyWarningEl = null;
   let quickShortcutsTipEl = null;
+  let categoryContainerEl = null;
+  let categoryBarEl = null;
+  let categoryScrollLeftBtn = null;
+  let categoryScrollRightBtn = null;
+  let activeCategoryId = 'all';
+  let selectedCategoryIds = [];
   let activeSearchTab = 'engines'; // 'engines' | 'opentabs'
   let cachedOpenTabSites = [];
   let navTabEnginesEl = null;
@@ -3271,6 +3376,15 @@
     toolbarHost.id = 'holdtab-toolbar-host';
     toolbarHost.style.cssText = 'all: initial !important; position: fixed !important; top: 0 !important; left: 0 !important; width: 0 !important; height: 0 !important; z-index: 2147483647 !important; pointer-events: none !important; user-select: none !important;';
 
+    const isolateQuickSearchKeyEvents = (e) => {
+      if (isQuickSearchOpen) {
+        e.stopPropagation();
+      }
+    };
+    toolbarHost.addEventListener('keydown', isolateQuickSearchKeyEvents);
+    toolbarHost.addEventListener('keyup', isolateQuickSearchKeyEvents);
+    toolbarHost.addEventListener('keypress', isolateQuickSearchKeyEvents);
+
     toolbarShadow = toolbarHost.attachShadow({ mode: 'open' });
 
     const style = document.createElement('style');
@@ -3281,6 +3395,29 @@
     toolbarRoot.className = 'ht-toolbar-root';
     toolbarRoot.setAttribute('role', 'toolbar');
     toolbarRoot.setAttribute('aria-label', 'Text Selection Actions');
+
+    toolbarRoot.addEventListener('keydown', isolateQuickSearchKeyEvents);
+    toolbarRoot.addEventListener('keyup', isolateQuickSearchKeyEvents);
+    toolbarRoot.addEventListener('keypress', isolateQuickSearchKeyEvents);
+
+    toolbarRoot.addEventListener('mousedown', (e) => {
+      if (!isQuickSearchOpen) return;
+      const path = e.composedPath ? e.composedPath() : [e.target];
+      const target = path[0] || e.target;
+      // Do not prevent default for actual text inputs
+      if (target === quickQueryInputEl || target === submenuSearchInputEl || (target.tagName && target.tagName.toLowerCase() === 'input')) {
+        return;
+      }
+      // If clicking inside submenu items, let them handle click/activation
+      if (target.closest && target.closest('.ht-submenu-item')) {
+        return;
+      }
+      // Prevent focus loss to the underlying webpage when clicking non-input UI elements
+      e.preventDefault();
+      if (quickQueryInputEl && toolbarShadow.activeElement !== quickQueryInputEl && toolbarShadow.activeElement !== submenuSearchInputEl) {
+        quickQueryInputEl.focus();
+      }
+    });
 
     // Inner horizontal toolbar
     toolbarEl = document.createElement('div');
@@ -3352,6 +3489,15 @@
           <button type="button" class="ht-submenu-search-clear" style="display: none;" title="Clear filter" aria-label="Clear filter">✕</button>
         </div>
       </div>
+      <div class="ht-category-container" style="display: none;">
+        <button type="button" class="ht-category-scroll-btn ht-category-scroll-left" title="Scroll categories left" aria-label="Scroll left">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <div class="ht-category-bar" role="tablist" aria-label="Search categories"></div>
+        <button type="button" class="ht-category-scroll-btn ht-category-scroll-right" title="Scroll categories right" aria-label="Scroll right">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </div>
       <div class="ht-quick-empty-warning" style="display: none;">Please enter text to search</div>
       <div class="ht-submenu-grid" role="group"></div>
       <div class="ht-submenu-footer">
@@ -3377,6 +3523,88 @@
     navTabOpenTabsCountEl = submenuEl.querySelector('.ht-nav-tab-count');
     quickEmptyWarningEl = submenuEl.querySelector('.ht-quick-empty-warning');
     quickShortcutsTipEl = submenuEl.querySelector('.ht-quick-shortcuts-tip');
+    categoryContainerEl = submenuEl.querySelector('.ht-category-container');
+    categoryBarEl = submenuEl.querySelector('.ht-category-bar');
+    categoryScrollLeftBtn = submenuEl.querySelector('.ht-category-scroll-left');
+    categoryScrollRightBtn = submenuEl.querySelector('.ht-category-scroll-right');
+
+    if (categoryScrollLeftBtn) {
+      categoryScrollLeftBtn.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      });
+      categoryScrollLeftBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (categoryBarEl) {
+          categoryBarEl.scrollBy({ left: -110, behavior: 'smooth' });
+          setTimeout(updateCategoryScrollButtons, 180);
+        }
+      });
+    }
+
+    if (categoryScrollRightBtn) {
+      categoryScrollRightBtn.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      });
+      categoryScrollRightBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (categoryBarEl) {
+          categoryBarEl.scrollBy({ left: 110, behavior: 'smooth' });
+          setTimeout(updateCategoryScrollButtons, 180);
+        }
+      });
+    }
+
+    if (categoryBarEl) {
+      categoryBarEl.addEventListener('scroll', updateCategoryScrollButtons, { passive: true });
+
+      categoryBarEl.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      });
+
+      categoryBarEl.addEventListener('click', (e) => {
+        const chip = e.target.closest('.ht-category-chip');
+        if (!chip) return;
+        e.preventDefault();
+        e.stopPropagation();
+
+        const catId = chip.dataset.catId || 'all';
+        if (catId === 'all') {
+          selectedCategoryIds = [];
+          activeCategoryId = 'all';
+        } else {
+          const idx = selectedCategoryIds.indexOf(catId);
+          if (idx !== -1) {
+            // Deselect
+            selectedCategoryIds.splice(idx, 1);
+          } else {
+            // Select
+            selectedCategoryIds.push(catId);
+          }
+          activeCategoryId = selectedCategoryIds.length === 0
+            ? 'all'
+            : (selectedCategoryIds.length === 1 ? selectedCategoryIds[0] : 'multi');
+        }
+
+        renderCategoryChips();
+
+        // Smoothly scroll clicked chip into view if partially hidden
+        try {
+          const targetChip = categoryBarEl.querySelector(`[data-cat-id="${catId}"]`);
+          if (targetChip) {
+            targetChip.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+          }
+          setTimeout(updateCategoryScrollButtons, 180);
+        } catch (_) {}
+
+        const curFilter = submenuSearchInputEl ? submenuSearchInputEl.value : '';
+        renderSubmenuGrid(curFilter);
+      });
+    }
 
     if (navTabEnginesEl) {
       navTabEnginesEl.addEventListener('click', (e) => {
@@ -3557,21 +3785,18 @@
       });
 
       quickQueryInputEl.addEventListener('keydown', (e) => {
+        // Isolate all keystrokes from leaking to underlying webpage shortcuts
+        e.stopPropagation();
+
         if (e.key === 'Enter') {
           e.preventDefault();
-          e.stopPropagation();
           const query = quickQueryInputEl.value.trim();
-          if (!query) {
-            showQuickEmptyWarning('Please enter text to search');
-            return;
-          }
           const defaultEngine = getDefaultSearchEngine();
           if (defaultEngine) {
             executeSearchOnWebsite(defaultEngine, true, query);
           }
         } else if (e.key === 'ArrowDown') {
           e.preventDefault();
-          e.stopPropagation();
           if (isEngineFilterVisible && submenuSearchInputEl && submenuHeaderEl && submenuHeaderEl.style.display !== 'none') {
             submenuSearchInputEl.focus();
           } else {
@@ -3580,9 +3805,16 @@
           }
         } else if (e.key === 'Escape') {
           e.preventDefault();
-          e.stopPropagation();
           closeQuickSearch();
         }
+      });
+
+      quickQueryInputEl.addEventListener('keyup', (e) => {
+        e.stopPropagation();
+      });
+
+      quickQueryInputEl.addEventListener('keypress', (e) => {
+        e.stopPropagation();
       });
     }
 
@@ -3661,9 +3893,11 @@
       });
 
       submenuSearchInputEl.addEventListener('keydown', (e) => {
+        // Isolate all keystrokes from leaking to underlying webpage shortcuts
+        e.stopPropagation();
+
         if (e.key === 'Enter') {
           e.preventDefault();
-          e.stopPropagation();
           const firstItem = submenuGridEl ? submenuGridEl.querySelector('.ht-submenu-item') : null;
           if (firstItem && firstItem.dataset.siteId) {
             const currentList = (activeSearchTab === 'opentabs')
@@ -3674,28 +3908,20 @@
             const targetSite = currentList.find((s) => s.id === firstItem.dataset.siteId);
             if (targetSite) {
               const query = (searchMode === 'quick' && quickQueryInputEl) ? quickQueryInputEl.value.trim() : currentSelectionText.trim();
-              if (searchMode === 'quick' && !query) {
-                showQuickEmptyWarning('Please enter text to search');
-                if (quickQueryInputEl) quickQueryInputEl.focus();
-                return;
-              }
               executeSearchOnWebsite(targetSite, e.shiftKey || e.altKey, query);
             }
           }
         } else if (e.key === 'ArrowDown') {
           e.preventDefault();
-          e.stopPropagation();
           const firstItem = submenuGridEl ? submenuGridEl.querySelector('.ht-submenu-item') : null;
           if (firstItem) firstItem.focus();
         } else if (e.key === 'ArrowUp') {
           e.preventDefault();
-          e.stopPropagation();
           if (searchMode === 'quick' && quickQueryInputEl) {
             quickQueryInputEl.focus();
           }
         } else if (e.key === 'Escape') {
           e.preventDefault();
-          e.stopPropagation();
           if (submenuSearchInputEl.value) {
             submenuSearchInputEl.value = '';
             if (submenuSearchClearEl) submenuSearchClearEl.style.display = 'none';
@@ -3714,6 +3940,14 @@
             if (btnSearch) btnSearch.focus();
           }
         }
+      });
+
+      submenuSearchInputEl.addEventListener('keyup', (e) => {
+        e.stopPropagation();
+      });
+
+      submenuSearchInputEl.addEventListener('keypress', (e) => {
+        e.stopPropagation();
       });
     }
 
@@ -3811,6 +4045,9 @@
 
     // Keyboard navigation inside submenu
     submenuEl.addEventListener('keydown', (e) => {
+      if (isQuickSearchOpen) {
+        e.stopPropagation();
+      }
       const items = Array.from(submenuGridEl.querySelectorAll('.ht-submenu-item'));
       const activeIdx = items.indexOf(toolbarShadow.activeElement);
 
@@ -3907,12 +4144,23 @@
     }
 
     fetchOpenTabsForSearch();
+    activeCategoryId = 'all';
+    try {
+      try {
+      renderCategoryChips();
+    } catch (catErr) {
+      console.warn('HoldTab: Failed to render category chips on tab switch', catErr);
+    }
+    } catch (catErr) {
+      console.warn('HoldTab: Failed to render category chips in submenu', catErr);
+    }
     renderSubmenuGrid('');
 
     submenuEl.classList.add('ht-submenu-open');
     submenuEl.style.display = 'block';
     btnSearch.setAttribute('aria-expanded', 'true');
     isSubmenuOpen = true;
+    setTimeout(updateCategoryScrollButtons, 50);
   }
 
   function closeSubmenu() {
@@ -3953,6 +4201,12 @@
     if (navTabOpenTabsEl) {
       navTabOpenTabsEl.classList.toggle('active', tabName === 'opentabs');
       navTabOpenTabsEl.setAttribute('aria-selected', String(tabName === 'opentabs'));
+    }
+
+    try {
+      renderCategoryChips();
+    } catch (catErr) {
+      console.warn('HoldTab: Failed to render category chips on tab switch', catErr);
     }
 
     const currentFilter = submenuSearchInputEl ? submenuSearchInputEl.value : '';
@@ -4154,18 +4408,38 @@
     }
 
     hideQuickEmptyWarning();
+    activeCategoryId = 'all';
+    selectedCategoryIds = [];
+    try {
+      try {
+      renderCategoryChips();
+    } catch (catErr) {
+      console.warn('HoldTab: Failed to render category chips on tab switch', catErr);
+    }
+    } catch (catErr) {
+      console.warn('HoldTab: Failed to render category chips in quick search', catErr);
+    }
     renderSubmenuGrid('');
 
     // Display submenu
     submenuEl.classList.add('ht-submenu-open');
     submenuEl.style.display = 'block';
     isSubmenuOpen = true;
+    setTimeout(updateCategoryScrollButtons, 50);
 
-    // Autofocus input
+    // Autofocus input immediately without delay
+    if (quickQueryInputEl) {
+      quickQueryInputEl.focus();
+      if (initialQuery) {
+        quickQueryInputEl.select();
+      }
+    }
+
+    // Secondary autofocus safeguard after DOM layout settles
     setTimeout(() => {
-      if (quickQueryInputEl) {
+      if (isQuickSearchOpen && quickQueryInputEl) {
         quickQueryInputEl.focus();
-        if (initialQuery) {
+        if (initialQuery && quickQueryInputEl.selectionStart === quickQueryInputEl.selectionEnd) {
           quickQueryInputEl.select();
         }
       }
@@ -4198,6 +4472,8 @@
     if (quickMetaBarEl) quickMetaBarEl.style.display = 'none';
     if (quickShortcutsTipEl) quickShortcutsTipEl.style.display = 'none';
     hideQuickEmptyWarning();
+    activeCategoryId = 'all';
+    selectedCategoryIds = [];
   }
 
   function toggleQuickSearch() {
@@ -4280,15 +4556,151 @@
     }
   }
 
+  function escapeHtml(str) {
+    if (!str || typeof str !== 'string') return '';
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function updateCategoryScrollButtons() {
+    if (!categoryBarEl || !categoryScrollLeftBtn || !categoryScrollRightBtn) return;
+    const maxScroll = categoryBarEl.scrollWidth - categoryBarEl.clientWidth;
+    if (maxScroll <= 1) {
+      categoryScrollLeftBtn.disabled = true;
+      categoryScrollRightBtn.disabled = true;
+      categoryScrollLeftBtn.classList.add('ht-disabled');
+      categoryScrollRightBtn.classList.add('ht-disabled');
+    } else {
+      const atLeft = categoryBarEl.scrollLeft <= 2;
+      const atRight = categoryBarEl.scrollLeft >= maxScroll - 2;
+      categoryScrollLeftBtn.disabled = atLeft;
+      categoryScrollRightBtn.disabled = atRight;
+      categoryScrollLeftBtn.classList.toggle('ht-disabled', atLeft);
+      categoryScrollRightBtn.classList.toggle('ht-disabled', atRight);
+    }
+  }
+
+  function renderCategoryChips() {
+    if (!categoryBarEl) return;
+    categoryBarEl.innerHTML = '';
+
+    if (activeSearchTab !== 'engines') {
+      if (categoryContainerEl) categoryContainerEl.style.display = 'none';
+      categoryBarEl.style.display = 'none';
+      return;
+    }
+
+    const rawCats = Array.isArray(config.searchCategories) && config.searchCategories.length > 0
+      ? config.searchCategories
+      : DEFAULT_SEARCH_CATEGORIES;
+
+    // Filter out private categories and sort by configured order
+    const categories = [...rawCats]
+      .filter((c) => !c.isPrivate)
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+    // Fall back to 'all' if selected category is missing or invalid
+    if (activeCategoryId !== 'all' && activeCategoryId !== 'uncategorized') {
+      const exists = categories.some((c) => c.id === activeCategoryId);
+      if (!exists) {
+        activeCategoryId = 'all';
+      }
+    }
+
+    const sites = Array.isArray(config.toolbarSearchWebsites) && config.toolbarSearchWebsites.length > 0
+      ? config.toolbarSearchWebsites.filter((s) => s.enabled !== false)
+      : DEFAULT_SEARCH_WEBSITES;
+
+    const knownCatIds = new Set(categories.map((c) => c.id));
+    const hasUncategorized = sites.some(
+      (s) => !s.categoryId || s.categoryId === 'uncategorized' || !knownCatIds.has(s.categoryId)
+    );
+
+    // Prune invalid category IDs from selected list
+    selectedCategoryIds = selectedCategoryIds.filter((id) =>
+      id === 'uncategorized' ? hasUncategorized : knownCatIds.has(id)
+    );
+
+    if (categoryContainerEl) categoryContainerEl.style.display = 'flex';
+    categoryBarEl.style.display = 'flex';
+
+    // Base list of custom categories in original order
+    const allItem = { id: 'all', name: 'All' };
+    const baseCustomList = [
+      ...categories.map((c) => ({ id: c.id, name: c.name })),
+      ...(hasUncategorized ? [{ id: 'uncategorized', name: 'Uncategorized' }] : [])
+    ];
+
+    // "All" is always in the first position.
+    // Partition custom categories into selected (in selection order) and unselected (in original order).
+    const selectedItems = selectedCategoryIds
+      .map((id) => baseCustomList.find((item) => item.id === id))
+      .filter(Boolean);
+    const unselectedItems = baseCustomList.filter((item) => !selectedCategoryIds.includes(item.id));
+    const displayList = [allItem, ...selectedItems, ...unselectedItems];
+
+    displayList.forEach((item) => {
+      const isAll = (item.id === 'all');
+      const isSelected = isAll ? (selectedCategoryIds.length === 0) : selectedCategoryIds.includes(item.id);
+
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = `ht-category-chip ${isSelected ? 'active' : ''}`;
+      chip.dataset.catId = item.id;
+      chip.setAttribute('role', 'tab');
+      chip.setAttribute('aria-selected', String(isSelected));
+
+      if (isAll) {
+        chip.setAttribute('title', 'Show all search engines');
+        chip.innerHTML = '<span class="ht-cat-name">All</span>';
+      } else if (item.id === 'uncategorized' && !isSelected) {
+        chip.setAttribute('title', 'Show uncategorized search engines');
+        chip.innerHTML = '<span class="ht-cat-name">Uncategorized</span>';
+      } else if (isSelected) {
+        chip.setAttribute('title', `Filter active: ${item.name} (click to deselect)`);
+        chip.innerHTML = `<span class="ht-cat-name">${escapeHtml(item.name)} <span class="ht-cat-check">✓</span></span>`;
+      } else {
+        chip.setAttribute('title', `Filter by ${item.name}`);
+        chip.innerHTML = `<span class="ht-cat-name">${escapeHtml(item.name)}</span>`;
+      }
+
+      categoryBarEl.appendChild(chip);
+    });
+
+    updateCategoryScrollButtons();
+    setTimeout(updateCategoryScrollButtons, 50);
+  }
+
   function renderSubmenuGrid(filter = '') {
     if (!submenuGridEl) return;
     submenuGridEl.innerHTML = '';
 
-    const sites = (activeSearchTab === 'opentabs')
+    let sites = (activeSearchTab === 'opentabs')
       ? cachedOpenTabSites
       : (Array.isArray(config.toolbarSearchWebsites) && config.toolbarSearchWebsites.length > 0
           ? config.toolbarSearchWebsites.filter((s) => s.enabled !== false)
           : DEFAULT_SEARCH_WEBSITES);
+
+    // Filter by Categories (multi-select OR logic) when in Saved Engines tab
+    if (activeSearchTab === 'engines' && selectedCategoryIds.length > 0) {
+      const rawCats = Array.isArray(config.searchCategories) && config.searchCategories.length > 0
+        ? config.searchCategories
+        : DEFAULT_SEARCH_CATEGORIES;
+      const knownCatIds = new Set(rawCats.map((c) => c.id));
+      const selSet = new Set(selectedCategoryIds);
+
+      sites = sites.filter((s) => {
+        const catId = s.categoryId;
+        const isUncat = !catId || catId === 'uncategorized' || !knownCatIds.has(catId);
+        if (selSet.has('uncategorized') && isUncat) return true;
+        if (catId && selSet.has(catId)) return true;
+        return false;
+      });
+    }
 
     const trimmedFilter = typeof filter === 'string' ? filter.trim().toLowerCase() : '';
     const filteredSites = trimmedFilter
@@ -4313,7 +4725,25 @@
           emptyItem.textContent = `No open tabs matching "${filter.trim()}"`;
         }
       } else {
-        emptyItem.textContent = `No websites matching "${filter.trim()}"`;
+        if (!trimmedFilter && activeCategoryId && activeCategoryId !== 'all') {
+          emptyItem.innerHTML = `
+            <div style="font-size: 11.5px; font-weight: 500; margin-bottom: 5px; color: #cbd5e1;">No enabled search engines in this category.</div>
+            <button type="button" class="ht-empty-all-btn">Show All Engines</button>
+          `;
+          const allBtn = emptyItem.querySelector('.ht-empty-all-btn');
+          if (allBtn) {
+            allBtn.addEventListener('click', (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              selectedCategoryIds = [];
+              activeCategoryId = 'all';
+              renderCategoryChips();
+              renderSubmenuGrid(submenuSearchInputEl ? submenuSearchInputEl.value : '');
+            });
+          }
+        } else {
+          emptyItem.textContent = `No websites matching "${filter.trim()}"`;
+        }
       }
       submenuGridEl.appendChild(emptyItem);
       return;
@@ -4346,6 +4776,16 @@
       const iconSpan = document.createElement('span');
       iconSpan.className = 'ht-submenu-icon';
       iconSpan.innerHTML = getWebsiteIconSvg(site);
+      const iconImg = iconSpan.querySelector('img');
+      if (iconImg) {
+        iconImg.addEventListener('error', () => {
+          iconImg.style.display = 'none';
+          const nextSvg = iconImg.nextElementSibling;
+          if (nextSvg && nextSvg.tagName && nextSvg.tagName.toLowerCase() === 'svg') {
+            nextSvg.style.display = 'inline-block';
+          }
+        }, { once: true });
+      }
 
       const nameSpan = document.createElement('span');
       nameSpan.className = 'ht-submenu-name';
@@ -4470,11 +4910,6 @@
         e.preventDefault();
         e.stopPropagation();
         const query = getQuery();
-        if (searchMode === 'quick' && !query) {
-          showQuickEmptyWarning('Please enter text to search');
-          if (quickQueryInputEl) quickQueryInputEl.focus();
-          return;
-        }
         executeSearchOnWebsite(site, true, query);
       });
 
@@ -4488,25 +4923,25 @@
         e.preventDefault();
         e.stopPropagation();
         const query = getQuery();
-        if (searchMode === 'quick' && !query) {
-          showQuickEmptyWarning('Please enter text to search');
-          if (quickQueryInputEl) quickQueryInputEl.focus();
-          return;
-        }
         executeSearchOnWebsite(site, false, query);
       });
 
       // Keyboard support
       item.addEventListener('keydown', (e) => {
+        if (isQuickSearchOpen) {
+          e.stopPropagation();
+        }
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
+          e.stopPropagation();
           const query = getQuery();
-          if (searchMode === 'quick' && !query) {
-            showQuickEmptyWarning('Please enter text to search');
-            if (quickQueryInputEl) quickQueryInputEl.focus();
-            return;
-          }
           executeSearchOnWebsite(site, e.shiftKey || e.altKey, query);
+        }
+      });
+
+      item.addEventListener('keyup', (e) => {
+        if (isQuickSearchOpen) {
+          e.stopPropagation();
         }
       });
 
@@ -4540,47 +4975,64 @@
     return frag;
   }
 
+  function getWebsiteBaseUrl(site) {
+    if (!site) return 'https://www.google.com/';
+    if (site.url && typeof site.url === 'string' && /^https?:\/\//i.test(site.url)) {
+      return site.url;
+    }
+    const template = site.template || '';
+    if (template) {
+      try {
+        const fixed = template.includes('://') ? template : 'https://' + template;
+        const parsed = new URL(fixed);
+        return `${parsed.origin}/`;
+      } catch (e) {
+        const stripped = template.split('?')[0].replace(/\{query\}/gi, '').trim();
+        return stripped || 'https://www.google.com/';
+      }
+    }
+    return 'https://www.google.com/';
+  }
+
   function executeSearchOnWebsite(site, isForeground = false, queryOverride = null) {
     const rawQuery = (typeof queryOverride === 'string')
       ? queryOverride
       : (searchMode === 'quick' && quickQueryInputEl ? quickQueryInputEl.value : currentSelectionText);
     const query = (rawQuery || '').trim();
-    if (!query) {
-      if (searchMode === 'quick') {
-        showQuickEmptyWarning('Please enter text to search');
-        if (quickQueryInputEl) quickQueryInputEl.focus();
-      }
-      return;
-    }
-
-    let template = (site.template || 'https://www.google.com/search?q={query}').trim();
-    if (!/^https?:\/\//i.test(template)) {
-      template = 'https://' + template;
-    }
-
-    // Auto-fix steamdb if legacy or missing /search/
-    if (template.includes('steamdb.info/?q=')) {
-      template = template.replace('steamdb.info/?q=', 'steamdb.info/search/?q=');
-    }
-
-    // Determine query encoding: inside path (spaces as %20) vs inside search params (spaces as '+')
-    let encodedQuery;
-    const qIndex = template.indexOf('{query}');
-    const questionIndex = template.indexOf('?');
-    if (questionIndex === -1 || (qIndex !== -1 && qIndex < questionIndex)) {
-      encodedQuery = encodeURIComponent(query);
-    } else {
-      encodedQuery = encodeURIComponent(query).replace(/%20/g, '+');
-    }
 
     let finalUrl;
-    if (template.includes('{query}')) {
-      finalUrl = template.replace(/\{query\}/gi, encodedQuery);
+    if (!query) {
+      // Empty input in Quick Search: open website base/home URL directly without searching
+      finalUrl = getWebsiteBaseUrl(site);
     } else {
-      const joiner = template.includes('?')
-        ? (template.endsWith('?') || template.endsWith('&') ? '' : '&')
-        : '?';
-      finalUrl = `${template}${joiner}q=${encodedQuery}`;
+      let template = (site.template || 'https://www.google.com/search?q={query}').trim();
+      if (!/^https?:\/\//i.test(template)) {
+        template = 'https://' + template;
+      }
+
+      // Auto-fix steamdb if legacy or missing /search/
+      if (template.includes('steamdb.info/?q=')) {
+        template = template.replace('steamdb.info/?q=', 'steamdb.info/search/?q=');
+      }
+
+      // Determine query encoding: inside path (spaces as %20) vs inside search params (spaces as '+')
+      let encodedQuery;
+      const qIndex = template.indexOf('{query}');
+      const questionIndex = template.indexOf('?');
+      if (questionIndex === -1 || (qIndex !== -1 && qIndex < questionIndex)) {
+        encodedQuery = encodeURIComponent(query);
+      } else {
+        encodedQuery = encodeURIComponent(query).replace(/%20/g, '+');
+      }
+
+      if (template.includes('{query}')) {
+        finalUrl = template.replace(/\{query\}/gi, encodedQuery);
+      } else {
+        const joiner = template.includes('?')
+          ? (template.endsWith('?') || template.endsWith('&') ? '' : '&')
+          : '?';
+        finalUrl = `${template}${joiner}q=${encodedQuery}`;
+      }
     }
 
     const isQuick = (searchMode === 'quick');
@@ -4883,7 +5335,7 @@
 
   function getWebsiteIconSvg(site) {
     if (site.icon && (/^https?:\/\//i.test(site.icon) || site.icon.startsWith('data:'))) {
-      return `<img src="${site.icon}" alt="${site.name}" width="16" height="16" style="width: 16px; height: 16px; border-radius: 2px; object-fit: contain;" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='inline-flex';"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" style="display: none;"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`;
+      return `<img src="${site.icon}" alt="${site.name}" width="16" height="16" style="width: 16px; height: 16px; border-radius: 2px; object-fit: contain;" class="ht-website-icon-img"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" class="ht-globe-fallback" style="display: none;"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`;
     }
     const id = (site.icon || site.id || '').toLowerCase();
     if (id === 'google') {
@@ -4910,9 +5362,9 @@
       domain = u.hostname;
     } catch (_) {}
     if (domain) {
-      return `<img src="https://${domain}/favicon.ico" alt="${site.name}" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='inline-flex';"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" style="display: none;"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`;
+      return `<img src="https://${domain}/favicon.ico" alt="${site.name}" width="16" height="16" style="width: 16px; height: 16px; border-radius: 2px; object-fit: contain;" class="ht-website-icon-img"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" class="ht-globe-fallback" style="display: none;"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`;
     }
-    return `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1 4-10z"/></svg>`;
+    return `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" class="ht-globe-fallback"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1 4-10z"/></svg>`;
   }
 
   function getToolbarStyles() {
@@ -5611,6 +6063,146 @@
         line-height: 18px;
         align-self: center;
       }
+
+      /* Category Container, Bar & Scroll Buttons */
+      .ht-category-container {
+        display: flex;
+        align-items: center;
+        gap: 3px;
+        margin-bottom: 5px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        padding: 1px 1px 5px;
+        position: relative;
+        width: 100%;
+        box-sizing: border-box;
+      }
+
+      .ht-category-scroll-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 18px;
+        height: 22px;
+        padding: 0;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 4px;
+        color: #94a3b8;
+        cursor: pointer;
+        flex-shrink: 0;
+        transition: all 0.14s ease;
+        user-select: none;
+        outline: none;
+      }
+
+      .ht-category-scroll-btn:hover:not(:disabled) {
+        background: rgba(255, 255, 255, 0.14);
+        border-color: rgba(255, 255, 255, 0.22);
+        color: #ffffff;
+      }
+
+      .ht-category-scroll-btn:active:not(:disabled) {
+        transform: scale(0.92);
+      }
+
+      .ht-category-scroll-btn:disabled,
+      .ht-category-scroll-btn.ht-disabled {
+        opacity: 0.22;
+        cursor: default;
+        pointer-events: none;
+      }
+
+      .ht-toolbar-root.ht-quick-search-active .ht-category-scroll-btn:hover:not(:disabled) {
+        border-color: rgba(129, 140, 248, 0.45);
+        color: #c7d2fe;
+      }
+
+      .ht-category-bar {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        overflow-x: auto;
+        white-space: nowrap;
+        padding: 1px 1px;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+        flex: 1;
+        min-width: 0;
+        scroll-behavior: smooth;
+      }
+
+      .ht-category-bar::-webkit-scrollbar {
+        display: none;
+      }
+
+      .ht-category-chip {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2.5px 8px;
+        border-radius: 999px;
+        font-size: 10px;
+        font-weight: 500;
+        color: #94a3b8;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        cursor: pointer;
+        flex-shrink: 0;
+        user-select: none;
+        transition: all 0.14s ease;
+        outline: none;
+        line-height: 14px;
+      }
+
+      .ht-category-chip:hover {
+        color: #f1f5f9;
+        background: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.18);
+      }
+
+      .ht-category-chip.active {
+        color: #ffffff;
+        background: rgba(56, 189, 248, 0.22);
+        border-color: #38bdf8;
+        box-shadow: 0 0 8px rgba(56, 189, 248, 0.3);
+        font-weight: 600;
+      }
+
+      .ht-toolbar-root.ht-quick-search-active .ht-category-chip.active {
+        background: rgba(129, 140, 248, 0.28);
+        border-color: #818cf8;
+        box-shadow: 0 0 8px rgba(129, 140, 248, 0.35);
+        color: #ffffff;
+      }
+
+      .ht-cat-name {
+        line-height: 1;
+        white-space: nowrap;
+      }
+
+      .ht-cat-check {
+        font-size: 10px;
+        margin-left: 3px;
+        font-weight: 700;
+        opacity: 0.9;
+      }
+
+      .ht-empty-all-btn {
+        background: rgba(56, 189, 248, 0.15);
+        border: 1px solid rgba(56, 189, 248, 0.3);
+        color: #38bdf8;
+        font-size: 10.5px;
+        padding: 3px 8px;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background 0.12s, color 0.12s;
+        outline: none;
+      }
+
+      .ht-empty-all-btn:hover {
+        background: rgba(56, 189, 248, 0.25);
+        color: #ffffff;
+      }
     `;
   }
 
@@ -5675,12 +6267,21 @@
     closeQuickSearch();
   }, true);
 
-  // Global Escape key listener for Quick Search
+  // Global Escape key & focus isolation listener for Quick Search
   document.addEventListener('keydown', (e) => {
-    if (isQuickSearchOpen && e.key === 'Escape') {
+    if (!isQuickSearchOpen) return;
+    if (e.key === 'Escape') {
       e.preventDefault();
       e.stopPropagation();
       closeQuickSearch();
+      return;
+    }
+
+    // If an event occurs on the document while Quick Search is open, check if it was inside the toolbar
+    const path = e.composedPath ? e.composedPath() : [];
+    const isInsideToolbar = toolbarHost && (path.includes(toolbarHost) || (e.target && toolbarHost.contains(e.target)));
+    if (!isInsideToolbar && quickQueryInputEl) {
+      quickQueryInputEl.focus();
     }
   }, true);
 

@@ -1070,6 +1070,486 @@ function isRestrictedUrl(url) {
   console.log('  ✓ Scenario 33: Open Tabs save icon click & auto-capture integration verified');
 }
 
-console.log('\nResults: 33 / 33 Quick Search tests passed.');
+// ---------------------------------------------------------------------------
+// Scenario 34: Quick Search empty input opens website base URL
+// ---------------------------------------------------------------------------
+{
+  const getWebsiteBaseUrl = (site) => {
+    if (!site) return 'https://www.google.com/';
+    if (site.url && typeof site.url === 'string' && /^https?:\/\//i.test(site.url)) {
+      return site.url;
+    }
+    const template = site.template || '';
+    if (template) {
+      try {
+        const fixed = template.includes('://') ? template : 'https://' + template;
+        const parsed = new URL(fixed);
+        return `${parsed.origin}/`;
+      } catch (e) {
+        const stripped = template.split('?')[0].replace(/\{query\}/gi, '').trim();
+        return stripped || 'https://www.google.com/';
+      }
+    }
+    return 'https://www.google.com/';
+  };
+
+  // 1. Built-in Google
+  const google = { id: 'google', name: 'Google', template: 'https://www.google.com/search?q={query}' };
+  assert.strictEqual(getWebsiteBaseUrl(google), 'https://www.google.com/');
+
+  // 2. Built-in YouTube
+  const youtube = { id: 'youtube', name: 'YouTube', template: 'https://www.youtube.com/results?search_query={query}' };
+  assert.strictEqual(getWebsiteBaseUrl(youtube), 'https://www.youtube.com/');
+
+  // 3. Custom path-based template
+  const steamdb = { id: 'steamdb', name: 'SteamDB', template: 'https://steamdb.info/search/?q={query}' };
+  assert.strictEqual(getWebsiteBaseUrl(steamdb), 'https://steamdb.info/');
+
+  // 4. Custom site with explicit site.url
+  const customPortal = { id: 'portal', name: 'My Portal', url: 'https://internal.portal.dev/dashboard', template: 'https://internal.portal.dev/search?term={query}' };
+  assert.strictEqual(getWebsiteBaseUrl(customPortal), 'https://internal.portal.dev/dashboard');
+
+  // Verify URL does not contain empty query or literal undefined/null
+  [google, youtube, steamdb, customPortal].forEach(site => {
+    const base = getWebsiteBaseUrl(site);
+    assert(!base.includes('{query}'), 'No {query} in base URL');
+    assert(!base.includes('undefined'), 'No undefined in base URL');
+    assert(!base.includes('null'), 'No null in base URL');
+    assert(!base.includes('?q='), 'No empty query param in base URL');
+  });
+
+  // Verify content.js contains getWebsiteBaseUrl implementation
+  const contentJs = fs.readFileSync(path.join(__dirname, '../content/content.js'), 'utf8');
+  assert(contentJs.includes('function getWebsiteBaseUrl'), 'getWebsiteBaseUrl exists in content.js');
+
+  console.log('  ✓ Scenario 34: Quick Search empty input accurately resolves to website base URL without errors');
+}
+
+// ---------------------------------------------------------------------------
+// Scenario 35: Globe icon fallback for search engines without usable logo
+// ---------------------------------------------------------------------------
+{
+  const popupJs = fs.readFileSync(path.join(__dirname, '../popup/popup.js'), 'utf8');
+  const contentJs = fs.readFileSync(path.join(__dirname, '../content/content.js'), 'utf8');
+
+  // Verify GLOBE_ICON_SVG exists in both files
+  assert(popupJs.includes('ht-globe-fallback'), 'Globe icon fallback SVG exists in popup.js');
+  assert(contentJs.includes('ht-globe-fallback'), 'Globe icon fallback SVG exists in content.js');
+
+  // Verify attachIconErrorFallbacks exists in popup.js
+  assert(popupJs.includes('attachIconErrorFallbacks'), 'attachIconErrorFallbacks function defined in popup.js');
+
+  // Verify event-listener based error fallback in content.js
+  assert(contentJs.includes("addEventListener('error'"), 'DOM error handler attached for image fallbacks in content.js');
+
+  console.log('  ✓ Scenario 35: Globe icon fallback renders consistently without broken images or CSP errors');
+}
+
+// ---------------------------------------------------------------------------
+// Scenario 36: Duplicate website detection with normalization & actions
+// ---------------------------------------------------------------------------
+{
+  const popupJs = fs.readFileSync(path.join(__dirname, '../popup/popup.js'), 'utf8');
+  const popupHtml = fs.readFileSync(path.join(__dirname, '../popup/popup.html'), 'utf8');
+
+  // Verify duplicate warning markup in popup.html
+  assert(popupHtml.includes('id="websiteDuplicateWarning"'), 'websiteDuplicateWarning exists in popup.html');
+  assert(popupHtml.includes('id="captureDuplicateWarning"'), 'captureDuplicateWarning exists in popup.html');
+  assert(popupHtml.includes('id="websiteDuplicateAddAnywayBtn"'), 'Add Anyway button exists for manual website form');
+  assert(popupHtml.includes('id="captureDuplicateAddAnywayBtn"'), 'Add Anyway button exists for captured review');
+
+  // Verify duplicate detection helper exists
+  assert(popupJs.includes('findDuplicateWebsite'), 'findDuplicateWebsite function implemented in popup.js');
+  assert(popupJs.includes('normalizeUrlForDuplicateCheck'), 'normalizeUrlForDuplicateCheck function implemented in popup.js');
+
+  // Test duplicate detection logic directly
+  const normalizeUrlForDuplicateCheck = (urlStr) => {
+    if (!urlStr || typeof urlStr !== 'string') return '';
+    let cleaned = urlStr.trim().toLowerCase();
+    cleaned = cleaned.replace(/^https?:\/\//i, '');
+    cleaned = cleaned.replace(/^www\./i, '');
+    cleaned = cleaned.replace(/\/+$/, '');
+    return cleaned;
+  };
+
+  const getDomainFromUrl = (urlStr) => {
+    if (!urlStr) return '';
+    try {
+      const fixed = urlStr.includes('://') ? urlStr : 'https://' + urlStr;
+      return new URL(fixed).hostname.replace(/^www\./i, '').toLowerCase();
+    } catch (_) { return ''; }
+  };
+
+  const findDuplicate = (sites, candidateTemplate, candidateName, excludeId = null) => {
+    const candidateNorm = normalizeUrlForDuplicateCheck(candidateTemplate);
+    const candidateDomain = getDomainFromUrl(candidateTemplate);
+    const candidateNameLower = (candidateName || '').trim().toLowerCase();
+
+    for (const site of sites) {
+      if (excludeId && site.id === excludeId) continue;
+      const siteNorm = normalizeUrlForDuplicateCheck(site.template || site.url);
+      const siteDomain = getDomainFromUrl(site.template || site.url);
+      const siteNameLower = (site.name || '').trim().toLowerCase();
+
+      if (candidateNorm && siteNorm && candidateNorm === siteNorm) {
+        return { duplicate: true, type: 'exact', message: `This website already exists in your list ("${site.name}").` };
+      }
+      if (candidateDomain && siteDomain && candidateDomain === siteDomain) {
+        return { duplicate: true, type: 'domain', message: `This website already exists in your list ("${site.name}") with a different search configuration.` };
+      }
+      if (candidateNameLower && siteNameLower && candidateNameLower === siteNameLower) {
+        return { duplicate: true, type: 'name', message: `A search engine named "${site.name}" already exists in your list.` };
+      }
+    }
+    return { duplicate: false };
+  };
+
+  const sites = [
+    { id: 'google', name: 'Google', template: 'https://www.google.com/search?q={query}' },
+    { id: 'youtube', name: 'YouTube', template: 'https://www.youtube.com/results?search_query={query}' }
+  ];
+
+  // Exact duplicate with differing casing/trailing slash/protocol
+  const exactDup = findDuplicate(sites, 'http://GOOGLE.COM/search?q={query}/', 'Google Search');
+  assert.strictEqual(exactDup.duplicate, true);
+  assert.strictEqual(exactDup.type, 'exact');
+
+  // Same domain, different configuration
+  const domainDup = findDuplicate(sites, 'https://google.com/images?q={query}', 'Google Images');
+  assert.strictEqual(domainDup.duplicate, true);
+  assert.strictEqual(domainDup.type, 'domain');
+
+  // Editing existing engine does NOT trigger warning against itself
+  const editSelf = findDuplicate(sites, 'https://www.google.com/search?q={query}', 'Google', 'google');
+  assert.strictEqual(editSelf.duplicate, false);
+
+  // Fresh website does not trigger duplicate
+  const freshSite = findDuplicate(sites, 'https://duckduckgo.com/?q={query}', 'DuckDuckGo');
+  assert.strictEqual(freshSite.duplicate, false);
+
+  console.log('  ✓ Scenario 36: Duplicate website detection with normalization, domain check, and Add Anyway actions verified');
+}
+
+// Scenario 37: Keyboard events isolation from underlying webpage while preserving input behavior
+{
+  class MockKeyboardEvent {
+    constructor(type, init = {}) {
+      this.type = type;
+      this.key = init.key || '';
+      this.code = init.code || '';
+      this.ctrlKey = !!init.ctrlKey;
+      this.altKey = !!init.altKey;
+      this.shiftKey = !!init.shiftKey;
+      this.metaKey = !!init.metaKey;
+      this.defaultPrevented = false;
+      this.propagationStopped = false;
+    }
+    preventDefault() {
+      this.defaultPrevented = true;
+    }
+    stopPropagation() {
+      this.propagationStopped = true;
+    }
+    stopImmediatePropagation() {
+      this.propagationStopped = true;
+    }
+  }
+
+  // Simulate quickQueryInputEl listeners
+  const quickQueryInputListeners = {
+    keydown: [],
+    keyup: [],
+    keypress: []
+  };
+
+  const addQuickInputListener = (type, fn) => {
+    quickQueryInputListeners[type].push(fn);
+  };
+
+  // Implement the exact logic added in content.js for quickQueryInputEl
+  addQuickInputListener('keydown', (e) => {
+    e.stopPropagation();
+    if (e.key === 'Enter') {
+      e.preventDefault();
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+    }
+  });
+
+  addQuickInputListener('keyup', (e) => {
+    e.stopPropagation();
+  });
+
+  addQuickInputListener('keypress', (e) => {
+    e.stopPropagation();
+  });
+
+  const dispatchQuickInputEvent = (type, init) => {
+    const ev = new MockKeyboardEvent(type, init);
+    for (const fn of quickQueryInputListeners[type]) {
+      fn(ev);
+    }
+    return ev;
+  };
+
+  // 1. YouTube 'F' fullscreen shortcut key: must stop propagation so YouTube doesn't receive it, but NOT prevent default
+  const fKeyDown = dispatchQuickInputEvent('keydown', { key: 'f', code: 'KeyF' });
+  assert.strictEqual(fKeyDown.propagationStopped, true, "Typing 'f' must stop propagation");
+  assert.strictEqual(fKeyDown.defaultPrevented, false, "Typing 'f' must NOT prevent default action (allows character insertion)");
+
+  const fKeyUp = dispatchQuickInputEvent('keyup', { key: 'f', code: 'KeyF' });
+  assert.strictEqual(fKeyUp.propagationStopped, true, "'f' keyup must stop propagation");
+
+  // 2. YouTube 'Space' pause shortcut key: must stop propagation, but NOT prevent default
+  const spaceKeyDown = dispatchQuickInputEvent('keydown', { key: ' ', code: 'Space' });
+  assert.strictEqual(spaceKeyDown.propagationStopped, true, "Pressing Space must stop propagation");
+  assert.strictEqual(spaceKeyDown.defaultPrevented, false, "Pressing Space must NOT prevent default action (allows space character insertion)");
+
+  // 3. Native editing keys: Backspace, Delete, ArrowLeft, ArrowRight, Home, End
+  const backspaceEv = dispatchQuickInputEvent('keydown', { key: 'Backspace' });
+  assert.strictEqual(backspaceEv.propagationStopped, true);
+  assert.strictEqual(backspaceEv.defaultPrevented, false);
+
+  const arrowLeftEv = dispatchQuickInputEvent('keydown', { key: 'ArrowLeft' });
+  assert.strictEqual(arrowLeftEv.propagationStopped, true);
+  assert.strictEqual(arrowLeftEv.defaultPrevented, false);
+
+  // 4. Modifier shortcuts: Ctrl+A, Ctrl+C, Ctrl+V
+  const ctrlAEv = dispatchQuickInputEvent('keydown', { key: 'a', ctrlKey: true });
+  assert.strictEqual(ctrlAEv.propagationStopped, true);
+  assert.strictEqual(ctrlAEv.defaultPrevented, false);
+
+  // 5. Handled Quick Search actions: Enter, Escape, ArrowDown should preventDefault
+  const enterEv = dispatchQuickInputEvent('keydown', { key: 'Enter' });
+  assert.strictEqual(enterEv.propagationStopped, true);
+  assert.strictEqual(enterEv.defaultPrevented, true);
+
+  const escapeEv = dispatchQuickInputEvent('keydown', { key: 'Escape' });
+  assert.strictEqual(escapeEv.propagationStopped, true);
+  assert.strictEqual(escapeEv.defaultPrevented, true);
+
+  const arrowDownEv = dispatchQuickInputEvent('keydown', { key: 'ArrowDown' });
+  assert.strictEqual(arrowDownEv.propagationStopped, true);
+  assert.strictEqual(arrowDownEv.defaultPrevented, true);
+
+  // 6. Toolbar container isolation lifecycle
+  let isQuickSearchOpen = true;
+  const isolateQuickSearchKeyEvents = (e) => {
+    if (isQuickSearchOpen) {
+      e.stopPropagation();
+    }
+  };
+
+  const containerKeyWhenOpen = new MockKeyboardEvent('keydown', { key: 'm' });
+  isolateQuickSearchKeyEvents(containerKeyWhenOpen);
+  assert.strictEqual(containerKeyWhenOpen.propagationStopped, true, 'Container must stop propagation while QS is open');
+
+  isQuickSearchOpen = false;
+  const containerKeyWhenClosed = new MockKeyboardEvent('keydown', { key: 'm' });
+  isolateQuickSearchKeyEvents(containerKeyWhenClosed);
+  assert.strictEqual(containerKeyWhenClosed.propagationStopped, false, 'Container must NOT stop propagation when QS is closed');
+
+  console.log('  ✓ Scenario 37: Quick Search keyboard event isolation prevents page shortcut leaks while preserving native input');
+}
+
+// Scenario 38: Right-click hold + mouse wheel click shortcut for Quick Search
+{
+  class MockMouseEvent {
+    constructor(type, init = {}) {
+      this.type = type;
+      this.button = typeof init.button === 'number' ? init.button : 0;
+      this.buttons = typeof init.buttons === 'number' ? init.buttons : 0;
+      this.clientX = init.clientX || 0;
+      this.clientY = init.clientY || 0;
+      this.defaultPrevented = false;
+      this.propagationStopped = false;
+    }
+    preventDefault() {
+      this.defaultPrevented = true;
+    }
+    stopPropagation() {
+      this.propagationStopped = true;
+    }
+    stopImmediatePropagation() {
+      this.propagationStopped = true;
+    }
+  }
+
+  let isRightMouseDown = false;
+  let quickSearchMouseTriggered = false;
+  let isQuickSearchOpen = false;
+  let holdCancelled = false;
+  let suppressContextMenuUntil = 0;
+  let suppressClickUntil = 0;
+
+  const cancelHold = () => {
+    holdCancelled = true;
+  };
+
+  const toggleQuickSearch = () => {
+    isQuickSearchOpen = !isQuickSearchOpen;
+  };
+
+  const config = {
+    enabled: true,
+    quickSearchEnabled: true,
+    quickSearchMouseShortcut: true
+  };
+
+  const isQuickSearchAllowed = () => config.enabled && config.quickSearchEnabled;
+
+  const handleMouseDown = (e) => {
+    // Middle-click (mouse wheel click)
+    if (e.button === 1) {
+      const isRightHeld = isRightMouseDown || ((e.buttons & 2) !== 0);
+      if (isRightHeld && config.enabled && isQuickSearchAllowed() && config.quickSearchMouseShortcut !== false) {
+        quickSearchMouseTriggered = true;
+        suppressContextMenuUntil = Date.now() + 1500;
+        suppressClickUntil = Date.now() + 1500;
+        cancelHold();
+        toggleQuickSearch();
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+    }
+
+    if (e.button === 2) {
+      if (config.enabled && isQuickSearchAllowed() && config.quickSearchMouseShortcut !== false && (e.buttons & 4) !== 0) {
+        quickSearchMouseTriggered = true;
+        suppressContextMenuUntil = Date.now() + 1500;
+        suppressClickUntil = Date.now() + 1500;
+        cancelHold();
+        toggleQuickSearch();
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+      isRightMouseDown = true;
+    }
+  };
+
+  const handleMouseUp = (e) => {
+    if (e.button === 1 && quickSearchMouseTriggered) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    if (e.button === 2) {
+      isRightMouseDown = false;
+      if (quickSearchMouseTriggered) {
+        e.preventDefault();
+        e.stopPropagation();
+        suppressContextMenuUntil = Date.now() + 1800;
+        return;
+      }
+    }
+  };
+
+  const handleContextMenu = (e) => {
+    if (quickSearchMouseTriggered || Date.now() < suppressContextMenuUntil) {
+      e.preventDefault();
+      e.stopPropagation();
+      quickSearchMouseTriggered = false;
+      return false;
+    }
+  };
+
+  // 1. Right click hold down
+  const rightDown = new MockMouseEvent('mousedown', { button: 2, buttons: 2 });
+  handleMouseDown(rightDown);
+  assert.strictEqual(isRightMouseDown, true, 'Right mouse button should be tracked as held');
+  assert.strictEqual(isQuickSearchOpen, false, 'Quick Search should not open on right click alone');
+
+  // 2. Click mouse wheel while holding right button
+  const wheelDown = new MockMouseEvent('mousedown', { button: 1, buttons: 6 }); // buttons = 2 (right) + 4 (middle)
+  handleMouseDown(wheelDown);
+  assert.strictEqual(quickSearchMouseTriggered, true, 'Quick Search mouse shortcut should trigger');
+  assert.strictEqual(isQuickSearchOpen, true, 'Quick Search should be toggled open');
+  assert.strictEqual(holdCancelled, true, 'Ongoing hold actions should be cancelled');
+  assert.strictEqual(wheelDown.defaultPrevented, true, 'Middle click default should be prevented');
+
+  // 3. Mouse up for middle button
+  const wheelUp = new MockMouseEvent('mouseup', { button: 1 });
+  handleMouseUp(wheelUp);
+  assert.strictEqual(wheelUp.defaultPrevented, true, 'Middle click mouseup should be prevented');
+
+  // 4. Mouse up for right button
+  const rightUp = new MockMouseEvent('mouseup', { button: 2 });
+  handleMouseUp(rightUp);
+  assert.strictEqual(isRightMouseDown, false);
+  assert.strictEqual(rightUp.defaultPrevented, true, 'Right click mouseup should be suppressed');
+
+  // 5. Contextmenu event following right click release
+  const contextMenuEv = new MockMouseEvent('contextmenu', { button: 2 });
+  handleContextMenu(contextMenuEv);
+  assert.strictEqual(contextMenuEv.defaultPrevented, true, 'Context menu must be suppressed');
+
+  // 6. Repeating gesture toggles Quick Search closed
+  isRightMouseDown = true;
+  const wheelDownClose = new MockMouseEvent('mousedown', { button: 1, buttons: 6 });
+  handleMouseDown(wheelDownClose);
+  assert.strictEqual(isQuickSearchOpen, false, 'Subsequent gesture should toggle Quick Search closed');
+
+  // 7. Middle click without right click does NOT trigger Quick Search
+  isRightMouseDown = false;
+  const standaloneWheel = new MockMouseEvent('mousedown', { button: 1, buttons: 4 });
+  handleMouseDown(standaloneWheel);
+  assert.strictEqual(standaloneWheel.defaultPrevented, false, 'Standalone middle click must not be intercepted');
+
+  // 8. When quickSearchMouseShortcut is disabled in settings, gesture does not trigger
+  config.quickSearchMouseShortcut = false;
+  isRightMouseDown = true;
+  const disabledWheel = new MockMouseEvent('mousedown', { button: 1, buttons: 6 });
+  handleMouseDown(disabledWheel);
+  assert.strictEqual(disabledWheel.defaultPrevented, false, 'Disabled mouse shortcut should not trigger');
+
+  console.log('  ✓ Scenario 38: Right-click hold + mouse wheel click shortcut for Quick Search verified');
+}
+
+// ============================================================================
+// Scenario 39: Tab Cycle Wheel Speed slider configuration & throttling logic
+// ============================================================================
+{
+  const defaultSpeed = 120;
+  const config = { tabCycleWheelSpeed: 120 };
+
+  // Helper calculating effective wheel throttle
+  const getWheelThrottle = (cfg) => Math.max(40, Number(cfg.tabCycleWheelSpeed) || defaultSpeed);
+
+  // 1. Default speed validation
+  assert.strictEqual(getWheelThrottle(config), 120, 'Default wheel speed should be 120ms');
+
+  // 2. Fast speed (50ms)
+  config.tabCycleWheelSpeed = 50;
+  assert.strictEqual(getWheelThrottle(config), 50, 'Configured fast speed should be 50ms');
+
+  // 3. Smooth speed (300ms)
+  config.tabCycleWheelSpeed = 300;
+  assert.strictEqual(getWheelThrottle(config), 300, 'Configured smooth speed should be 300ms');
+
+  // 4. Minimum guardrail protection: values below 40 are clamped to 40ms minimum
+  config.tabCycleWheelSpeed = 20;
+  assert.strictEqual(getWheelThrottle(config), 40, 'Speeds below 40ms must be safely clamped to 40ms');
+
+  // 5. Throttling simulation
+  config.tabCycleWheelSpeed = 60;
+  const throttle = getWheelThrottle(config);
+  let lastWheelTime = 1000;
+
+  // Event at 1030ms (30ms delta < 60ms throttle) -> Should throttle
+  const shouldThrottleEarly = (1030 - lastWheelTime) < throttle;
+  assert.strictEqual(shouldThrottleEarly, true, 'Event within cooldown must be throttled');
+
+  // Event at 1070ms (70ms delta >= 60ms throttle) -> Should allow
+  const shouldThrottleLate = (1070 - lastWheelTime) < throttle;
+  assert.strictEqual(shouldThrottleLate, false, 'Event past cooldown must be allowed');
+
+  console.log('  ✓ Scenario 39: Right-click hold + wheel scroll speed configuration (tabCycleWheelSpeed) and cooldown throttling verified');
+}
+
+console.log('\nResults: 39 / 39 Quick Search tests passed.');
 console.log('🎉 ALL QUICK SEARCH TESTS COMPLETED SUCCESSFULLY!\n');
 

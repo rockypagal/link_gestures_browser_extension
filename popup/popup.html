@@ -67,6 +67,15 @@
         </button>
         <button
           class="nav-tab"
+          data-tab="tab-categories"
+          role="tab"
+          aria-selected="false"
+        >
+          <span class="nav-icon">🏷️</span>
+          <span>Categories</span>
+        </button>
+        <button
+          class="nav-tab"
           data-tab="tab-visuals"
           role="tab"
           aria-selected="false"
@@ -283,26 +292,85 @@
                 Cycle through open tabs using custom keyboard shortcuts
               </div>
             </div>
-            <label class="switch switch-sm" title="Toggle Switch Tabs Keyboard Shortcut">
+            <label
+              class="switch switch-sm"
+              title="Toggle Switch Tabs Keyboard Shortcut"
+            >
               <input type="checkbox" id="tabCycleAltKeysToggle" checked />
               <span class="slider"></span>
             </label>
           </div>
-          <div class="setting-group" id="tabCycleKeyShortcutGroup" style="margin-top: 4px; margin-bottom: 8px;">
-            <div class="setting-label-row" style="margin-bottom: 6px;">
-              <label class="setting-label" style="font-size: 11px; color: var(--text-secondary);">Previous Tab</label>
-              <div style="display: flex; align-items: center; gap: 6px;">
-                <span id="tabCyclePrevShortcutBadge" class="shortcut-kbd-badge" tabindex="0" title="Click Change to record shortcut">Alt + &lt;</span>
-                <button type="button" id="recordPrevShortcutBtn" class="btn-secondary" style="padding: 3px 8px; font-size: 10px; border-radius: 6px;" title="Record custom previous tab shortcut">⚙️ Change</button>
-                <button type="button" id="resetPrevShortcutBtn" class="btn-subtle" style="padding: 3px 6px; font-size: 10px; border-radius: 6px;" title="Reset to Alt + <">↺</button>
+          <div
+            class="setting-group"
+            id="tabCycleKeyShortcutGroup"
+            style="margin-top: 4px; margin-bottom: 8px"
+          >
+            <div class="setting-label-row" style="margin-bottom: 6px">
+              <label
+                class="setting-label"
+                style="font-size: 11px; color: var(--text-secondary)"
+                >Previous Tab</label
+              >
+              <div style="display: flex; align-items: center; gap: 6px">
+                <span
+                  id="tabCyclePrevShortcutBadge"
+                  class="shortcut-kbd-badge"
+                  tabindex="0"
+                  title="Click Change to record shortcut"
+                  >Alt + &lt;</span
+                >
+                <button
+                  type="button"
+                  id="recordPrevShortcutBtn"
+                  class="btn-secondary"
+                  style="padding: 3px 8px; font-size: 10px; border-radius: 6px"
+                  title="Record custom previous tab shortcut"
+                >
+                  ⚙️ Change
+                </button>
+                <button
+                  type="button"
+                  id="resetPrevShortcutBtn"
+                  class="btn-subtle"
+                  style="padding: 3px 6px; font-size: 10px; border-radius: 6px"
+                  title="Reset to Alt + <"
+                >
+                  ↺
+                </button>
               </div>
             </div>
             <div class="setting-label-row">
-              <label class="setting-label" style="font-size: 11px; color: var(--text-secondary);">Next Tab</label>
-              <div style="display: flex; align-items: center; gap: 6px;">
-                <span id="tabCycleNextShortcutBadge" class="shortcut-kbd-badge" tabindex="0" title="Click Change to record shortcut">Alt + &gt;</span>
-                <button type="button" id="recordNextShortcutBtn" class="btn-secondary" style="padding: 3px 8px; font-size: 10px; border-radius: 6px;" title="Record custom next tab shortcut">⚙️ Change</button>
-                <button type="button" id="resetNextShortcutBtn" class="btn-subtle" style="padding: 3px 6px; font-size: 10px; border-radius: 6px;" title="Reset to Alt + >">↺</button>
+              <label
+                class="setting-label"
+                style="font-size: 11px; color: var(--text-secondary)"
+                >Next Tab</label
+              >
+              <div style="display: flex; align-items: center; gap: 6px">
+                <span
+                  id="tabCycleNextShortcutBadge"
+                  class="shortcut-kbd-badge"
+                  tabindex="0"
+                  title="Click Change to record shortcut"
+                  >Alt + &gt;</span
+                >
+                <button
+                  type="button"
+                  id="recordNextShortcutBtn"
+                  class="btn-secondary"
+                  style="padding: 3px 8px; font-size: 10px; border-radius: 6px"
+                  title="Record custom next tab shortcut"
+                >
+                  ⚙️ Change
+                </button>
+                <button
+                  type="button"
+                  id="resetNextShortcutBtn"
+                  class="btn-subtle"
+                  style="padding: 3px 6px; font-size: 10px; border-radius: 6px"
+                  title="Reset to Alt + >"
+                >
+                  ↺
+                </button>
               </div>
             </div>
           </div>
@@ -320,13 +388,43 @@
               <span class="slider"></span>
             </label>
           </div>
-          <div class="setting-group" id="closeTabShortcutGroup" style="margin-top: 4px; margin-bottom: 8px;">
+          <div
+            class="setting-group"
+            id="closeTabShortcutGroup"
+            style="margin-top: 4px; margin-bottom: 8px"
+          >
             <div class="setting-label-row">
-              <label class="setting-label" style="font-size: 11px; color: var(--text-secondary);">Shortcut Key</label>
-              <div style="display: flex; align-items: center; gap: 6px;">
-                <span id="closeTabShortcutBadge" class="shortcut-kbd-badge" tabindex="0" title="Click Change to record shortcut">Alt + /</span>
-                <button type="button" id="recordCloseTabShortcutBtn" class="btn-secondary" style="padding: 3px 8px; font-size: 10px; border-radius: 6px;" title="Record custom close tab shortcut">⚙️ Change</button>
-                <button type="button" id="resetCloseTabShortcutBtn" class="btn-subtle" style="padding: 3px 6px; font-size: 10px; border-radius: 6px;" title="Reset to Alt + /">↺</button>
+              <label
+                class="setting-label"
+                style="font-size: 11px; color: var(--text-secondary)"
+                >Shortcut Key</label
+              >
+              <div style="display: flex; align-items: center; gap: 6px">
+                <span
+                  id="closeTabShortcutBadge"
+                  class="shortcut-kbd-badge"
+                  tabindex="0"
+                  title="Click Change to record shortcut"
+                  >Alt + /</span
+                >
+                <button
+                  type="button"
+                  id="recordCloseTabShortcutBtn"
+                  class="btn-secondary"
+                  style="padding: 3px 8px; font-size: 10px; border-radius: 6px"
+                  title="Record custom close tab shortcut"
+                >
+                  ⚙️ Change
+                </button>
+                <button
+                  type="button"
+                  id="resetCloseTabShortcutBtn"
+                  class="btn-subtle"
+                  style="padding: 3px 6px; font-size: 10px; border-radius: 6px"
+                  title="Reset to Alt + /"
+                >
+                  ↺
+                </button>
               </div>
             </div>
           </div>
@@ -365,6 +463,37 @@
               <input type="checkbox" id="tabCycleWheelToggle" checked />
               <span class="slider"></span>
             </label>
+          </div>
+
+          <!-- Wheel Scroll Speed Slider -->
+          <div
+            class="setting-group"
+            id="tabCycleWheelSpeedGroup"
+            style="margin-top: 6px; margin-bottom: 8px"
+          >
+            <div class="setting-label-row">
+              <label
+                for="tabCycleWheelSpeed"
+                class="setting-label"
+                style="font-size: 11px; color: var(--text-secondary)"
+                >Wheel Scroll Speed / Interval</label
+              >
+              <span id="tabCycleWheelSpeedValue" class="value-chip">120 ms</span>
+            </div>
+            <input
+              type="range"
+              id="tabCycleWheelSpeed"
+              min="50"
+              max="300"
+              step="10"
+              value="120"
+              class="range-slider"
+            />
+            <div class="range-marks">
+              <span>Fast (50ms)</span>
+              <span>Balanced (120ms)</span>
+              <span>Smooth (300ms)</span>
+            </div>
           </div>
 
           <!-- Right-Click + Swipe -->
@@ -587,15 +716,45 @@
             <button
               id="startCaptureBtn"
               class="btn-primary btn-capture-start"
-              style="flex: 1.4; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 11.5px;"
+              style="
+                flex: 1.4;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 6px;
+                font-size: 11.5px;
+              "
               title="Automatically capture search URL in a background pinned tab without leaving your current page"
             >
-              <span>🎯</span> Capture Search URL <span class="badge" style="background: rgba(255, 255, 255, 0.25); font-size: 8.5px; padding: 2px 5px; border-radius: 4px; text-transform: uppercase; font-weight: 800; letter-spacing: 0.5px;">Auto</span>
+              <span>🎯</span> Capture Search URL
+              <span
+                class="badge"
+                style="
+                  background: rgba(255, 255, 255, 0.25);
+                  font-size: 8.5px;
+                  padding: 2px 5px;
+                  border-radius: 4px;
+                  text-transform: uppercase;
+                  font-weight: 800;
+                  letter-spacing: 0.5px;
+                "
+                >Auto</span
+              >
             </button>
             <button
               id="addWebsiteBtn"
               class="btn-secondary"
-              style="flex: 1; padding: 8px 10px; font-size: 11.5px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 5px;"
+              style="
+                flex: 1;
+                padding: 8px 10px;
+                font-size: 11.5px;
+                border-radius: 8px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 5px;
+              "
               title="Manually enter a search URL"
             >
               <span>✏️</span> Enter Manually
@@ -609,18 +768,35 @@
             style="display: none"
           >
             <div class="capture-header">
-              <div class="website-form-title" style="margin-bottom: 0">🎯 Capture Search URL</div>
+              <div class="website-form-title" style="margin-bottom: 0">
+                🎯 Capture Search URL
+              </div>
               <span class="capture-step-badge">Step 1 of 2</span>
             </div>
 
             <!-- Fallback notification banner when 1-click auto-submit is unavailable or fails -->
-            <div id="captureFallbackNotice" class="info-pill" style="display: none; background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.35); margin: 6px 0 10px 0; border-radius: 8px;">
+            <div
+              id="captureFallbackNotice"
+              class="info-pill"
+              style="
+                display: none;
+                background: rgba(56, 189, 248, 0.12);
+                border: 1px solid rgba(56, 189, 248, 0.35);
+                margin: 6px 0 10px 0;
+                border-radius: 8px;
+              "
+            >
               <span class="info-pill-icon">💡</span>
-              <div class="info-pill-body" id="captureFallbackNoticeText" style="color: #e2e8f0; font-size: 11px; line-height: 1.4;"></div>
+              <div
+                class="info-pill-body"
+                id="captureFallbackNoticeText"
+                style="color: #e2e8f0; font-size: 11px; line-height: 1.4"
+              ></div>
             </div>
 
             <p class="card-desc" style="margin-bottom: 9px; font-size: 10.5px">
-              Add any website without editing URL parameters. Follow these quick steps:
+              Add any website without editing URL parameters. Follow these quick
+              steps:
             </p>
 
             <div class="capture-steps-list">
@@ -629,8 +805,15 @@
                 <div class="step-content">
                   <div class="step-label">Copy this unique test keyword:</div>
                   <div class="marker-container">
-                    <code id="captureMarkerDisplay" class="marker-code">holdtab_test_...</code>
-                    <button type="button" id="copyMarkerBtn" class="btn-copy-marker" title="Copy marker to clipboard">
+                    <code id="captureMarkerDisplay" class="marker-code"
+                      >holdtab_test_...</code
+                    >
+                    <button
+                      type="button"
+                      id="copyMarkerBtn"
+                      class="btn-copy-marker"
+                      title="Copy marker to clipboard"
+                    >
                       📋 Copy Keyword
                     </button>
                   </div>
@@ -640,39 +823,86 @@
               <div class="capture-step-item">
                 <span class="step-num">2</span>
                 <div class="step-content">
-                  <div class="step-label">Open the website you want to add in a new tab.</div>
+                  <div class="step-label">
+                    Open the website you want to add in a new tab.
+                  </div>
                 </div>
               </div>
 
               <div class="capture-step-item">
                 <span class="step-num">3</span>
                 <div class="step-content">
-                  <div class="step-label">Paste keyword into the website's search box and search.</div>
+                  <div class="step-label">
+                    Paste keyword into the website's search box and search.
+                  </div>
                 </div>
               </div>
 
               <div class="capture-step-item">
                 <span class="step-num">4</span>
                 <div class="step-content">
-                  <div class="step-label">Return to this popup and click below:</div>
+                  <div class="step-label">
+                    Return to this popup and click below:
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div id="captureStatusMessage" class="capture-status-message" style="display: none"></div>
+            <div
+              id="captureStatusMessage"
+              class="capture-status-message"
+              style="display: none"
+            ></div>
 
             <div class="capture-actions-row">
-              <button id="captureActiveUrlBtn" class="btn-primary btn-capture-action" style="flex: 1.5; font-size: 11.5px; display: flex; align-items: center; justify-content: center; gap: 6px;">
-                <span id="captureSpinner" class="capture-spinner" style="display: none"></span>
+              <button
+                id="captureActiveUrlBtn"
+                class="btn-primary btn-capture-action"
+                style="
+                  flex: 1.5;
+                  font-size: 11.5px;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  gap: 6px;
+                "
+              >
+                <span
+                  id="captureSpinner"
+                  class="capture-spinner"
+                  style="display: none"
+                ></span>
                 <span id="captureBtnText">🔍 Capture Current URL</span>
               </button>
-              <button id="cancelCaptureBtn" class="btn-secondary" style="flex: 1; padding: 8px 10px; font-size: 11.5px; border-radius: 8px; cursor: pointer;">
+              <button
+                id="cancelCaptureBtn"
+                class="btn-secondary"
+                style="
+                  flex: 1;
+                  padding: 8px 10px;
+                  font-size: 11.5px;
+                  border-radius: 8px;
+                  cursor: pointer;
+                "
+              >
                 Cancel
               </button>
             </div>
-            
-            <div style="text-align: center; margin-top: 7px;">
-              <button type="button" id="switchToManualBtn" class="link-btn" style="font-size: 10.5px; color: var(--text-muted); background: none; border: none; cursor: pointer; text-decoration: underline;">
+
+            <div style="text-align: center; margin-top: 7px">
+              <button
+                type="button"
+                id="switchToManualBtn"
+                class="link-btn"
+                style="
+                  font-size: 10.5px;
+                  color: var(--text-muted);
+                  background: none;
+                  border: none;
+                  cursor: pointer;
+                  text-decoration: underline;
+                "
+              >
                 Need to enter URL manually instead?
               </button>
             </div>
@@ -685,15 +915,31 @@
             style="display: none"
           >
             <div class="capture-header">
-              <div class="website-form-title" style="margin-bottom: 0">✨ Review & Save Search Engine</div>
+              <div class="website-form-title" style="margin-bottom: 0">
+                ✨ Review & Save Search Engine
+              </div>
               <span class="capture-step-badge">Step 2 of 2</span>
             </div>
 
             <!-- Auto-capture success notification badge -->
-            <div id="captureAutoSuccessBadge" class="info-pill" style="display: none; background: rgba(34, 197, 94, 0.14); border: 1px solid rgba(34, 197, 94, 0.35); margin: 6px 0 10px 0; border-radius: 8px;">
+            <div
+              id="captureAutoSuccessBadge"
+              class="info-pill"
+              style="
+                display: none;
+                background: rgba(34, 197, 94, 0.14);
+                border: 1px solid rgba(34, 197, 94, 0.35);
+                margin: 6px 0 10px 0;
+                border-radius: 8px;
+              "
+            >
               <span class="info-pill-icon">✨</span>
-              <div class="info-pill-body" style="color: #86efac; font-size: 11px; line-height: 1.4;">
-                <strong>Auto-captured in 1 click!</strong> Search bar detected and template derived automatically. Review and save below.
+              <div
+                class="info-pill-body"
+                style="color: #86efac; font-size: 11px; line-height: 1.4"
+              >
+                <strong>Auto-captured in 1 click!</strong> Search bar detected
+                and template derived automatically. Review and save below.
               </div>
             </div>
 
@@ -701,15 +947,40 @@
               URL captured! Review the detected template, test it, and save.
             </p>
 
-            <div id="captureMultipleWarning" class="form-warning" style="display: none; margin-bottom: 8px;">
-              ⚠️ Keyword appeared multiple times in the URL. We selected the primary search parameter. Verify the template below.
+            <div
+              id="captureMultipleWarning"
+              class="form-warning"
+              style="display: none; margin-bottom: 8px"
+            >
+              ⚠️ Keyword appeared multiple times in the URL. We selected the
+              primary search parameter. Verify the template below.
             </div>
 
             <!-- Website Name -->
             <div class="setting-group" style="margin-bottom: 8px">
-              <label class="setting-label" style="font-size: 11px">Website Name</label>
-              <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
-                <div id="captureIconPreview" class="website-icon-preview" style="flex-shrink: 0; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center;"></div>
+              <label class="setting-label" style="font-size: 11px"
+                >Website Name</label
+              >
+              <div
+                style="
+                  display: flex;
+                  align-items: center;
+                  gap: 6px;
+                  margin-top: 4px;
+                "
+              >
+                <div
+                  id="captureIconPreview"
+                  class="website-icon-preview"
+                  style="
+                    flex-shrink: 0;
+                    width: 22px;
+                    height: 22px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                  "
+                ></div>
                 <input
                   type="text"
                   id="captureNameInput"
@@ -720,24 +991,85 @@
               </div>
             </div>
 
+            <!-- Category Selection -->
+            <div class="setting-group" style="margin-bottom: 8px">
+              <label class="setting-label" style="font-size: 11px"
+                >Category</label
+              >
+              <select
+                id="captureCategoryInput"
+                class="select-dropdown"
+                style="
+                  width: 100%;
+                  margin-top: 4px;
+                  padding: 6px 10px;
+                  font-size: 11px;
+                "
+              >
+                <!-- Dynamically populated with Uncategorized + custom categories -->
+              </select>
+            </div>
+
             <!-- Template Input -->
             <div class="setting-group" style="margin-bottom: 8px">
-              <label class="setting-label" style="font-size: 11px">Search URL Template</label>
+              <label class="setting-label" style="font-size: 11px"
+                >Search URL Template</label
+              >
               <input
                 type="text"
                 id="captureTemplateInput"
                 placeholder="https://example.com/search?q={query}"
                 class="text-input"
-                style="width: 100%; margin-top: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 10.5px;"
+                style="
+                  width: 100%;
+                  margin-top: 4px;
+                  font-family:
+                    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+                    monospace;
+                  font-size: 10.5px;
+                "
               />
-              <span class="form-hint">Must include <code>{query}</code> placeholder for selected text.</span>
+              <span class="form-hint"
+                >Must include <code>{query}</code> placeholder for selected
+                text.</span
+              >
             </div>
 
             <!-- Test Query & Live Preview -->
-            <div class="setting-group" style="margin-bottom: 8px; background: rgba(0, 0, 0, 0.28); padding: 7px 9px; border-radius: 6px; border: 1px solid var(--border-subtle);">
-              <div style="display: flex; justify-content: space-between; align-items: center;">
-                <label class="setting-label" style="font-size: 10.5px; color: var(--accent-primary); margin: 0;">Sample Test Query</label>
-                <span style="font-weight: normal; color: var(--text-muted); font-size: 9.5px;">Live URL Preview</span>
+            <div
+              class="setting-group"
+              style="
+                margin-bottom: 8px;
+                background: rgba(0, 0, 0, 0.28);
+                padding: 7px 9px;
+                border-radius: 6px;
+                border: 1px solid var(--border-subtle);
+              "
+            >
+              <div
+                style="
+                  display: flex;
+                  justify-content: space-between;
+                  align-items: center;
+                "
+              >
+                <label
+                  class="setting-label"
+                  style="
+                    font-size: 10.5px;
+                    color: var(--accent-primary);
+                    margin: 0;
+                  "
+                  >Sample Test Query</label
+                >
+                <span
+                  style="
+                    font-weight: normal;
+                    color: var(--text-muted);
+                    font-size: 9.5px;
+                  "
+                  >Live URL Preview</span
+                >
               </div>
               <input
                 type="text"
@@ -745,30 +1077,131 @@
                 value="wireless headphones"
                 placeholder="Enter sample query"
                 class="text-input"
-                style="width: 100%; margin-top: 4px; font-size: 11px;"
+                style="width: 100%; margin-top: 4px; font-size: 11px"
               />
-              <div class="preview-box-label" style="font-size: 9.5px; color: var(--text-muted); margin-top: 5px;">Resulting Search URL:</div>
-              <div id="capturePreviewUrlBox" class="preview-url-box" title="Resulting URL"></div>
+              <div
+                class="preview-box-label"
+                style="
+                  font-size: 9.5px;
+                  color: var(--text-muted);
+                  margin-top: 5px;
+                "
+              >
+                Resulting Search URL:
+              </div>
+              <div
+                id="capturePreviewUrlBox"
+                class="preview-url-box"
+                title="Resulting URL"
+              ></div>
             </div>
 
-            <div id="capturePreviewError" class="form-error" style="display: none; margin-bottom: 8px;"></div>
-            <div id="capturePreviewSuccess" class="form-success" style="display: none; margin-bottom: 8px;"></div>
+            <div
+              id="captureDuplicateWarning"
+              class="form-warning duplicate-warning-box"
+              style="display: none; margin-bottom: 8px"
+            >
+              <div class="duplicate-warning-msg" id="captureDuplicateMsg">
+                This website already exists in your list.
+              </div>
+              <div
+                class="duplicate-warning-actions"
+                style="display: flex; gap: 6px; margin-top: 6px"
+              >
+                <button
+                  type="button"
+                  id="captureDuplicateAddAnywayBtn"
+                  class="btn-primary"
+                  style="padding: 4px 8px; font-size: 10.5px"
+                >
+                  Add Anyway
+                </button>
+                <button
+                  type="button"
+                  id="captureDuplicateCancelBtn"
+                  class="btn-secondary"
+                  style="padding: 4px 8px; font-size: 10.5px"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+
+            <div
+              id="capturePreviewError"
+              class="form-error"
+              style="display: none; margin-bottom: 8px"
+            ></div>
+            <div
+              id="capturePreviewSuccess"
+              class="form-success"
+              style="display: none; margin-bottom: 8px"
+            ></div>
 
             <!-- Action Buttons -->
-            <div style="display: flex; gap: 6px; margin-top: 10px;">
-              <button id="testSearchBtn" class="btn-secondary" style="flex: 1; padding: 7px 8px; font-size: 11px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;" title="Test search in a new background tab">
+            <div style="display: flex; gap: 6px; margin-top: 10px">
+              <button
+                id="testSearchBtn"
+                class="btn-secondary"
+                style="
+                  flex: 1;
+                  padding: 7px 8px;
+                  font-size: 11px;
+                  border-radius: 8px;
+                  cursor: pointer;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  gap: 4px;
+                "
+                title="Test search in a new background tab"
+              >
                 <span>🧪</span> Test Search
               </button>
-              <button id="saveCapturedWebsiteBtn" class="btn-primary" style="flex: 1.25; padding: 7px 10px; font-size: 11px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px;">
+              <button
+                id="saveCapturedWebsiteBtn"
+                class="btn-primary"
+                style="
+                  flex: 1.25;
+                  padding: 7px 10px;
+                  font-size: 11px;
+                  border-radius: 8px;
+                  cursor: pointer;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  gap: 4px;
+                "
+              >
                 💾 Save Website
               </button>
-              <button id="cancelCapturePreviewBtn" class="btn-subtle" style="padding: 7px 8px; font-size: 11px; border-radius: 8px; cursor: pointer;">
+              <button
+                id="cancelCapturePreviewBtn"
+                class="btn-subtle"
+                style="
+                  padding: 7px 8px;
+                  font-size: 11px;
+                  border-radius: 8px;
+                  cursor: pointer;
+                "
+              >
                 Cancel
               </button>
             </div>
-            
-            <div style="text-align: center; margin-top: 6px;">
-              <button type="button" id="backToCaptureBtn" class="link-btn" style="font-size: 10px; color: var(--text-muted); background: none; border: none; cursor: pointer;">
+
+            <div style="text-align: center; margin-top: 6px">
+              <button
+                type="button"
+                id="backToCaptureBtn"
+                class="link-btn"
+                style="
+                  font-size: 10px;
+                  color: var(--text-muted);
+                  background: none;
+                  border: none;
+                  cursor: pointer;
+                "
+              >
                 ← Back to keyword capture
               </button>
             </div>
@@ -810,6 +1243,53 @@
                 >✨ <code>{query}</code> is added automatically if you just
                 paste any website or search URL!</span
               >
+            </div>
+            <div class="setting-group" style="margin-bottom: 8px">
+              <label class="setting-label" style="font-size: 11px"
+                >Category</label
+              >
+              <select
+                id="websiteCategoryInput"
+                class="select-dropdown"
+                style="
+                  width: 100%;
+                  margin-top: 4px;
+                  padding: 6px 10px;
+                  font-size: 11px;
+                "
+              >
+                <!-- Dynamically populated with Uncategorized + custom categories -->
+              </select>
+            </div>
+            <div
+              id="websiteDuplicateWarning"
+              class="form-warning duplicate-warning-box"
+              style="display: none; margin-bottom: 8px"
+            >
+              <div class="duplicate-warning-msg" id="websiteDuplicateMsg">
+                This website already exists in your list.
+              </div>
+              <div
+                class="duplicate-warning-actions"
+                style="display: flex; gap: 6px; margin-top: 6px"
+              >
+                <button
+                  type="button"
+                  id="websiteDuplicateAddAnywayBtn"
+                  class="btn-primary"
+                  style="padding: 4px 8px; font-size: 10.5px"
+                >
+                  Add Anyway
+                </button>
+                <button
+                  type="button"
+                  id="websiteDuplicateCancelBtn"
+                  class="btn-secondary"
+                  style="padding: 4px 8px; font-size: 10.5px"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
             <div
               id="websiteFormError"
@@ -974,22 +1454,36 @@
             </label>
           </div>
           <p class="card-desc">
-            Open the search interface anytime from anywhere using a keyboard shortcut, even without selecting text.
+            Open the search interface anytime from anywhere using a keyboard
+            shortcut, even without selecting text.
           </p>
 
           <!-- Shortcut info & customize button -->
           <div class="setting-group">
             <div class="setting-label-row">
               <label class="setting-label">Keyboard Shortcut</label>
-              <span id="quickSearchShortcutBadge" class="shortcut-kbd-badge">Ctrl + Shift + K</span>
+              <span id="quickSearchShortcutBadge" class="shortcut-kbd-badge"
+                >Ctrl + Shift + K</span
+              >
             </div>
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 6px;">
-              <span class="card-desc" style="margin-bottom: 0; font-size: 10.5px;">Browser shortcut command:</span>
+            <div
+              style="
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                margin-top: 6px;
+              "
+            >
+              <span
+                class="card-desc"
+                style="margin-bottom: 0; font-size: 10.5px"
+                >Browser shortcut command:</span
+              >
               <button
                 type="button"
                 id="openShortcutConfigBtn"
                 class="btn-secondary"
-                style="padding: 4px 8px; font-size: 10.5px; border-radius: 6px;"
+                style="padding: 4px 8px; font-size: 10.5px; border-radius: 6px"
                 title="Configure keyboard shortcut in browser extension settings"
               >
                 ⚙️ Configure Shortcut
@@ -997,18 +1491,176 @@
             </div>
           </div>
 
+          <!-- Mouse Shortcut Info & Toggle -->
+          <div class="toggle-row" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.06)">
+            <div class="toggle-info">
+              <div class="toggle-title" style="display: flex; align-items: center; gap: 8px;">
+                <span>Mouse Shortcut</span>
+                <span class="shortcut-kbd-badge" style="font-size: 10px; padding: 2px 6px;">Right Click + Wheel Click</span>
+              </div>
+              <div class="toggle-desc">
+                Hold right-click and click mouse wheel to toggle Quick Search
+              </div>
+            </div>
+            <label class="switch switch-sm" title="Toggle Mouse Shortcut for Quick Search">
+              <input type="checkbox" id="quickSearchMouseShortcutToggle" checked />
+              <span class="slider"></span>
+            </label>
+          </div>
+
           <!-- Default Search Engine Selection -->
-          <div class="setting-group" style="margin-bottom: 0;">
+          <div class="setting-group" style="margin-bottom: 0">
             <div class="setting-label-row">
-              <label for="quickSearchDefaultEngineSelect" class="setting-label">Default Search (Press 'Enter')</label>
-              <select id="quickSearchDefaultEngineSelect" class="select-dropdown">
+              <label for="quickSearchDefaultEngineSelect" class="setting-label"
+                >Default Search (Press 'Enter')</label
+              >
+              <select
+                id="quickSearchDefaultEngineSelect"
+                class="select-dropdown"
+              >
                 <!-- Dynamically populated with configured search websites -->
                 <option value="google">Google</option>
               </select>
             </div>
-            <span class="form-hint" style="margin-top: 4px; display: block;">
-              Pressing <kbd>Enter</kbd> in Quick Search executes with this engine immediately.
+            <span class="form-hint" style="margin-top: 4px; display: block">
+              Pressing <kbd>Enter</kbd> in Quick Search executes with this
+              engine immediately.
             </span>
+          </div>
+        </section>
+      </main>
+
+      <!-- Tab: Categories Management -->
+      <main id="tab-categories" class="tab-panel">
+        <section class="card">
+          <div class="card-header">
+            <div>
+              <span class="card-title">Search Categories</span>
+              <span class="badge" id="categoryCountBadge">5 Active</span>
+            </div>
+            <span
+              id="categoryPlanBadge"
+              class="badge"
+              style="
+                background: rgba(56, 189, 248, 0.15);
+                color: #38bdf8;
+                display: none;
+              "
+              >Plan: Free</span
+            >
+          </div>
+          <p class="card-desc">
+            Organize saved search engines into custom categories. Filter engines
+            quickly in Quick Search and the Floating Toolbar.
+          </p>
+
+          <!-- Add / Edit Category Card -->
+          <div class="category-form-card" id="categoryFormCard">
+            <div class="category-form-header">
+              <span class="category-form-title" id="categoryFormTitle"
+                >➕ Add New Category</span
+              >
+            </div>
+
+            <div class="category-form-row">
+              <div class="category-form-field category-color-field">
+                <label
+                  class="setting-label"
+                  style="font-size: 10px"
+                  for="categoryColorSelect"
+                  >Color</label
+                >
+                <select
+                  id="categoryColorSelect"
+                  class="select-dropdown category-color-select-neutral"
+                  title="Category Color"
+                >
+                  <option value="#818cf8">Default (Indigo)</option>
+                  <option value="#38bdf8">Cyan</option>
+                  <option value="#f43f5e">Rose</option>
+                  <option value="#f59e0b">Amber</option>
+                  <option value="#10b981">Emerald</option>
+                  <option value="#a855f7">Purple</option>
+                </select>
+              </div>
+
+              <div class="category-form-field category-name-field">
+                <label
+                  class="setting-label"
+                  style="font-size: 10px"
+                  for="categoryNameInput"
+                  >Category Name</label
+                >
+                <input
+                  type="text"
+                  id="categoryNameInput"
+                  placeholder="e.g. Gaming, Work, Anime..."
+                  class="text-input"
+                  maxlength="30"
+                  autocomplete="off"
+                />
+              </div>
+            </div>
+
+            <div
+              id="categoryFormError"
+              class="form-error"
+              style="display: none"
+            ></div>
+
+            <div class="category-form-actions">
+              <button type="button" id="saveCategoryBtn" class="btn-primary">
+                Save Category
+              </button>
+              <button
+                type="button"
+                id="cancelCategoryEditBtn"
+                class="btn-secondary"
+                style="display: none"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+
+          <!-- Configured Categories Section -->
+          <div class="card-header" style="margin-top: 14px">
+            <span class="card-title">Configured Categories</span>
+            <span style="font-size: 10px; color: var(--text-muted)"
+              >Use ▲▼ to reorder</span
+            >
+          </div>
+
+          <div id="categoriesList" class="categories-list">
+            <!-- Dynamically populated with category rows -->
+          </div>
+
+          <!-- Uncategorized summary card -->
+          <div
+            id="uncategorizedSummaryCard"
+            class="uncategorized-summary-card"
+            style="display: none"
+          >
+            <div class="uncategorized-badge">
+              <span>Uncategorized</span>
+            </div>
+            <span id="uncategorizedCountText" class="uncategorized-count"
+              >0 engines</span
+            >
+          </div>
+
+          <!-- Restore default categories -->
+          <div
+            style="margin-top: 12px; display: flex; justify-content: flex-end"
+          >
+            <button
+              type="button"
+              id="restoreDefaultCategoriesBtn"
+              class="btn-subtle"
+              style="font-size: 10.5px; padding: 4px 8px; cursor: pointer"
+            >
+              ↺ Restore Default Categories
+            </button>
           </div>
         </section>
       </main>
@@ -1270,8 +1922,13 @@
         <section class="card current-rule-card">
           <div class="card-header">
             <div class="site-status-header-left">
-              <span id="siteStatusDot" class="site-status-dot status-active"></span>
-              <span class="card-title" id="siteStatusTitle">Active Website</span>
+              <span
+                id="siteStatusDot"
+                class="site-status-dot status-active"
+              ></span>
+              <span class="card-title" id="siteStatusTitle"
+                >Active Website</span
+              >
             </div>
             <span id="siteStatusBadge" class="badge">Active</span>
           </div>
@@ -1288,25 +1945,37 @@
         </section>
 
         <!-- Per-Site Custom Feature Overrides Section -->
-        <section id="siteOverridesCard" class="card site-overrides-card" style="display: none;">
+        <section
+          id="siteOverridesCard"
+          class="card site-overrides-card"
+          style="display: none"
+        >
           <div class="card-header">
             <div>
               <span class="card-title">⚙️ Custom Overrides</span>
-              <span id="overrideDomainName" class="override-domain-pill">example.com</span>
+              <span id="overrideDomainName" class="override-domain-pill"
+                >example.com</span
+              >
             </div>
             <span id="overrideBadge" class="badge badge-custom">Custom</span>
           </div>
           <p class="card-desc">
-            This site is excluded by default. Enable specific features below to run selected capabilities here:
+            This site is excluded by default. Enable specific features below to
+            run selected capabilities here:
           </p>
 
           <div class="override-toggles-list">
             <div class="toggle-row">
               <div class="toggle-info">
                 <div class="toggle-title">🪄 Selection Toolbar</div>
-                <div class="toggle-desc">Contextual search toolbar when selecting text</div>
+                <div class="toggle-desc">
+                  Contextual search toolbar when selecting text
+                </div>
               </div>
-              <label class="switch switch-sm" title="Toggle Floating Toolbar Override">
+              <label
+                class="switch switch-sm"
+                title="Toggle Floating Toolbar Override"
+              >
                 <input type="checkbox" id="overrideToolbarToggle" />
                 <span class="slider"></span>
               </label>
@@ -1315,7 +1984,9 @@
             <div class="toggle-row">
               <div class="toggle-info">
                 <div class="toggle-title">🔗 Link Hold Gestures</div>
-                <div class="toggle-desc">Hold links to open in background or foreground tabs</div>
+                <div class="toggle-desc">
+                  Hold links to open in background or foreground tabs
+                </div>
               </div>
               <label class="switch switch-sm" title="Toggle Link Hold Override">
                 <input type="checkbox" id="overrideLinkHoldToggle" />
@@ -1326,9 +1997,14 @@
             <div class="toggle-row">
               <div class="toggle-info">
                 <div class="toggle-title">🔄 Tab Navigation</div>
-                <div class="toggle-desc">Swipe, wheel, rocker, and Alt-scroll tab cycling</div>
+                <div class="toggle-desc">
+                  Swipe, wheel, rocker, and Alt-scroll tab cycling
+                </div>
               </div>
-              <label class="switch switch-sm" title="Toggle Tab Cycling Override">
+              <label
+                class="switch switch-sm"
+                title="Toggle Tab Cycling Override"
+              >
                 <input type="checkbox" id="overrideTabCycleToggle" />
                 <span class="slider"></span>
               </label>
@@ -1337,9 +2013,14 @@
             <div class="toggle-row">
               <div class="toggle-info">
                 <div class="toggle-title">⚡ Text & Clipboard</div>
-                <div class="toggle-desc">Double-click copy, cut, paste, and text search hold</div>
+                <div class="toggle-desc">
+                  Double-click copy, cut, paste, and text search hold
+                </div>
               </div>
-              <label class="switch switch-sm" title="Toggle Text Actions Override">
+              <label
+                class="switch switch-sm"
+                title="Toggle Text Actions Override"
+              >
                 <input type="checkbox" id="overrideTextActionsToggle" />
                 <span class="slider"></span>
               </label>
@@ -1348,9 +2029,14 @@
             <div class="toggle-row">
               <div class="toggle-info">
                 <div class="toggle-title">🔍 Quick Search Shortcut</div>
-                <div class="toggle-desc">Keyboard shortcut search popup on this site</div>
+                <div class="toggle-desc">
+                  Keyboard shortcut search popup on this site
+                </div>
               </div>
-              <label class="switch switch-sm" title="Toggle Quick Search Override">
+              <label
+                class="switch switch-sm"
+                title="Toggle Quick Search Override"
+              >
                 <input type="checkbox" id="overrideQuickSearchToggle" />
                 <span class="slider"></span>
               </label>
@@ -1386,7 +2072,7 @@
       <!-- Footer -->
       <footer class="footer">
         <div class="footer-meta">
-          <span>v1.9.0 &bull; Auto-saved</span>
+          <span>v1.11.0 &bull; Auto-saved</span>
         </div>
         <button
           id="resetDefaultsBtn"

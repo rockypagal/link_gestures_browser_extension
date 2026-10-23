@@ -1,12 +1,20 @@
 // HoldTab - Popup Controller
 
+const DEFAULT_SEARCH_CATEGORIES = [
+  { id: 'cat_gaming', name: 'Gaming', color: '#818cf8', order: 0, createdAt: 1700000000000 },
+  { id: 'cat_work', name: 'Work', color: '#38bdf8', order: 1, createdAt: 1700000000001 },
+  { id: 'cat_movies', name: 'Movies', color: '#f43f5e', order: 2, createdAt: 1700000000002 },
+  { id: 'cat_shopping', name: 'Shopping', color: '#f59e0b', order: 3, createdAt: 1700000000003 },
+  { id: 'cat_research', name: 'Research', color: '#10b981', order: 4, createdAt: 1700000000004 }
+];
+
 const DEFAULT_SEARCH_WEBSITES = [
-  { id: 'google', name: 'Google', template: 'https://www.google.com/search?q={query}', enabled: true, icon: 'google' },
-  { id: 'youtube', name: 'YouTube', template: 'https://www.youtube.com/results?search_query={query}', enabled: true, icon: 'youtube' },
-  { id: 'wikipedia', name: 'Wikipedia', template: 'https://en.wikipedia.org/w/index.php?search={query}', enabled: true, icon: 'wikipedia' },
-  { id: 'reddit', name: 'Reddit', template: 'https://www.reddit.com/search/?q={query}', enabled: true, icon: 'reddit' },
-  { id: 'github', name: 'GitHub', template: 'https://github.com/search?q={query}', enabled: true, icon: 'github' },
-  { id: 'amazon', name: 'Amazon', template: 'https://www.amazon.com/s?k={query}', enabled: true, icon: 'amazon' }
+  { id: 'google', name: 'Google', template: 'https://www.google.com/search?q={query}', enabled: true, icon: 'google', categoryId: 'cat_research' },
+  { id: 'youtube', name: 'YouTube', template: 'https://www.youtube.com/results?search_query={query}', enabled: true, icon: 'youtube', categoryId: 'cat_movies' },
+  { id: 'wikipedia', name: 'Wikipedia', template: 'https://en.wikipedia.org/w/index.php?search={query}', enabled: true, icon: 'wikipedia', categoryId: 'cat_research' },
+  { id: 'reddit', name: 'Reddit', template: 'https://www.reddit.com/search/?q={query}', enabled: true, icon: 'reddit', categoryId: 'cat_work' },
+  { id: 'github', name: 'GitHub', template: 'https://github.com/search?q={query}', enabled: true, icon: 'github', categoryId: 'cat_work' },
+  { id: 'amazon', name: 'Amazon', template: 'https://www.amazon.com/s?k={query}', enabled: true, icon: 'amazon', categoryId: 'cat_shopping' }
 ];
 
 const DEFAULT_SETTINGS = {
@@ -19,6 +27,7 @@ const DEFAULT_SETTINGS = {
   indicatorStyle: 'ring',
   requireModifier: 'none',
   tabCycleWheel: true,
+  tabCycleWheelSpeed: 120,
   tabCycleSwipe: true,
   tabCycleRocker: true,
   tabCycleAltScroll: true,
@@ -52,8 +61,10 @@ const DEFAULT_SETTINGS = {
   toolbarMinLength: 2,
   toolbarSearchSubmenu: true,
   toolbarSearchWebsites: DEFAULT_SEARCH_WEBSITES,
+  searchCategories: DEFAULT_SEARCH_CATEGORIES,
   quickSearchEnabled: true,
   quickSearchDefaultEngine: 'google',
+  quickSearchMouseShortcut: true,
   excludedDomains: [],
   siteOverrides: {}
 };
@@ -62,6 +73,18 @@ let currentSettings = { ...DEFAULT_SETTINGS };
 let currentTabHostname = '';
 let currentTabUrl = '';
 let selectedOverrideDomain = '';
+let editingCategoryId = null;
+
+// Category plan limits helper (prepared for future entitlement integration)
+const CATEGORY_PLAN_CONFIG = {
+  FREE_TIER_MAX: 5,
+  PRO_TIER_MAX: Infinity
+};
+
+function getCategoryPlanLimit() {
+  if (currentSettings.isProUser === true) return CATEGORY_PLAN_CONFIG.PRO_TIER_MAX;
+  return currentSettings.maxCategoriesLimit || Infinity;
+}
 
 document.addEventListener('DOMContentLoaded', async () => {
   setupTabNavigation();
@@ -184,6 +207,17 @@ function renderUI() {
   // Tab cycling toggles
   const wheelToggle = document.getElementById('tabCycleWheelToggle');
   if (wheelToggle) wheelToggle.checked = currentSettings.tabCycleWheel !== false;
+
+  const wheelSpeedGroup = document.getElementById('tabCycleWheelSpeedGroup');
+  if (wheelSpeedGroup) {
+    wheelSpeedGroup.style.display = currentSettings.tabCycleWheel !== false ? 'block' : 'none';
+  }
+  const wheelSpeedSlider = document.getElementById('tabCycleWheelSpeed');
+  const wheelSpeedVal = document.getElementById('tabCycleWheelSpeedValue');
+  if (wheelSpeedSlider && wheelSpeedVal) {
+    wheelSpeedSlider.value = currentSettings.tabCycleWheelSpeed ?? 120;
+    wheelSpeedVal.textContent = `${currentSettings.tabCycleWheelSpeed ?? 120} ms`;
+  }
 
   const swipeToggle = document.getElementById('tabCycleSwipeToggle');
   if (swipeToggle) swipeToggle.checked = currentSettings.tabCycleSwipe !== false;
@@ -348,11 +382,17 @@ function renderUI() {
   if (tbSubmenuToggle) tbSubmenuToggle.checked = currentSettings.toolbarSearchSubmenu !== false;
 
   renderToolbarWebsitesList();
+  renderCategoriesList();
+  populateCategorySelects();
 
   // Quick Search Settings
   const quickSearchEnabledToggle = document.getElementById('quickSearchEnabledToggle');
   if (quickSearchEnabledToggle) {
     quickSearchEnabledToggle.checked = currentSettings.quickSearchEnabled !== false;
+  }
+  const quickSearchMouseShortcutToggle = document.getElementById('quickSearchMouseShortcutToggle');
+  if (quickSearchMouseShortcutToggle) {
+    quickSearchMouseShortcutToggle.checked = currentSettings.quickSearchMouseShortcut !== false;
   }
   renderQuickSearchEnginesDropdown();
   updateQuickSearchShortcutDisplay();
@@ -716,6 +756,21 @@ function setupEventListeners() {
   if (wheelToggle) {
     wheelToggle.addEventListener('change', (e) => {
       saveSettings({ tabCycleWheel: e.target.checked });
+      const wheelSpeedGroup = document.getElementById('tabCycleWheelSpeedGroup');
+      if (wheelSpeedGroup) {
+        wheelSpeedGroup.style.display = e.target.checked ? 'block' : 'none';
+      }
+    });
+  }
+
+  const wheelSpeedSlider = document.getElementById('tabCycleWheelSpeed');
+  const wheelSpeedVal = document.getElementById('tabCycleWheelSpeedValue');
+  if (wheelSpeedSlider && wheelSpeedVal) {
+    wheelSpeedSlider.addEventListener('input', (e) => {
+      wheelSpeedVal.textContent = `${e.target.value} ms`;
+    });
+    wheelSpeedSlider.addEventListener('change', (e) => {
+      saveSettings({ tabCycleWheelSpeed: parseInt(e.target.value, 10) });
     });
   }
 
@@ -1014,6 +1069,8 @@ function setupEventListeners() {
 }
 
 let editingWebsiteId = null;
+let websiteDuplicateConfirmed = false;
+let captureDuplicateConfirmed = false;
 
 // Known domain to branded display name dictionary
 const KNOWN_DOMAIN_NAMES = {
@@ -1296,40 +1353,117 @@ function generateSearchMarker() {
   return `holdtab_test_${rand}`;
 }
 
-// Analyzes captured tab URL and replaces marker with {query}
-function deriveTemplateFromCapturedUrl(tabUrl, marker) {
-  if (!tabUrl || !marker) return null;
-  const markerTrimmed = marker.trim();
-  if (!markerTrimmed) return null;
+// Generates a regex that matches the marker and any separator variations (e.g. underscores converted to hyphens/pluses/spaces)
+function getMarkerRegex(marker) {
+  if (!marker || typeof marker !== 'string') return null;
+  const raw = marker.trim();
+  if (!raw) return null;
 
-  const markerLower = markerTrimmed.toLowerCase();
-  const urlLower = tabUrl.toLowerCase();
+  const parts = raw.split(/[^a-zA-Z0-9]+/).filter(Boolean);
+  if (parts.length === 0) return null;
 
-  // Find occurrences of marker (case-insensitive)
-  const occurrences = [];
-  let idx = 0;
-  while ((idx = urlLower.indexOf(markerLower, idx)) !== -1) {
-    occurrences.push(idx);
-    idx += markerLower.length;
+  if (parts.length === 1) {
+    return new RegExp(escapeRegex(parts[0]), 'gi');
   }
 
-  // Also check URL-encoded version if different
-  if (occurrences.length === 0) {
-    const encodedMarker = encodeURIComponent(markerTrimmed).toLowerCase();
-    if (encodedMarker !== markerLower) {
-      idx = 0;
-      while ((idx = urlLower.indexOf(encodedMarker, idx)) !== -1) {
-        occurrences.push(idx);
-        idx += encodedMarker.length;
-      }
+  // Matches parts separated by one or more common URL/slug separators:
+  // hyphens (-), underscores (_), pluses (+), dots (.), spaces (\s),
+  // or URL-encoded equivalents (%20, %5F, %2D, %2B)
+  const sep = '(?:[-_+.\\s]|%20|%5[fF]|%2[dD]|%2[bB])+';
+  const pattern = parts.map((p) => escapeRegex(p)).join(sep);
+  return new RegExp(pattern, 'gi');
+}
+
+// Generates common variations of marker strings
+function getMarkerVariants(marker) {
+  if (!marker || typeof marker !== 'string') return [];
+  const raw = marker.trim();
+  if (!raw) return [];
+
+  const variants = new Set();
+  variants.add(raw);
+  variants.add(raw.toLowerCase());
+
+  const parts = raw.split(/[^a-zA-Z0-9]+/).filter(Boolean);
+  if (parts.length > 1) {
+    variants.add(parts.join('_'));
+    variants.add(parts.join('-'));
+    variants.add(parts.join('+'));
+    variants.add(parts.join(' '));
+    variants.add(parts.join('%20'));
+    variants.add(parts.join('%5f'));
+    variants.add(parts.join('%5F'));
+    variants.add(parts.join('%2d'));
+    variants.add(parts.join('%2D'));
+    variants.add(parts.join('.'));
+    variants.add(parts.join(''));
+  }
+
+  try {
+    variants.add(encodeURIComponent(raw));
+    variants.add(encodeURIComponent(parts.join('-')));
+    variants.add(encodeURIComponent(parts.join('+')));
+  } catch (_) {}
+
+  return Array.from(variants).filter(Boolean);
+}
+
+// Finds all occurrences of the marker (or its slugified/converted variants) in a URL
+function findMarkerMatchesInUrl(tabUrl, marker) {
+  if (!tabUrl || !marker) return [];
+  const matches = [];
+
+  const regex = getMarkerRegex(marker);
+  if (regex) {
+    let m;
+    while ((m = regex.exec(tabUrl)) !== null) {
+      matches.push({
+        index: m.index,
+        text: m[0],
+        length: m[0].length
+      });
+      if (m.index === regex.lastIndex) regex.lastIndex++;
     }
   }
 
-  if (occurrences.length === 0) {
-    return null;
+  // Fallback: Check variants (including stripped separator e.g. holdtabtesthfb3w)
+  if (matches.length === 0) {
+    const variants = getMarkerVariants(marker);
+    const urlLower = tabUrl.toLowerCase();
+    for (const v of variants) {
+      const vLower = v.toLowerCase();
+      let idx = 0;
+      let foundAny = false;
+      while ((idx = urlLower.indexOf(vLower, idx)) !== -1) {
+        matches.push({
+          index: idx,
+          text: tabUrl.substring(idx, idx + vLower.length),
+          length: vLower.length
+        });
+        idx += vLower.length;
+        foundAny = true;
+      }
+      if (foundAny) break;
+    }
   }
 
-  const multipleOccurrences = occurrences.length > 1;
+  return matches;
+}
+
+// Checks if a URL contains the search marker or any transformed variant
+function urlMatchesSearchMarker(tabUrl, marker) {
+  if (!tabUrl || !marker) return false;
+  return findMarkerMatchesInUrl(tabUrl, marker).length > 0;
+}
+
+// Analyzes captured tab URL and replaces marker with {query}
+// Resilient to websites converting underscores to hyphens, pluses, or spaces
+function deriveTemplateFromCapturedUrl(tabUrl, marker) {
+  if (!tabUrl || !marker) return null;
+  const matches = findMarkerMatchesInUrl(tabUrl, marker);
+  if (matches.length === 0) return null;
+
+  const multipleOccurrences = matches.length > 1;
 
   if (multipleOccurrences) {
     // Check if one of the occurrences is inside a recognized search query parameter
@@ -1344,7 +1478,8 @@ function deriveTemplateFromCapturedUrl(tabUrl, marker) {
       for (const key of searchKeys) {
         if (parsed.searchParams.has(key)) {
           const val = parsed.searchParams.get(key) || '';
-          if (val.toLowerCase().includes(markerLower)) {
+          const paramMatches = findMarkerMatchesInUrl(val, marker);
+          if (paramMatches.length > 0) {
             targetKey = key;
             break;
           }
@@ -1354,7 +1489,8 @@ function deriveTemplateFromCapturedUrl(tabUrl, marker) {
       // If no recognized searchKey, check any query parameter containing the marker
       if (!targetKey) {
         for (const [key, val] of parsed.searchParams.entries()) {
-          if (val.toLowerCase().includes(markerLower)) {
+          const paramMatches = findMarkerMatchesInUrl(val, marker);
+          if (paramMatches.length > 0) {
             targetKey = key;
             break;
           }
@@ -1363,21 +1499,23 @@ function deriveTemplateFromCapturedUrl(tabUrl, marker) {
 
       if (targetKey) {
         const originalVal = parsed.searchParams.get(targetKey) || '';
-        const regex = new RegExp(escapeRegex(markerTrimmed), 'i');
-        const replacedVal = originalVal.replace(regex, '{query}');
-        parsed.searchParams.set(targetKey, replacedVal);
-        return {
-          template: parsed.toString().replace(/%7Bquery%7D/gi, '{query}'),
-          multipleOccurrences: true
-        };
+        const paramMatches = findMarkerMatchesInUrl(originalVal, marker);
+        if (paramMatches.length > 0) {
+          const pm = paramMatches[0];
+          const replacedVal = originalVal.substring(0, pm.index) + '{query}' + originalVal.substring(pm.index + pm.length);
+          parsed.searchParams.set(targetKey, replacedVal);
+          return {
+            template: parsed.toString().replace(/%7Bquery%7D/gi, '{query}'),
+            multipleOccurrences: true
+          };
+        }
       }
     } catch (_) {}
   }
 
-  // Exact slice replacement preserving original casing of the rest of the URL
-  const start = occurrences[0];
-  const end = start + markerLower.length;
-  const template = tabUrl.substring(0, start) + '{query}' + tabUrl.substring(end);
+  // Exact slice replacement preserving original casing and rest of the URL
+  const match = matches[0];
+  const template = tabUrl.substring(0, match.index) + '{query}' + tabUrl.substring(match.index + match.length);
 
   return {
     template,
@@ -1393,6 +1531,12 @@ function hideAllWebsiteCards() {
   if (captureCard) captureCard.style.display = 'none';
   if (previewCard) previewCard.style.display = 'none';
   if (formCard) formCard.style.display = 'none';
+  const websiteDupWarn = document.getElementById('websiteDuplicateWarning');
+  if (websiteDupWarn) websiteDupWarn.style.display = 'none';
+  const captureDupWarn = document.getElementById('captureDuplicateWarning');
+  if (captureDupWarn) captureDupWarn.style.display = 'none';
+  websiteDuplicateConfirmed = false;
+  captureDuplicateConfirmed = false;
   editingWebsiteId = null;
 }
 
@@ -1468,6 +1612,15 @@ function showCapturePreview(data) {
   if (errorBox) errorBox.style.display = 'none';
   if (successBox) successBox.style.display = 'none';
 
+  populateCategorySelects();
+  const captureCatInput = document.getElementById('captureCategoryInput');
+  if (captureCatInput) {
+    captureCatInput.value = data.categoryId || '';
+  }
+  const dupWarning = document.getElementById('captureDuplicateWarning');
+  if (dupWarning) dupWarning.style.display = 'none';
+  captureDuplicateConfirmed = false;
+
   updateCapturePreviewUi();
   if (card) card.style.display = 'block';
   if (nameInput) nameInput.focus();
@@ -1494,6 +1647,7 @@ function updateCapturePreviewUi() {
       template: templateVal,
       name: siteName || 'Custom Search'
     });
+    attachIconErrorFallbacks(iconContainer);
   }
 
   const result = buildSearchUrl(templateVal, testQueryVal);
@@ -1722,6 +1876,13 @@ function setupToolbarEventListeners() {
     });
   }
 
+  const quickSearchMouseToggle = document.getElementById('quickSearchMouseShortcutToggle');
+  if (quickSearchMouseToggle) {
+    quickSearchMouseToggle.addEventListener('change', (e) => {
+      saveSettings({ quickSearchMouseShortcut: e.target.checked });
+    });
+  }
+
   const shortcutBtn = document.getElementById('openShortcutConfigBtn');
   if (shortcutBtn) {
     shortcutBtn.addEventListener('click', () => {
@@ -1839,7 +2000,7 @@ function setupToolbarEventListeners() {
           while (Date.now() - submitStart < 5000) {
             await new Promise((r) => setTimeout(r, 200));
             const currentTab = await chrome.tabs.get(targetTabId).catch(() => null);
-            if (currentTab && currentTab.url && currentTab.url.toLowerCase().includes(marker.toLowerCase())) {
+            if (currentTab && currentTab.url && urlMatchesSearchMarker(currentTab.url, marker)) {
               const derived = deriveTemplateFromCapturedUrl(currentTab.url, marker);
               if (derived && derived.template) {
                 const detectedName = deriveNameFromUrl(currentTab.url) || currentTab.title || 'Custom Search';
@@ -1951,7 +2112,12 @@ function setupToolbarEventListeners() {
   }
 
   if (captureTemplateInput) {
-    captureTemplateInput.addEventListener('input', updateCapturePreviewUi);
+    captureTemplateInput.addEventListener('input', () => {
+      captureDuplicateConfirmed = false;
+      const dupWarn = document.getElementById('captureDuplicateWarning');
+      if (dupWarn) dupWarn.style.display = 'none';
+      updateCapturePreviewUi();
+    });
     captureTemplateInput.addEventListener('blur', updateCapturePreviewUi);
   }
 
@@ -2034,12 +2200,46 @@ function setupToolbarEventListeners() {
         name = deriveNameFromUrl(rawTemplate) || 'Custom Search';
       }
 
+      if (!captureDuplicateConfirmed) {
+        const dup = findDuplicateWebsite(rawTemplate, name, null);
+        if (dup.duplicate) {
+          const warnBox = document.getElementById('captureDuplicateWarning');
+          const warnMsg = document.getElementById('captureDuplicateMsg');
+          const addAnywayBtn = document.getElementById('captureDuplicateAddAnywayBtn');
+          const cancelDupBtn = document.getElementById('captureDuplicateCancelBtn');
+
+          if (warnBox && warnMsg) {
+            warnMsg.textContent = dup.message;
+            warnBox.style.display = 'block';
+
+            if (addAnywayBtn) {
+              addAnywayBtn.onclick = () => {
+                captureDuplicateConfirmed = true;
+                warnBox.style.display = 'none';
+                saveCapturedWebsiteBtn.click();
+              };
+            }
+            if (cancelDupBtn) {
+              cancelDupBtn.onclick = () => {
+                warnBox.style.display = 'none';
+                if (cancelCapturePreviewBtn) cancelCapturePreviewBtn.click();
+              };
+            }
+            return;
+          }
+        }
+      }
+      captureDuplicateConfirmed = false;
+
+      const captureCatInput = document.getElementById('captureCategoryInput');
+      const categoryId = captureCatInput && captureCatInput.value ? captureCatInput.value : null;
+
       const sites = Array.isArray(currentSettings.toolbarSearchWebsites)
         ? [...currentSettings.toolbarSearchWebsites]
         : [...DEFAULT_SEARCH_WEBSITES];
 
       const id = 'custom_' + Date.now();
-      sites.push({ id, name, template: rawTemplate, enabled: true, icon: 'custom' });
+      sites.push({ id, name, template: rawTemplate, enabled: true, icon: 'custom', categoryId });
 
       currentSettings.toolbarSearchWebsites = sites;
       saveSettings({ toolbarSearchWebsites: sites });
@@ -2047,6 +2247,8 @@ function setupToolbarEventListeners() {
       await clearActiveCaptureSession();
       hideAllWebsiteCards();
       renderToolbarWebsitesList();
+  renderCategoriesList();
+  populateCategorySelects();
     });
   }
 
@@ -2157,6 +2359,9 @@ function setupToolbarEventListeners() {
     });
 
     urlInput.addEventListener('input', () => {
+      websiteDuplicateConfirmed = false;
+      const dupWarn = document.getElementById('websiteDuplicateWarning');
+      if (dupWarn) dupWarn.style.display = 'none';
       if (formError && formError.style.display !== 'none') {
         formError.style.display = 'none';
       }
@@ -2201,6 +2406,40 @@ function setupToolbarEventListeners() {
         if (nameInput) nameInput.value = name;
       }
 
+      if (!editingWebsiteId && !websiteDuplicateConfirmed) {
+        const dup = findDuplicateWebsite(template, name, null);
+        if (dup.duplicate) {
+          const warnBox = document.getElementById('websiteDuplicateWarning');
+          const warnMsg = document.getElementById('websiteDuplicateMsg');
+          const addAnywayBtn = document.getElementById('websiteDuplicateAddAnywayBtn');
+          const cancelDupBtn = document.getElementById('websiteDuplicateCancelBtn');
+
+          if (warnBox && warnMsg) {
+            warnMsg.textContent = dup.message;
+            warnBox.style.display = 'block';
+
+            if (addAnywayBtn) {
+              addAnywayBtn.onclick = () => {
+                websiteDuplicateConfirmed = true;
+                warnBox.style.display = 'none';
+                saveBtn.click();
+              };
+            }
+            if (cancelDupBtn) {
+              cancelDupBtn.onclick = () => {
+                warnBox.style.display = 'none';
+                if (cancelWebsiteBtn) cancelWebsiteBtn.click();
+              };
+            }
+            return;
+          }
+        }
+      }
+      websiteDuplicateConfirmed = false;
+
+      const catInput = document.getElementById('websiteCategoryInput');
+      const categoryId = catInput && catInput.value ? catInput.value : null;
+
       const sites = Array.isArray(currentSettings.toolbarSearchWebsites)
         ? [...currentSettings.toolbarSearchWebsites]
         : [...DEFAULT_SEARCH_WEBSITES];
@@ -2208,17 +2447,19 @@ function setupToolbarEventListeners() {
       if (editingWebsiteId) {
         const idx = sites.findIndex((s) => s.id === editingWebsiteId);
         if (idx !== -1) {
-          sites[idx] = { ...sites[idx], name, template };
+          sites[idx] = { ...sites[idx], name, template, categoryId };
         }
       } else {
         const id = 'custom_' + Date.now();
-        sites.push({ id, name, template, enabled: true, icon: 'custom' });
+        sites.push({ id, name, template, enabled: true, icon: 'custom', categoryId });
       }
 
       currentSettings.toolbarSearchWebsites = sites;
       saveSettings({ toolbarSearchWebsites: sites });
       hideAllWebsiteCards();
       renderToolbarWebsitesList();
+  renderCategoriesList();
+  populateCategorySelects();
     });
   }
 
@@ -2229,12 +2470,31 @@ function setupToolbarEventListeners() {
       saveSettings({ toolbarSearchWebsites: restored });
       hideAllWebsiteCards();
       renderToolbarWebsitesList();
+  renderCategoriesList();
+  populateCategorySelects();
     });
   }
 
   // Delegated clicks for website list items (reorder, edit, delete, toggle)
   const listContainer = document.getElementById('toolbarWebsitesList');
   if (listContainer) {
+    listContainer.addEventListener('change', (e) => {
+      const catSelect = e.target.closest('.website-category-select');
+      if (catSelect) {
+        const id = catSelect.dataset.id;
+        const sites = Array.isArray(currentSettings.toolbarSearchWebsites)
+          ? [...currentSettings.toolbarSearchWebsites]
+          : [...DEFAULT_SEARCH_WEBSITES];
+        const site = sites.find((s) => s.id === id);
+        if (site) {
+          site.categoryId = catSelect.value || null;
+          currentSettings.toolbarSearchWebsites = sites;
+          saveSettings({ toolbarSearchWebsites: sites });
+          renderCategoriesList();
+        }
+      }
+    });
+
     listContainer.addEventListener('click', (e) => {
       const btn = e.target.closest('button');
       const toggle = e.target.closest('.site-toggle');
@@ -2251,6 +2511,8 @@ function setupToolbarEventListeners() {
           currentSettings.toolbarSearchWebsites = sites;
           saveSettings({ toolbarSearchWebsites: sites });
           renderToolbarWebsitesList();
+  renderCategoriesList();
+  populateCategorySelects();
         }
         return;
       }
@@ -2261,22 +2523,26 @@ function setupToolbarEventListeners() {
       const index = parseInt(btn.dataset.index, 10);
 
       if (action === 'up' && index > 0) {
-        const temp = sites[index];
-        sites[index] = sites[index - 1];
-        sites[index - 1] = temp;
+        const targetIndex = e.shiftKey ? 0 : index - 1;
+        const [moved] = sites.splice(index, 1);
+        sites.splice(targetIndex, 0, moved);
         currentSettings.toolbarSearchWebsites = sites;
         saveSettings({ toolbarSearchWebsites: sites });
         renderToolbarWebsitesList();
+        renderCategoriesList();
+        populateCategorySelects();
         return;
       }
 
       if (action === 'down' && index < sites.length - 1) {
-        const temp = sites[index];
-        sites[index] = sites[index + 1];
-        sites[index + 1] = temp;
+        const targetIndex = e.shiftKey ? sites.length - 1 : index + 1;
+        const [moved] = sites.splice(index, 1);
+        sites.splice(targetIndex, 0, moved);
         currentSettings.toolbarSearchWebsites = sites;
         saveSettings({ toolbarSearchWebsites: sites });
         renderToolbarWebsitesList();
+        renderCategoriesList();
+        populateCategorySelects();
         return;
       }
 
@@ -2288,6 +2554,8 @@ function setupToolbarEventListeners() {
           if (formTitle) formTitle.textContent = `Edit "${site.name}"`;
           if (nameInput) nameInput.value = site.name;
           if (urlInput) urlInput.value = site.template;
+          const catInput = document.getElementById('websiteCategoryInput');
+          if (catInput) catInput.value = site.categoryId || '';
           if (formError) formError.style.display = 'none';
           formCard.style.display = 'block';
           if (nameInput) nameInput.focus();
@@ -2304,9 +2572,26 @@ function setupToolbarEventListeners() {
           editingWebsiteId = null;
         }
         renderToolbarWebsitesList();
+        renderCategoriesList();
+        populateCategorySelects();
       }
     });
+
+    initListDragAndDrop(listContainer, '.website-item', (fromIdx, toIdx) => {
+      const sites = Array.isArray(currentSettings.toolbarSearchWebsites)
+        ? [...currentSettings.toolbarSearchWebsites]
+        : [...DEFAULT_SEARCH_WEBSITES];
+      const [moved] = sites.splice(fromIdx, 1);
+      sites.splice(toIdx, 0, moved);
+      currentSettings.toolbarSearchWebsites = sites;
+      saveSettings({ toolbarSearchWebsites: sites });
+      renderToolbarWebsitesList();
+      renderCategoriesList();
+      populateCategorySelects();
+    });
   }
+
+  setupCategoryEventListeners();
 }
 
 function showWebsiteFormError(msg) {
@@ -2315,6 +2600,128 @@ function showWebsiteFormError(msg) {
     formError.textContent = msg;
     formError.style.display = 'block';
   }
+}
+
+const DRAG_HANDLE_SVG = `
+  <div class="drag-handle" title="Drag to reorder" aria-label="Drag to reorder">
+    <svg width="8" height="14" viewBox="0 0 8 14" fill="currentColor">
+      <circle cx="2" cy="2" r="1.2" />
+      <circle cx="6" cy="2" r="1.2" />
+      <circle cx="2" cy="7" r="1.2" />
+      <circle cx="6" cy="7" r="1.2" />
+      <circle cx="2" cy="12" r="1.2" />
+      <circle cx="6" cy="12" r="1.2" />
+    </svg>
+  </div>
+`;
+
+// Reusable native drag-and-drop handler for reordering list items
+function initListDragAndDrop(container, itemSelector, onReorder) {
+  if (!container) return;
+
+  let draggedItem = null;
+  let sourceIndex = -1;
+
+  container.addEventListener('dragstart', (e) => {
+    // If user clicked inside interactive controls (like buttons, selects, or toggles), do not start drag
+    const interactive = e.target.closest('button, input, select, label, .slider, .website-actions, .category-actions');
+    if (interactive && !e.target.closest('.drag-handle')) {
+      e.preventDefault();
+      return;
+    }
+
+    const item = e.target.closest(itemSelector);
+    if (!item) return;
+
+    draggedItem = item;
+    sourceIndex = parseInt(item.dataset.index, 10);
+    item.classList.add('is-dragging');
+
+    if (e.dataTransfer) {
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', String(sourceIndex));
+    }
+  });
+
+  container.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    if (!draggedItem) return;
+    if (e.dataTransfer) {
+      e.dataTransfer.dropEffect = 'move';
+    }
+
+    const targetItem = e.target.closest(itemSelector);
+    if (!targetItem) return;
+
+    const rect = targetItem.getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+
+    container.querySelectorAll(itemSelector).forEach((el) => {
+      if (el !== targetItem) {
+        el.classList.remove('drag-over-above', 'drag-over-below');
+      }
+    });
+
+    if (targetItem !== draggedItem) {
+      if (e.clientY < midY) {
+        targetItem.classList.add('drag-over-above');
+        targetItem.classList.remove('drag-over-below');
+      } else {
+        targetItem.classList.add('drag-over-below');
+        targetItem.classList.remove('drag-over-above');
+      }
+    }
+  });
+
+  container.addEventListener('dragleave', (e) => {
+    const targetItem = e.target.closest(itemSelector);
+    if (targetItem && !targetItem.contains(e.relatedTarget)) {
+      targetItem.classList.remove('drag-over-above', 'drag-over-below');
+    }
+  });
+
+  container.addEventListener('drop', (e) => {
+    e.preventDefault();
+    if (!draggedItem) return;
+
+    const targetItem = e.target.closest(itemSelector);
+    container.querySelectorAll(itemSelector).forEach((el) => {
+      el.classList.remove('drag-over-above', 'drag-over-below');
+    });
+
+    if (!targetItem || targetItem === draggedItem) {
+      return;
+    }
+
+    const fromIdx = sourceIndex;
+    let toIdx = parseInt(targetItem.dataset.index, 10);
+    if (isNaN(fromIdx) || isNaN(toIdx)) return;
+
+    const rect = targetItem.getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+    const dropBelow = e.clientY >= midY;
+
+    if (dropBelow && toIdx < fromIdx) {
+      toIdx += 1;
+    } else if (!dropBelow && toIdx > fromIdx) {
+      toIdx -= 1;
+    }
+
+    if (fromIdx !== toIdx) {
+      onReorder(fromIdx, toIdx);
+    }
+  });
+
+  container.addEventListener('dragend', () => {
+    if (draggedItem) {
+      draggedItem.classList.remove('is-dragging');
+      draggedItem = null;
+    }
+    sourceIndex = -1;
+    container.querySelectorAll(itemSelector).forEach((el) => {
+      el.classList.remove('drag-over-above', 'drag-over-below');
+    });
+  });
 }
 
 // Render the list of configurable search engines in the popup
@@ -2345,14 +2752,18 @@ function renderToolbarWebsitesList() {
     return;
   }
 
+  const categories = Array.isArray(currentSettings.searchCategories)
+    ? [...currentSettings.searchCategories]
+    : [...DEFAULT_SEARCH_CATEGORIES];
+  categories.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
   sites.forEach((site, index) => {
     const item = document.createElement('div');
     item.className = `website-item ${site.enabled === false ? 'website-disabled' : ''}`;
+    item.setAttribute('draggable', 'true');
+    item.dataset.index = index;
     item.innerHTML = `
-      <div class="website-reorder">
-        <button type="button" class="btn-reorder" data-action="up" data-index="${index}" ${index === 0 ? 'disabled' : ''} title="Move Up">▲</button>
-        <button type="button" class="btn-reorder" data-action="down" data-index="${index}" ${index === sites.length - 1 ? 'disabled' : ''} title="Move Down">▼</button>
-      </div>
+      ${DRAG_HANDLE_SVG}
       <div class="website-icon-preview">
         ${getWebsiteIconHtml(site)}
       </div>
@@ -2360,6 +2771,14 @@ function renderToolbarWebsitesList() {
         <div class="website-name">${escapeHtml(site.name)}</div>
         <div class="website-template" title="${escapeHtml(site.template)}">${escapeHtml(site.template)}</div>
       </div>
+      <select class="website-category-select select-dropdown" data-id="${escapeHtml(site.id)}" title="Category">
+        <option value="" ${!site.categoryId || site.categoryId === 'uncategorized' ? 'selected' : ''}>Uncategorized</option>
+        ${categories.map((cat) => `
+          <option value="${escapeHtml(cat.id)}" ${site.categoryId === cat.id ? 'selected' : ''}>
+            ${escapeHtml(cat.name)}
+          </option>
+        `).join('')}
+      </select>
       <div class="website-actions">
         <label class="switch switch-sm" title="Enable or disable this search engine">
           <input type="checkbox" class="site-toggle" data-id="${escapeHtml(site.id)}" ${site.enabled !== false ? 'checked' : ''}>
@@ -2371,6 +2790,8 @@ function renderToolbarWebsitesList() {
     `;
     container.appendChild(item);
   });
+
+  attachIconErrorFallbacks(container);
 
   renderQuickSearchEnginesDropdown();
 }
@@ -2405,6 +2826,351 @@ function renderQuickSearchEnginesDropdown() {
     select.value = currentDefault;
   } else if (sites.length > 0) {
     select.value = sites[0].id;
+  }
+}
+
+// Render categories management list in the Categories tab
+function renderCategoriesList() {
+  const container = document.getElementById('categoriesList');
+  if (!container) return;
+  container.innerHTML = '';
+
+  const categories = Array.isArray(currentSettings.searchCategories)
+    ? [...currentSettings.searchCategories]
+    : [...DEFAULT_SEARCH_CATEGORIES];
+
+  categories.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+  const sites = Array.isArray(currentSettings.toolbarSearchWebsites)
+    ? currentSettings.toolbarSearchWebsites
+    : DEFAULT_SEARCH_WEBSITES;
+
+  // Count engines assigned to each category
+  const counts = {};
+  let uncategorizedCount = 0;
+  const knownCatIds = new Set(categories.map((c) => c.id));
+
+  sites.forEach((site) => {
+    if (!site.categoryId || site.categoryId === 'uncategorized' || !knownCatIds.has(site.categoryId)) {
+      uncategorizedCount++;
+    } else {
+      counts[site.categoryId] = (counts[site.categoryId] || 0) + 1;
+    }
+  });
+
+  const countBadge = document.getElementById('categoryCountBadge');
+  if (countBadge) {
+    countBadge.textContent = `${categories.length} ${categories.length === 1 ? 'Category' : 'Categories'}`;
+  }
+
+  if (categories.length === 0) {
+    container.innerHTML = '<div style="padding: 10px; font-size: 11px; color: var(--text-muted); text-align: center;">No custom categories created. Use the form above to create one.</div>';
+  } else {
+    categories.forEach((cat, index) => {
+      const item = document.createElement('div');
+      item.className = 'category-item';
+      item.setAttribute('draggable', 'true');
+      item.dataset.index = index;
+      const engineCount = counts[cat.id] || 0;
+      const countLabel = `${engineCount} ${engineCount === 1 ? 'engine' : 'engines'}`;
+
+      item.innerHTML = `
+        ${DRAG_HANDLE_SVG}
+        <span class="category-color-dot" style="background: ${escapeHtml(cat.color || '#818cf8')}; color: ${escapeHtml(cat.color || '#818cf8')};"></span>
+        <div class="category-title-box">
+          <span class="category-name-text" title="${escapeHtml(cat.name)}">${escapeHtml(cat.name)}</span>
+          <span class="category-count-badge">${countLabel}</span>
+        </div>
+        <div class="category-actions">
+          <button type="button" class="btn-icon-action" data-action="cat-edit" data-id="${escapeHtml(cat.id)}" title="Edit Category">✏️</button>
+          <button type="button" class="btn-icon-action btn-delete" data-action="cat-delete" data-id="${escapeHtml(cat.id)}" title="Delete Category">🗑️</button>
+        </div>
+      `;
+      container.appendChild(item);
+    });
+  }
+
+  // Update Uncategorized summary card
+  const uncatCard = document.getElementById('uncategorizedSummaryCard');
+  const uncatText = document.getElementById('uncategorizedCountText');
+  if (uncatCard && uncatText) {
+    uncatText.textContent = `${uncategorizedCount} ${uncategorizedCount === 1 ? 'engine' : 'engines'}`;
+    uncatCard.style.display = uncategorizedCount > 0 ? 'flex' : 'none';
+  }
+
+  populateCategorySelects();
+}
+
+// Populate Category dropdowns in Add/Edit and Captured Review forms
+function populateCategorySelects() {
+  const selects = [
+    document.getElementById('websiteCategoryInput'),
+    document.getElementById('captureCategoryInput')
+  ].filter(Boolean);
+
+  if (selects.length === 0) return;
+
+  const categories = Array.isArray(currentSettings.searchCategories)
+    ? [...currentSettings.searchCategories]
+    : [...DEFAULT_SEARCH_CATEGORIES];
+  categories.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+  selects.forEach((catSelect) => {
+    const currentVal = catSelect.value;
+    catSelect.innerHTML = '<option value="">Uncategorized</option>';
+    categories.forEach((cat) => {
+      const opt = document.createElement('option');
+      opt.value = cat.id;
+      opt.textContent = cat.name;
+      catSelect.appendChild(opt);
+    });
+    if (currentVal && categories.some((c) => c.id === currentVal)) {
+      catSelect.value = currentVal;
+    }
+  });
+}
+
+// Setup event listeners for Category management
+function setupCategoryEventListeners() {
+  const saveBtn = document.getElementById('saveCategoryBtn');
+  const cancelBtn = document.getElementById('cancelCategoryEditBtn');
+  const nameInput = document.getElementById('categoryNameInput');
+  const colorSelect = document.getElementById('categoryColorSelect');
+  const errorBox = document.getElementById('categoryFormError');
+  const listContainer = document.getElementById('categoriesList');
+  const restoreBtn = document.getElementById('restoreDefaultCategoriesBtn');
+  const formTitle = document.getElementById('categoryFormTitle');
+
+  function showCatError(msg) {
+    if (errorBox) {
+      errorBox.textContent = msg;
+      errorBox.style.display = 'block';
+    }
+  }
+  function hideCatError() {
+    if (errorBox) errorBox.style.display = 'none';
+  }
+
+  if (nameInput) {
+    nameInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (saveBtn) saveBtn.click();
+      } else if (e.key === 'Escape' && editingCategoryId) {
+        if (cancelBtn) cancelBtn.click();
+      }
+    });
+  }
+
+  if (saveBtn) {
+    saveBtn.addEventListener('click', () => {
+      hideCatError();
+      const rawName = nameInput ? nameInput.value : '';
+      const name = rawName.trim();
+      const color = colorSelect ? colorSelect.value : '#818cf8';
+
+      if (!name) {
+        showCatError('Category name cannot be empty.');
+        if (nameInput) nameInput.focus();
+        return;
+      }
+
+      if (name.length > 30) {
+        showCatError('Category name must be 30 characters or fewer.');
+        return;
+      }
+
+      const categories = Array.isArray(currentSettings.searchCategories)
+        ? [...currentSettings.searchCategories]
+        : [...DEFAULT_SEARCH_CATEGORIES];
+
+      // Duplicate name check (case-insensitive)
+      const isDuplicate = categories.some((c) =>
+        c.id !== editingCategoryId && c.name.toLowerCase() === name.toLowerCase()
+      );
+      if (isDuplicate) {
+        showCatError(`A category named "${name}" already exists.`);
+        return;
+      }
+
+      if (editingCategoryId) {
+        // Edit existing category
+        const idx = categories.findIndex((c) => c.id === editingCategoryId);
+        if (idx !== -1) {
+          categories[idx] = {
+            ...categories[idx],
+            name,
+            color
+          };
+          delete categories[idx].icon;
+        }
+        editingCategoryId = null;
+        if (formTitle) formTitle.textContent = '➕ Add New Category';
+        if (cancelBtn) cancelBtn.style.display = 'none';
+      } else {
+        // Check plan limits (prepared for future Free/Pro entitlement)
+        const limit = getCategoryPlanLimit();
+        if (categories.length >= limit) {
+          showCatError(`Category limit reached (${limit} max on Free plan).`);
+          return;
+        }
+
+        const id = 'cat_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
+        categories.push({
+          id,
+          name,
+          color,
+          order: categories.length,
+          createdAt: Date.now()
+        });
+      }
+
+      currentSettings.searchCategories = categories;
+      saveSettings({ searchCategories: categories });
+
+      if (nameInput) nameInput.value = '';
+      hideCatError();
+      renderCategoriesList();
+      renderToolbarWebsitesList();
+    });
+  }
+
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', () => {
+      editingCategoryId = null;
+      if (nameInput) nameInput.value = '';
+      if (formTitle) formTitle.textContent = '➕ Add New Category';
+      cancelBtn.style.display = 'none';
+      hideCatError();
+    });
+  }
+
+  if (listContainer) {
+    listContainer.addEventListener('click', (e) => {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      const action = btn.dataset.action;
+      const id = btn.dataset.id;
+      const index = parseInt(btn.dataset.index, 10);
+
+      const categories = Array.isArray(currentSettings.searchCategories)
+        ? [...currentSettings.searchCategories]
+        : [...DEFAULT_SEARCH_CATEGORIES];
+      categories.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+      if (action === 'cat-up' && index > 0) {
+        const targetIndex = e.shiftKey ? 0 : index - 1;
+        const [moved] = categories.splice(index, 1);
+        categories.splice(targetIndex, 0, moved);
+        categories.forEach((c, idx) => { c.order = idx; });
+        currentSettings.searchCategories = categories;
+        saveSettings({ searchCategories: categories });
+        renderCategoriesList();
+        renderToolbarWebsitesList();
+        return;
+      }
+
+      if (action === 'cat-down' && index < categories.length - 1) {
+        const targetIndex = e.shiftKey ? categories.length - 1 : index + 1;
+        const [moved] = categories.splice(index, 1);
+        categories.splice(targetIndex, 0, moved);
+        categories.forEach((c, idx) => { c.order = idx; });
+        currentSettings.searchCategories = categories;
+        saveSettings({ searchCategories: categories });
+        renderCategoriesList();
+        renderToolbarWebsitesList();
+        return;
+      }
+
+      if (action === 'cat-edit' && id) {
+        const cat = categories.find((c) => c.id === id);
+        if (cat) {
+          editingCategoryId = id;
+          if (nameInput) nameInput.value = cat.name;
+          if (colorSelect && cat.color) colorSelect.value = cat.color;
+          if (formTitle) formTitle.textContent = `✏️ Edit "${cat.name}"`;
+          if (cancelBtn) cancelBtn.style.display = 'inline-block';
+          hideCatError();
+          if (nameInput) nameInput.focus();
+        }
+        return;
+      }
+
+      if (action === 'cat-delete' && id) {
+        const cat = categories.find((c) => c.id === id);
+        if (!cat) return;
+
+        const sites = Array.isArray(currentSettings.toolbarSearchWebsites)
+          ? [...currentSettings.toolbarSearchWebsites]
+          : [...DEFAULT_SEARCH_WEBSITES];
+
+        const assignedCount = sites.filter((s) => s.categoryId === id).length;
+        const confirmMsg = assignedCount > 0
+          ? `Delete category "${cat.name}"?\n\n${assignedCount} engine${assignedCount > 1 ? 's' : ''} in this category will be moved to Uncategorized.`
+          : `Delete category "${cat.name}"?`;
+
+        if (confirm(confirmMsg)) {
+          const remainingCats = categories.filter((c) => c.id !== id);
+          remainingCats.forEach((c, idx) => { c.order = idx; });
+
+          // Reassign affected engines to uncategorized without modifying other properties
+          const updatedSites = sites.map((s) => {
+            if (s.categoryId === id) {
+              return { ...s, categoryId: null };
+            }
+            return s;
+          });
+
+          if (editingCategoryId === id) {
+            editingCategoryId = null;
+            if (nameInput) nameInput.value = '';
+            if (formTitle) formTitle.textContent = '➕ Add New Category';
+            if (cancelBtn) cancelBtn.style.display = 'none';
+          }
+
+          currentSettings.searchCategories = remainingCats;
+          currentSettings.toolbarSearchWebsites = updatedSites;
+          saveSettings({
+            searchCategories: remainingCats,
+            toolbarSearchWebsites: updatedSites
+          });
+          renderCategoriesList();
+          renderToolbarWebsitesList();
+        }
+      }
+    });
+
+    initListDragAndDrop(listContainer, '.category-item', (fromIdx, toIdx) => {
+      const categories = Array.isArray(currentSettings.searchCategories)
+        ? [...currentSettings.searchCategories]
+        : [...DEFAULT_SEARCH_CATEGORIES];
+      categories.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+      const [moved] = categories.splice(fromIdx, 1);
+      categories.splice(toIdx, 0, moved);
+      categories.forEach((c, idx) => { c.order = idx; });
+      currentSettings.searchCategories = categories;
+      saveSettings({ searchCategories: categories });
+      renderCategoriesList();
+      renderToolbarWebsitesList();
+    });
+  }
+
+  if (restoreBtn) {
+    restoreBtn.addEventListener('click', () => {
+      if (confirm('Restore default categories (Gaming, Work, Movies, Shopping, Research)?')) {
+        const restored = JSON.parse(JSON.stringify(DEFAULT_SEARCH_CATEGORIES));
+        currentSettings.searchCategories = restored;
+        saveSettings({ searchCategories: restored });
+        if (editingCategoryId) {
+          editingCategoryId = null;
+          if (nameInput) nameInput.value = '';
+          if (formTitle) formTitle.textContent = '➕ Add New Category';
+          if (cancelBtn) cancelBtn.style.display = 'none';
+        }
+        renderCategoriesList();
+        renderToolbarWebsitesList();
+      }
+    });
   }
 }
 
@@ -2530,6 +3296,97 @@ function setupShortcutRecorder(btnId, badgeId, settingKey, defaultVal, resetBtnI
   }
 }
 
+// Standard globe icon fallback SVG for search engines without usable logo
+const GLOBE_ICON_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="ht-globe-fallback" style="width: 16px; height: 16px; flex-shrink: 0;"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`;
+
+// Helper to attach error listener to images to replace with globe fallback cleanly without CSP issues
+function attachIconErrorFallbacks(container) {
+  if (!container) return;
+  const imgs = container.querySelectorAll('img');
+  imgs.forEach((img) => {
+    img.addEventListener('error', () => {
+      img.style.display = 'none';
+      const fallback = img.nextElementSibling;
+      if (fallback && fallback.tagName && fallback.tagName.toLowerCase() === 'svg') {
+        fallback.style.display = 'inline-block';
+      } else {
+        img.insertAdjacentHTML('afterend', GLOBE_ICON_SVG);
+      }
+    }, { once: true });
+  });
+}
+
+// Helpers for duplicate website detection
+function getDomainFromUrl(urlStr) {
+  if (!urlStr || typeof urlStr !== 'string') return '';
+  try {
+    const fixed = urlStr.includes('://') ? urlStr : 'https://' + urlStr;
+    const parsed = new URL(fixed);
+    return parsed.hostname.replace(/^www\./i, '').toLowerCase();
+  } catch (e) {
+    return '';
+  }
+}
+
+function normalizeUrlForDuplicateCheck(urlStr) {
+  if (!urlStr || typeof urlStr !== 'string') return '';
+  let cleaned = urlStr.trim().toLowerCase();
+  cleaned = cleaned.replace(/^https?:\/\//i, '');
+  cleaned = cleaned.replace(/^www\./i, '');
+  cleaned = cleaned.replace(/\/+$/, '');
+  return cleaned;
+}
+
+function findDuplicateWebsite(candidateTemplate, candidateName, excludeId = null) {
+  const sites = Array.isArray(currentSettings.toolbarSearchWebsites)
+    ? currentSettings.toolbarSearchWebsites
+    : DEFAULT_SEARCH_WEBSITES;
+
+  const candidateNorm = normalizeUrlForDuplicateCheck(candidateTemplate);
+  const candidateDomain = getDomainFromUrl(candidateTemplate);
+  const candidateNameLower = (candidateName || '').trim().toLowerCase();
+
+  for (const site of sites) {
+    if (excludeId && site.id === excludeId) continue;
+
+    const siteNorm = normalizeUrlForDuplicateCheck(site.template || site.url);
+    const siteDomain = getDomainFromUrl(site.template || site.url);
+    const siteNameLower = (site.name || '').trim().toLowerCase();
+
+    // 1. Exact template match
+    if (candidateNorm && siteNorm && candidateNorm === siteNorm) {
+      return {
+        duplicate: true,
+        type: 'exact',
+        existingSite: site,
+        message: `This website already exists in your list ("${site.name}").`
+      };
+    }
+
+    // 2. Same domain with different search configuration
+    if (candidateDomain && siteDomain && candidateDomain === siteDomain) {
+      return {
+        duplicate: true,
+        type: 'domain',
+        existingSite: site,
+        message: `This website already exists in your list ("${site.name}") with a different search configuration.`
+      };
+    }
+
+    // 3. Same name match
+    if (candidateNameLower && siteNameLower && candidateNameLower === siteNameLower) {
+      return {
+        duplicate: true,
+        type: 'name',
+        existingSite: site,
+        message: `A search engine named "${site.name}" already exists in your list.`
+      };
+    }
+  }
+
+  return { duplicate: false };
+}
+
 // Inline SVG icons for standard search engines with high contrast
 function getWebsiteIconHtml(site) {
   const id = (site.icon || site.id || '').toLowerCase();
@@ -2551,15 +3408,19 @@ function getWebsiteIconHtml(site) {
   if (id === 'amazon') {
     return `<svg viewBox="0 0 24 24" fill="#FF9900"><path d="M13.88 15.63c-2.36 1.83-5.8 2.8-8.8 2.8-4.22 0-8.02-1.62-10.88-4.33-.23-.22-.03-.52.24-.35 3.1 1.9 6.94 3.05 10.9 3.05 2.65 0 5.61-.71 8.28-2.19.41-.23.67.24.26 1.02zM15.42 14.18c-.3-.39-1.99-.18-2.75-.09-.23.03-.27-.15-.06-.29 1.37-.97 3.63-.69 3.9-.34.27.35-.07 2.63-1.37 3.69-.2.16-.38.07-.3-.14.28-.73.88-2.44.58-2.83z"/><path d="M14.6 9.87c0-1.74-.88-2.76-2.5-2.76-1.57 0-2.46.97-2.72 1.92-.05.18.06.33.24.35l1.64.12c.15.01.29-.09.33-.23.13-.44.47-.73.96-.73.65 0 1.03.38 1.03 1.15v.42c-.88.08-2.1.23-3.08.63-1.28.53-1.95 1.55-1.95 2.8 0 1.74 1.2 2.67 2.68 2.67 1.25 0 2.05-.6 2.5-1.33h.06v1.07c0 .16.1.28.25.29l1.45.02c.16 0 .28-.13.28-.29V11.5c0-.52-.04-1.07-.08-1.63zm-2.02 4.12c-.38.45-.94.75-1.55.75-.7 0-1.12-.46-1.12-1.2 0-.96.65-1.5 1.8-1.65.37-.05.65-.05.87-.03v2.13z" fill="#FFFFFF"/></svg>`;
   }
+  if (site.icon && (/^https?:\/\//i.test(site.icon) || site.icon.startsWith('data:'))) {
+    return `<img src="${escapeHtml(site.icon)}" alt="${escapeHtml(site.name)}" class="ht-website-icon-img"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="ht-globe-fallback" style="display: none; width: 16px; height: 16px;"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`;
+  }
   let domain = '';
   try {
-    const u = new URL(site.template.replace(/\{query\}/g, 'test'));
+    const raw = site.template || site.url || '';
+    const u = new URL(raw.replace(/\{query\}/g, 'test').includes('://') ? raw.replace(/\{query\}/g, 'test') : 'https://' + raw.replace(/\{query\}/g, 'test'));
     domain = u.hostname;
   } catch (_) {}
   if (domain) {
-    return `<img src="https://${escapeHtml(domain)}/favicon.ico" alt="${escapeHtml(site.name)}" onerror="this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='inline-flex';"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display: none;"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`;
+    return `<img src="https://${escapeHtml(domain)}/favicon.ico" alt="${escapeHtml(site.name)}" class="ht-website-icon-img"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="ht-globe-fallback" style="display: none; width: 16px; height: 16px;"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`;
   }
-  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`;
+  return GLOBE_ICON_SVG;
 }
 
 // Helper to bind animation toggle with delay slider

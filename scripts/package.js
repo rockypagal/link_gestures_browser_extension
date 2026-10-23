@@ -55,6 +55,16 @@ const files = [
   'test.js'
 ];
 
+// Temporarily adapt manifest.json for Firefox packaging:
+// Firefox AMO strictly requires /background/scripts when /background/service_worker is used.
+const originalManifestContent = fs.readFileSync(manifestPath, 'utf8');
+const firefoxManifest = JSON.parse(originalManifestContent);
+firefoxManifest.background = {
+  service_worker: 'background/service-worker.js',
+  scripts: ['utils/site-status.js', 'background/service-worker.js']
+};
+fs.writeFileSync(manifestPath, JSON.stringify(firefoxManifest, null, 2), 'utf8');
+
 try {
   // Use Windows built-in tar.exe to generate holdtab-firefox.zip
   const zipName = 'holdtab-firefox.zip';
@@ -68,4 +78,7 @@ try {
   console.log(`  📦 ${zipPath}  <-- (Upload to Firefox AMO)\n`);
 } catch (err) {
   console.error('Packaging failed:', err);
+} finally {
+  // Always restore original Chrome-clean manifest.json
+  fs.writeFileSync(manifestPath, originalManifestContent, 'utf8');
 }

@@ -8,13 +8,21 @@ try {
   console.warn('HoldTab: Failed to importScripts site-status.js', e);
 }
 
+const DEFAULT_SEARCH_CATEGORIES = [
+  { id: 'cat_gaming', name: 'Gaming', color: '#818cf8', order: 0, createdAt: 1700000000000 },
+  { id: 'cat_work', name: 'Work', color: '#38bdf8', order: 1, createdAt: 1700000000001 },
+  { id: 'cat_movies', name: 'Movies', color: '#f43f5e', order: 2, createdAt: 1700000000002 },
+  { id: 'cat_shopping', name: 'Shopping', color: '#f59e0b', order: 3, createdAt: 1700000000003 },
+  { id: 'cat_research', name: 'Research', color: '#10b981', order: 4, createdAt: 1700000000004 }
+];
+
 const DEFAULT_SEARCH_WEBSITES = [
-  { id: 'google', name: 'Google', template: 'https://www.google.com/search?q={query}', enabled: true, icon: 'google' },
-  { id: 'youtube', name: 'YouTube', template: 'https://www.youtube.com/results?search_query={query}', enabled: true, icon: 'youtube' },
-  { id: 'wikipedia', name: 'Wikipedia', template: 'https://en.wikipedia.org/w/index.php?search={query}', enabled: true, icon: 'wikipedia' },
-  { id: 'reddit', name: 'Reddit', template: 'https://www.reddit.com/search/?q={query}', enabled: true, icon: 'reddit' },
-  { id: 'github', name: 'GitHub', template: 'https://github.com/search?q={query}', enabled: true, icon: 'github' },
-  { id: 'amazon', name: 'Amazon', template: 'https://www.amazon.com/s?k={query}', enabled: true, icon: 'amazon' }
+  { id: 'google', name: 'Google', template: 'https://www.google.com/search?q={query}', enabled: true, icon: 'google', categoryId: 'cat_research' },
+  { id: 'youtube', name: 'YouTube', template: 'https://www.youtube.com/results?search_query={query}', enabled: true, icon: 'youtube', categoryId: 'cat_movies' },
+  { id: 'wikipedia', name: 'Wikipedia', template: 'https://en.wikipedia.org/w/index.php?search={query}', enabled: true, icon: 'wikipedia', categoryId: 'cat_research' },
+  { id: 'reddit', name: 'Reddit', template: 'https://www.reddit.com/search/?q={query}', enabled: true, icon: 'reddit', categoryId: 'cat_work' },
+  { id: 'github', name: 'GitHub', template: 'https://github.com/search?q={query}', enabled: true, icon: 'github', categoryId: 'cat_work' },
+  { id: 'amazon', name: 'Amazon', template: 'https://www.amazon.com/s?k={query}', enabled: true, icon: 'amazon', categoryId: 'cat_shopping' }
 ];
 
 const DEFAULT_SETTINGS = {
@@ -27,6 +35,7 @@ const DEFAULT_SETTINGS = {
   indicatorStyle: 'ring',  // 'ring' | 'pulse' | 'minimal'
   requireModifier: 'none', // 'none' | 'alt' | 'ctrl' | 'shift'
   tabCycleWheel: true,     // Right-click + Wheel scroll
+  tabCycleWheelSpeed: 120, // ms cooldown interval between wheel tab cycles (50 - 300)
   tabCycleSwipe: true,     // Right-click + Swipe left/right
   tabCycleRocker: true,    // Rocker gestures (Left+Right: Next, Right+Left: Prev)
   tabCycleAltScroll: true, // Alt + Two-finger trackpad scroll / wheel
@@ -60,8 +69,10 @@ const DEFAULT_SETTINGS = {
   toolbarMinLength: 2,     // Minimum characters selected to display toolbar (default: 2)
   toolbarSearchSubmenu: true, // Show search engine submenu on hover
   toolbarSearchWebsites: DEFAULT_SEARCH_WEBSITES,
+  searchCategories: DEFAULT_SEARCH_CATEGORIES,
   quickSearchEnabled: true, // Quick search shortcut and popup
   quickSearchDefaultEngine: 'google', // Default engine for Enter in quick search
+  quickSearchMouseShortcut: true, // Right-click hold + mouse wheel click shortcut for Quick Search
   excludedDomains: [],
   siteOverrides: {}
 };
@@ -74,6 +85,9 @@ chrome.runtime.onInstalled.addListener(async (details) => {
     const updated = { ...DEFAULT_SETTINGS, ...existing };
     if (!Array.isArray(updated.toolbarSearchWebsites) || updated.toolbarSearchWebsites.length === 0) {
       updated.toolbarSearchWebsites = DEFAULT_SEARCH_WEBSITES;
+    }
+    if (!Array.isArray(updated.searchCategories) || updated.searchCategories.length === 0) {
+      updated.searchCategories = DEFAULT_SEARCH_CATEGORIES;
     }
     if (typeof updated.siteOverrides !== 'object' || !updated.siteOverrides) {
       updated.siteOverrides = {};
@@ -235,6 +249,167 @@ async function handleGetOpenTabsForSearch(message, sender) {
   }
 }
 
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function getMarkerRegex(marker) {
+  if (!marker || typeof marker !== 'string') return null;
+  const raw = marker.trim();
+  if (!raw) return null;
+
+  const parts = raw.split(/[^a-zA-Z0-9]+/).filter(Boolean);
+  if (parts.length === 0) return null;
+
+  if (parts.length === 1) {
+    return new RegExp(escapeRegex(parts[0]), 'gi');
+  }
+
+  const sep = '(?:[-_+.\\s]|%20|%5[fF]|%2[dD]|%2[bB])+';
+  const pattern = parts.map((p) => escapeRegex(p)).join(sep);
+  return new RegExp(pattern, 'gi');
+}
+
+function getMarkerVariants(marker) {
+  if (!marker || typeof marker !== 'string') return [];
+  const raw = marker.trim();
+  if (!raw) return [];
+
+  const variants = new Set();
+  variants.add(raw);
+  variants.add(raw.toLowerCase());
+
+  const parts = raw.split(/[^a-zA-Z0-9]+/).filter(Boolean);
+  if (parts.length > 1) {
+    variants.add(parts.join('_'));
+    variants.add(parts.join('-'));
+    variants.add(parts.join('+'));
+    variants.add(parts.join(' '));
+    variants.add(parts.join('%20'));
+    variants.add(parts.join('%5f'));
+    variants.add(parts.join('%5F'));
+    variants.add(parts.join('%2d'));
+    variants.add(parts.join('%2D'));
+    variants.add(parts.join('.'));
+    variants.add(parts.join(''));
+  }
+
+  try {
+    variants.add(encodeURIComponent(raw));
+    variants.add(encodeURIComponent(parts.join('-')));
+    variants.add(encodeURIComponent(parts.join('+')));
+  } catch (_) {}
+
+  return Array.from(variants).filter(Boolean);
+}
+
+function findMarkerMatchesInUrl(tabUrl, marker) {
+  if (!tabUrl || !marker) return [];
+  const matches = [];
+
+  const regex = getMarkerRegex(marker);
+  if (regex) {
+    let m;
+    while ((m = regex.exec(tabUrl)) !== null) {
+      matches.push({
+        index: m.index,
+        text: m[0],
+        length: m[0].length
+      });
+      if (m.index === regex.lastIndex) regex.lastIndex++;
+    }
+  }
+
+  if (matches.length === 0) {
+    const variants = getMarkerVariants(marker);
+    const urlLower = tabUrl.toLowerCase();
+    for (const v of variants) {
+      const vLower = v.toLowerCase();
+      let idx = 0;
+      let foundAny = false;
+      while ((idx = urlLower.indexOf(vLower, idx)) !== -1) {
+        matches.push({
+          index: idx,
+          text: tabUrl.substring(idx, idx + vLower.length),
+          length: vLower.length
+        });
+        idx += vLower.length;
+        foundAny = true;
+      }
+      if (foundAny) break;
+    }
+  }
+
+  return matches;
+}
+
+function urlMatchesSearchMarker(tabUrl, marker) {
+  if (!tabUrl || !marker) return false;
+  return findMarkerMatchesInUrl(tabUrl, marker).length > 0;
+}
+
+function deriveTemplateFromCapturedUrl(tabUrl, marker) {
+  if (!tabUrl || !marker) return null;
+  const matches = findMarkerMatchesInUrl(tabUrl, marker);
+  if (matches.length === 0) return null;
+
+  const multipleOccurrences = matches.length > 1;
+
+  if (multipleOccurrences) {
+    try {
+      const parsed = new URL(tabUrl);
+      const searchKeys = [
+        'q', 'query', 'k', 'search_query', 'searchquery', 'term', 'search_term',
+        'search', 's', 'p', 'keyword', 'keywords', 'text', 'find', '_nkw', 'wd'
+      ];
+
+      let targetKey = null;
+      for (const key of searchKeys) {
+        if (parsed.searchParams.has(key)) {
+          const val = parsed.searchParams.get(key) || '';
+          const paramMatches = findMarkerMatchesInUrl(val, marker);
+          if (paramMatches.length > 0) {
+            targetKey = key;
+            break;
+          }
+        }
+      }
+
+      if (!targetKey) {
+        for (const [key, val] of parsed.searchParams.entries()) {
+          const paramMatches = findMarkerMatchesInUrl(val, marker);
+          if (paramMatches.length > 0) {
+            targetKey = key;
+            break;
+          }
+        }
+      }
+
+      if (targetKey) {
+        const originalVal = parsed.searchParams.get(targetKey) || '';
+        const paramMatches = findMarkerMatchesInUrl(originalVal, marker);
+        if (paramMatches.length > 0) {
+          const pm = paramMatches[0];
+          const replacedVal = originalVal.substring(0, pm.index) + '{query}' + originalVal.substring(pm.index + pm.length);
+          parsed.searchParams.set(targetKey, replacedVal);
+          return {
+            template: parsed.toString().replace(/%7Bquery%7D/gi, '{query}'),
+            multipleOccurrences: true
+          };
+        }
+      }
+    } catch (_) {}
+  }
+
+  const match = matches[0];
+  const template = tabUrl.substring(0, match.index) + '{query}' + tabUrl.substring(match.index + match.length);
+
+  return {
+    template,
+    multipleOccurrences
+  };
+}
+
 /**
  * Automatically captures the search URL for an open tab website using a pinned background tab
  * and persists the newly added search engine into toolbarSearchWebsites in sync storage.
@@ -288,11 +463,10 @@ async function handleCaptureAndSaveOpenTab(message, sender) {
         while (Date.now() - submitStart < 4500) {
           await new Promise((r) => setTimeout(r, 200));
           const currentTab = await chrome.tabs.get(bgTab.id).catch(() => null);
-          if (currentTab && currentTab.url && currentTab.url.toLowerCase().includes(marker.toLowerCase())) {
-            const uLower = currentTab.url.toLowerCase();
-            const idx = uLower.indexOf(marker.toLowerCase());
-            if (idx !== -1) {
-              derivedTemplate = currentTab.url.substring(0, idx) + '{query}' + currentTab.url.substring(idx + marker.length);
+          if (currentTab && currentTab.url && urlMatchesSearchMarker(currentTab.url, marker)) {
+            const derived = deriveTemplateFromCapturedUrl(currentTab.url, marker);
+            if (derived && derived.template) {
+              derivedTemplate = derived.template;
               break;
             }
           }
@@ -401,19 +575,22 @@ async function handleCycleTab(message, sender) {
   const isScrollGesture = Boolean(message.isScrollGesture || viaAlt);
 
   const now = Date.now();
+  const wheelSpeed = Math.max(40, Number(message.wheelSpeed) || 120);
+  const cycleCooldown = isScrollGesture ? wheelSpeed : 80;
 
   // Prevent concurrent or duplicate rapid switches across tabs
-  if (isCyclingTab || (now - lastCycleTime < GLOBAL_CYCLE_COOLDOWN)) {
+  if (isCyclingTab || (now - lastCycleTime < cycleCooldown)) {
     return { success: false, reason: 'Cooldown' };
   }
 
   // Prevent trackpad lift-off bounce or diagonal wobble from ping-ponging back to previous tab.
-  // Within REVERSE_BOUNCE_WINDOW (400ms), any opposite scroll direction is discarded.
+  // Within reverse window (400ms for trackpad, or proportional for wheel), opposite scroll direction is discarded.
+  const reverseBounceTime = viaAlt ? REVERSE_BOUNCE_WINDOW : Math.max(cycleCooldown, 100);
   if (
     isScrollGesture &&
     lastCycleDirection &&
     direction !== lastCycleDirection &&
-    (now - lastCycleTime < REVERSE_BOUNCE_WINDOW)
+    (now - lastCycleTime < reverseBounceTime)
   ) {
     return { success: false, reason: 'Reverse bounce suppressed' };
   }
